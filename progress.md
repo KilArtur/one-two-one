@@ -117,7 +117,7 @@
   3. `alembic upgrade head` → `0003_candidate_question`
   4. psql INSERT candidate + core question — OK
   5. psql INSERT follow_up с `parent_question_id` — self-FK `question_parent_question_id_fkey` OK
-- **Коммиты:** (после commit)
+- **Коммиты:** 8ac4325
 - **Заметки:**
   - В PRD у InterviewLink нет `id`/`candidate_id` — добавлены `id` (PK) и `candidate_id` (нужно для TASK-026)
   - `parent_question_id` ON DELETE SET NULL; `topic_id`/`vacancy_id`/`candidate_id` — CASCADE
