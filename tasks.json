@@ -57,7 +57,9 @@
         "Шаг 3: подключиться psql и redis-cli, затем docker compose down очищает окружение"
       ],
       "dependencies": [],
-      "status": "pending"
+      "status": "in_progress",
+      "assignee": "artur",
+      "claimed_at": "2026-09-04T13:42:51.323439+00:00"
     },
     {
       "id": "TASK-002",

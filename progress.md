@@ -17,3 +17,11 @@
 ---
 
 <!-- Записи агентов добавляются ниже -->
+
+## TASK-001 — Скаффолд монорепо и dev-окружение
+- **Дата:** 2026-09-04
+- **Статус:** in_progress
+- **Что сделано:** добавлены `backend/app`, `frontend/src`, `infra`, корневой `docker-compose.yml` с `postgres` и `redis`, `pyproject.toml` для `ruff`/`pytest`, базовый тест `tests/test_task_001_scaffold.py` на структуру скаффолда и наличие ключевых конфигов; в тесте добавлен модульный docstring, чтобы проходил `ruff`.
+- **Как проверено:** `python3 -m py_compile backend/app/__init__.py tests/test_task_001_scaffold.py` проходит; `ruff check /home/artur/projects/one-two-one` из доступного локального venv проходит; `pytest /home/artur/projects/one-two-one/tests/test_task_001_scaffold.py` проходит (`3 passed`); прямой запуск `uv run ruff check .` и `uv run pytest` остаётся заблокированным, потому что в проектном окружении нет установленных пакетов, а `uv sync` не может скачать их из-за недоступности `pypi.org` в этой среде; `docker compose` test_steps не выполнены, потому что `docker` отсутствует в окружении.
+- **Коммиты:** будет создан отдельный commit по `TASK-001` после обновления журнала
+- **Заметки:** статус `tasks.json` оставлен `in_progress`; для закрытия задачи следующей итерации нужно запустить именно `uv run ruff check .`, `uv run pytest` в среде с доступом к пакетам Python и выполнить все три шага `docker compose` из `TASK-001` на хосте, где установлен Docker.
