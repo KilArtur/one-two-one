@@ -15,6 +15,7 @@ from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 from app.config import Settings, get_settings
+from app.models.topic import SkillType
 
 _ALGORITHM = "HS256"
 _TOKEN_TYPE = "JWT"
@@ -61,6 +62,10 @@ def _invalid_credentials() -> HTTPException:
         detail="Invalid authentication credentials",
         headers={"WWW-Authenticate": "Bearer"},
     )
+
+
+def _forbidden(detail: str) -> HTTPException:
+    return HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=detail)
 
 
 def create_access_token(
@@ -143,3 +148,21 @@ def get_current_user(
     if credentials is None or credentials.scheme.lower() != "bearer":
         raise _invalid_credentials()
     return decode_access_token(credentials.credentials, settings=settings)
+
+
+def ensure_topic_status_change_allowed(user: CurrentUser, skill_type: SkillType) -> None:
+    """Проверяет матрицу прав изменения статуса топика."""
+    if user.role == AppRole.RECRUITER:
+        raise _forbidden("Recruiter cannot change topic statuses")
+
+    if skill_type == SkillType.HARD and user.role != AppRole.TECH_SPECIALIST:
+        raise _forbidden("Only technical specialist can change hard-topic status")
+
+    if skill_type == SkillType.SOFT and user.role != AppRole.HIRING_MANAGER:
+        raise _forbidden("Only hiring manager can change soft-topic status")
+
+
+def ensure_interview_link_issue_allowed(user: CurrentUser) -> None:
+    """Проверяет право выпуска ссылки интервью."""
+    if user.role != AppRole.RECRUITER:
+        raise _forbidden("Only recruiter can issue interview links")
