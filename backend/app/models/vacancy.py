@@ -54,6 +54,12 @@ class Vacancy(Base, TimestampMixin):
         server_default=text("'{}'"),
     )
     specialist_profile: Mapped[str | None] = mapped_column(Text)
+    asr_terms: Mapped[list[str]] = mapped_column(
+        ARRAY(Text).with_variant(JSON, "sqlite"),
+        nullable=False,
+        default=list,
+        server_default=text("'{}'"),
+    )
     version: Mapped[int] = mapped_column(
         Integer, nullable=False, default=1, server_default=text("1")
     )

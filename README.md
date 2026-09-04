@@ -48,7 +48,10 @@ uv run uvicorn app.main:app --app-dir backend --reload      # API на localhost
 (см. `backend/app/config.py`).
 
 CRUD вакансий с версионированием матрицы (M1): `POST/GET/PATCH /vacancies`,
-`PUT /vacancies/{id}/topics` (замена состава активной вакансии создаёт новую версию-снимок).
+`PUT /vacancies/{id}/topics` (замена состава активной вакансии создаёт новую версию-снимок;
+валидация 5–9 топиков, Р8). CRUD топиков черновика: `POST /vacancies/{id}/topics`,
+`PATCH`/`DELETE /vacancies/{id}/topics/{topic_id}`. ASR-словарь на вакансию с авто-подсказкой
+из матрицы: `GET`/`PUT /vacancies/{id}/asr-dictionary`.
 
 ## Запуск frontend
 

@@ -37,6 +37,18 @@ class TopicRead(BaseModel):
     order: int
 
 
+class TopicUpdate(BaseModel):
+    """Частичное редактирование топика (включая пометку «вне зоны интервью», Р15)."""
+
+    title: str | None = Field(default=None, min_length=1, max_length=255)
+    skill_type: SkillType | None = None
+    importance: TopicImportance | None = None
+    requirement_description: str | None = None
+    depth_expectations: str | None = None
+    verifiable_by_interview: bool | None = None
+    order: int | None = None
+
+
 class VacancyCreate(BaseModel):
     """Создание вакансии вместе с исходным составом топиков."""
 
@@ -63,6 +75,19 @@ class TopicsReplace(BaseModel):
     """Новый состав топиков вакансии."""
 
     topics: list[TopicWrite]
+
+
+class AsrDictionaryUpdate(BaseModel):
+    """Ручное сохранение ASR-словаря вакансии."""
+
+    terms: list[str]
+
+
+class AsrDictionaryRead(BaseModel):
+    """ASR-словарь вакансии: сохранённые термины и авто-подсказки из матрицы."""
+
+    terms: list[str]
+    suggested_terms: list[str]
 
 
 class VacancyRead(BaseModel):

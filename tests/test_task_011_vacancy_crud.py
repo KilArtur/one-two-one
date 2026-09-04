@@ -95,6 +95,8 @@ async def test_active_topic_change_creates_new_version_snapshot(client: httpx.As
             {"title": "Python", "skill_type": "hard", "importance": "mandatory", "order": 0},
             {"title": "Kafka", "skill_type": "hard", "importance": "mandatory", "order": 1},
             {"title": "Docker", "skill_type": "hard", "importance": "desired", "order": 2},
+            {"title": "Redis", "skill_type": "hard", "importance": "desired", "order": 3},
+            {"title": "gRPC", "skill_type": "hard", "importance": "desired", "order": 4},
         ]
     }
     replaced = await client.put(f"/vacancies/{vacancy_id}/topics", json=new_topics)
@@ -105,7 +107,13 @@ async def test_active_topic_change_creates_new_version_snapshot(client: httpx.As
     assert new_version["version"] == 2
     assert new_version["lineage_id"] == created["lineage_id"]
     assert new_version["id"] != vacancy_id
-    assert {t["title"] for t in new_version["topics"]} == {"Python", "Kafka", "Docker"}
+    assert {t["title"] for t in new_version["topics"]} == {
+        "Python",
+        "Kafka",
+        "Docker",
+        "Redis",
+        "gRPC",
+    }
 
     # Шаг 3: прежняя версия остаётся доступной по своему id — иммутабельный снимок
     old = await client.get(f"/vacancies/{vacancy_id}")
@@ -129,6 +137,10 @@ async def test_draft_topic_change_edits_in_place(client: httpx.AsyncClient) -> N
         json={
             "topics": [
                 {"title": "Go", "skill_type": "hard", "importance": "mandatory", "order": 0},
+                {"title": "gRPC", "skill_type": "hard", "importance": "desired", "order": 1},
+                {"title": "Kafka", "skill_type": "hard", "importance": "desired", "order": 2},
+                {"title": "Redis", "skill_type": "hard", "importance": "desired", "order": 3},
+                {"title": "Docker", "skill_type": "hard", "importance": "desired", "order": 4},
             ]
         },
     )
@@ -136,7 +148,7 @@ async def test_draft_topic_change_edits_in_place(client: httpx.AsyncClient) -> N
     body = replaced.json()
     assert body["version"] == 1
     assert body["id"] == vacancy_id
-    assert {t["title"] for t in body["topics"]} == {"Go"}
+    assert {t["title"] for t in body["topics"]} == {"Go", "gRPC", "Kafka", "Redis", "Docker"}
 
 
 @pytest.mark.anyio
