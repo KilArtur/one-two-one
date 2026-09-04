@@ -19,3 +19,31 @@ async function request<T>(path: string): Promise<T> {
 export const apiClient = {
   getHealth: (): Promise<HealthResponse> => request<HealthResponse>("/health"),
 };
+
+export interface ConsentResponse {
+  consent_given_at: string | null;
+}
+
+async function candidateRequest<T>(path: string, token?: string, body?: unknown): Promise<T> {
+  const response = await fetch(`${API_BASE_URL}/candidate-auth/${path}`, {
+    method: body === undefined ? "GET" : "POST",
+    headers: {
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...(body === undefined ? {} : { "Content-Type": "application/json" }),
+    },
+    ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+  });
+  if (!response.ok) {
+    throw new Error(response.status === 401 || response.status === 403
+      ? "Не удалось получить доступ. Откройте приглашение заново или обратитесь к рекрутеру."
+      : "Не удалось сохранить или загрузить данные. Попробуйте ещё раз.");
+  }
+  return response.json() as Promise<T>;
+}
+
+export const candidateApi = {
+  exchange: (token: string) => candidateRequest<{ access_token: string }>("exchange", undefined, { token }),
+  consent: (token: string) => candidateRequest<ConsentResponse>("consent", token),
+  acceptConsent: (token: string) => candidateRequest<ConsentResponse>("consent", token, { accepted: true }),
+  equipmentAccess: (token: string) => candidateRequest<ConsentResponse>("equipment-check", token),
+};

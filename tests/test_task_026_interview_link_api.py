@@ -38,7 +38,7 @@ async def api() -> AsyncIterator[ApiFixture]:
         vacancy = Vacancy(title="Backend", grade=VacancyGrade.MIDDLE)
         session.add(vacancy)
         await session.flush()
-        candidate = Candidate(vacancy_id=vacancy.id)
+        candidate = Candidate(vacancy_id=vacancy.id, consent_given_at=datetime.now(UTC))
         session.add(candidate)
         await session.commit()
         candidate_id = candidate.id

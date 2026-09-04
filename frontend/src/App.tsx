@@ -1,5 +1,6 @@
 import { Link, Route, Routes } from "react-router-dom";
 
+import { CandidatePage } from "./pages/CandidatePage";
 import { HealthPage } from "./pages/HealthPage";
 import { HomePage } from "./pages/HomePage";
 
@@ -11,6 +12,7 @@ export default function App() {
         <Link to="/health">Статус системы</Link>
       </nav>
       <Routes>
+        <Route path="/interview/*" element={<CandidatePage />} />
         <Route path="/" element={<HomePage />} />
         <Route path="/health" element={<HealthPage />} />
       </Routes>

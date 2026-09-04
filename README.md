@@ -118,3 +118,22 @@ uv run alembic downgrade -1                               # откатить о�
 `ralph.sh` бронирует задачи через `status: in_progress` + `assignee`, продвигает их до `done`, а прогресс фиксируется в git и `progress.md`.
 Для схемы `artur + zakhar` используйте [`docs/parallel-workflow.md`](/home/artur/projects/one-two-one/docs/parallel-workflow.md):
 там есть готовые ветки, разделение задач и команды для merge через `integration/arthur-zakhar`.
+
+## Согласие кандидата
+
+Персональное приглашение открывается на `/interview?token=<InterviewLink.token>`.
+После обмена ссылки на сессию кандидат видит `/interview/consent`; токен приглашения
+убирается из адреса, JWT хранится в `sessionStorage` текущей вкладки.
+Кнопка продолжения доступна после явного согласия, переход на `/interview/equipment`
+происходит только после сохранения `Candidate.consent_given_at` сервером.
+Проверка камеры и микрофона реализуется отдельно в TASK-028.
+
+`GET/POST /candidate-auth/consent` читают/сохраняют согласие (`{"accepted": true}`),
+`GET /candidate-auth/equipment-check` проверяет допуск к следующему шагу.
+Все эти запросы требуют кандидатский Bearer JWT и действующую ссылку.
+Отправка интервью также требует согласия. Новые кандидатские эндпоинты записи
+должны использовать dependency `require_candidate_consent`.
+
+Проверки экрана: `cd frontend` и `npm test`; проверка типов и сборка: `npm run build`.
+Текст согласия основан на разделе 8 PRD; юридическое согласование заказчиком
+предусмотрено тем же разделом перед использованием в реальном подборе.
