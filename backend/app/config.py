@@ -18,6 +18,9 @@ class Settings(BaseSettings):
 
     app_env: str = "development"
     secret_key: str = "change-me"
+    database_url: str = (
+        "postgresql+asyncpg://interviewer:interviewer@localhost:5433/interviewer"
+    )
     cors_origins: Annotated[list[str], NoDecode] = Field(
         default_factory=lambda: [
             "http://localhost:5173",

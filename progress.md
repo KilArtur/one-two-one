@@ -58,3 +58,26 @@
   - Запуск: `uv run uvicorn app.main:app --app-dir backend --reload --port 8000`
   - Следующая по critical path: **TASK-003** (PostgreSQL + Alembic + `get_db`)
   - В Settings пока только `app_env` / `secret_key` / `cors_origins` — остальные ключи из `.env.example` добавятся по мере задач
+
+## TASK-003 — PostgreSQL + Alembic + get_db
+- **Дата:** 2026-09-04
+- **Статус:** done
+- **Что сделано:**
+  - Зависимости: `sqlalchemy[asyncio]`, `asyncpg`, `alembic`
+  - `Settings.database_url` (из `DATABASE_URL` / `.env`)
+  - `backend/app/db.py` — async engine (`NullPool`), `AsyncSessionLocal`, FastAPI-зависимость `get_db`
+  - `GET /health/db` — `SELECT 1` через `get_db`, ответ `{"status":"ok"}`
+  - Alembic: `backend/alembic.ini`, `backend/alembic/env.py` (async), ревизия `0001_baseline` (пустой baseline)
+  - Тесты: `backend/tests/test_db.py`; README — команды миграций и `/health/db`
+- **Как проверено:**
+  1. `uv run ruff check .` — OK
+  2. `uv run pytest` — 9 passed
+  3. `uv run alembic -c backend/alembic.ini upgrade head` — OK (`0001_baseline`)
+  4. `curl /health/db` → HTTP 200 `{"status":"ok"}`
+  5. `uv run alembic -c backend/alembic.ini downgrade -1` затем `upgrade head` — OK
+- **Коммиты:** (см. следующий commit)
+- **Заметки:**
+  - Миграции: `uv run alembic -c backend/alembic.ini upgrade head` / `downgrade -1`
+  - `NullPool` выбран из‑за asyncpg + pytest event loop; при нагрузке можно вернуть QueuePool
+  - Baseline пустой — таблицы Vacancy/Topic появятся в **TASK-004**
+  - Следующая по critical path: **TASK-004** (ORM Vacancy + Topic)

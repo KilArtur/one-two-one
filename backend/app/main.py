@@ -1,9 +1,14 @@
 """FastAPI application entrypoint."""
 
-from fastapi import FastAPI
+from typing import Annotated
+
+from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from sqlalchemy import text
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import get_settings
+from app.db import get_db
 
 
 def create_app() -> FastAPI:
@@ -25,6 +30,14 @@ def create_app() -> FastAPI:
 
     @application.get("/health")
     async def health() -> dict[str, str]:
+        return {"status": "ok"}
+
+    @application.get("/health/db")
+    async def health_db(
+        session: Annotated[AsyncSession, Depends(get_db)],
+    ) -> dict[str, str]:
+        """Probe DB connectivity via get_db (SELECT 1)."""
+        await session.execute(text("SELECT 1"))
         return {"status": "ok"}
 
     return application

@@ -5,9 +5,12 @@ description = "Асинхронное видеоинтервью для перв
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
+    "alembic>=1.19.1",
+    "asyncpg>=0.31.0",
     "fastapi>=0.141.1",
     "httpx>=0.28.1",
     "pydantic-settings>=2.15.0",
+    "sqlalchemy[asyncio]>=2.0",
     "uvicorn[standard]>=0.52.4",
 ]
 

@@ -34,9 +34,14 @@ uv sync                  # ставит зависимости из pyproject.to
 # 4. Секреты
 cp .env.example .env     # затем заполнить значения — см. комментарии в файле
 
-# 5. Backend API (FastAPI)
+# 5. Миграции БД (Alembic)
+uv run alembic -c backend/alembic.ini upgrade head
+# откат: uv run alembic -c backend/alembic.ini downgrade -1
+
+# 6. Backend API (FastAPI)
 uv run uvicorn app.main:app --app-dir backend --reload --host 0.0.0.0 --port 8000
-# проверка: curl -s http://127.0.0.1:8000/health  → {"status":"ok"}
+# проверка: curl -s http://127.0.0.1:8000/health     → {"status":"ok"}
+#           curl -s http://127.0.0.1:8000/health/db  → {"status":"ok"} (нужен Postgres)
 # Swagger:  http://127.0.0.1:8000/docs
 
 # 6. Аутентификация ассистента (один раз, у себя)
