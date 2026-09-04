@@ -75,7 +75,7 @@
   3. `uv run alembic -c backend/alembic.ini upgrade head` — OK (`0001_baseline`)
   4. `curl /health/db` → HTTP 200 `{"status":"ok"}`
   5. `uv run alembic -c backend/alembic.ini downgrade -1` затем `upgrade head` — OK
-- **Коммиты:** (см. следующий commit)
+- **Коммиты:** 6b2d527
 - **Заметки:**
   - Миграции: `uv run alembic -c backend/alembic.ini upgrade head` / `downgrade -1`
   - `NullPool` выбран из‑за asyncpg + pytest event loop; при нагрузке можно вернуть QueuePool
