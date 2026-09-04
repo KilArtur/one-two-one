@@ -51,7 +51,9 @@ CRUD вакансий с версионированием матрицы (M1): `
 `PUT /vacancies/{id}/topics` (замена состава активной вакансии создаёт новую версию-снимок;
 валидация 5–9 топиков, Р8). CRUD топиков черновика: `POST /vacancies/{id}/topics`,
 `PATCH`/`DELETE /vacancies/{id}/topics/{topic_id}`. ASR-словарь на вакансию с авто-подсказкой
-из матрицы: `GET`/`PUT /vacancies/{id}/asr-dictionary`.
+из матрицы: `GET`/`PUT /vacancies/{id}/asr-dictionary`. Генерация ядра вопросов (M2)
+через LLM: `POST /vacancies/{id}/core-questions` (1 core-вопрос на топик, кеш, повтор без дублей).
+Промпты — в `prompts/*.md` (загрузчик `app.prompts.load_prompt`).
 
 ## Запуск frontend
 

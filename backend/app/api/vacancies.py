@@ -9,6 +9,8 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db import get_db
+from app.integrations.llm import LangChainLLMClient, get_llm_client
+from app.schemas.question import QuestionRead
 from app.schemas.vacancy import (
     AsrDictionaryRead,
     AsrDictionaryUpdate,
@@ -20,12 +22,14 @@ from app.schemas.vacancy import (
     VacancyRead,
     VacancyUpdate,
 )
+from app.services import question_generation
 from app.services import vacancy as vacancy_service
 from app.services.vacancy import TopicCountError, VacancyNotDraftError
 
 router = APIRouter(prefix="/vacancies", tags=["vacancies"])
 
 SessionDep = Annotated[AsyncSession, Depends(get_db)]
+LLMDep = Annotated[LangChainLLMClient, Depends(get_llm_client)]
 
 _NOT_FOUND = HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Vacancy not found")
 _TOPIC_COUNT = HTTPException(
@@ -134,6 +138,19 @@ async def delete_topic(vacancy_id: uuid.UUID, topic_id: uuid.UUID, session: Sess
         raise _NOT_FOUND
     if result is False:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Topic not found")
+
+
+@router.post("/{vacancy_id}/core-questions", response_model=list[QuestionRead])
+async def generate_core_questions(
+    vacancy_id: uuid.UUID, session: SessionDep, llm: LLMDep
+) -> list[QuestionRead]:
+    """Генерирует ядро вопросов вакансии (1 core-вопрос на топик); повторный вызов не дублирует."""
+    questions = await question_generation.generate_core_questions(
+        session, vacancy_id, llm_client=llm
+    )
+    if questions is None:
+        raise _NOT_FOUND
+    return [QuestionRead.model_validate(question) for question in questions]
 
 
 @router.get("/{vacancy_id}/asr-dictionary", response_model=AsrDictionaryRead)

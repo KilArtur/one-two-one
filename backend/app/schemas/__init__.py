@@ -1,5 +1,6 @@
 """Pydantic-схемы API."""
 
+from app.schemas.question import GeneratedCoreQuestion, QuestionRead
 from app.schemas.vacancy import (
     AsrDictionaryRead,
     AsrDictionaryUpdate,
@@ -15,6 +16,8 @@ from app.schemas.vacancy import (
 __all__ = [
     "AsrDictionaryRead",
     "AsrDictionaryUpdate",
+    "GeneratedCoreQuestion",
+    "QuestionRead",
     "TopicRead",
     "TopicUpdate",
     "TopicWrite",
