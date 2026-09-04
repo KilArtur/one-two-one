@@ -1,11 +1,10 @@
 """Проверки ORM-моделей Vacancy и Topic: поля, enum-значения, дефолты и FK."""
 
-import asyncio
 from pathlib import Path
 
 import pytest
-from sqlalchemy import inspect, select
-from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
+from sqlalchemy import create_engine, inspect, select
+from sqlalchemy.orm import Session
 
 from app.db import Base
 from app.models import (
@@ -21,14 +20,12 @@ ROOT_DIR = Path(__file__).resolve().parents[1]
 VERSIONS_DIR = ROOT_DIR / "backend" / "alembic" / "versions"
 
 
-async def _seed_vacancy_with_topic() -> tuple[Vacancy, Topic]:
+def _seed_vacancy_with_topic() -> tuple[Vacancy, Topic]:
     """Создаёт схему во временной SQLite-БД и сохраняет вакансию с топиком."""
-    engine = create_async_engine("sqlite+aiosqlite:///:memory:")
-    async with engine.begin() as connection:
-        await connection.run_sync(Base.metadata.create_all)
+    engine = create_engine("sqlite:///:memory:")
+    Base.metadata.create_all(engine)
 
-    session_factory = async_sessionmaker(engine, expire_on_commit=False)
-    async with session_factory() as session:
+    with Session(engine, expire_on_commit=False) as session:
         vacancy = Vacancy(
             title="Backend-разработчик",
             grade=VacancyGrade.MIDDLE_PLUS,
@@ -46,22 +43,18 @@ async def _seed_vacancy_with_topic() -> tuple[Vacancy, Topic]:
             order=1,
         )
         session.add(vacancy)
-        await session.commit()
+        session.commit()
 
-        stored = (
-            await session.execute(select(Vacancy).where(Vacancy.id == vacancy.id))
-        ).scalar_one()
-        stored_topic = (
-            await session.execute(select(Topic).where(Topic.id == topic.id))
-        ).scalar_one()
+        stored = session.execute(select(Vacancy).where(Vacancy.id == vacancy.id)).scalar_one()
+        stored_topic = session.execute(select(Topic).where(Topic.id == topic.id)).scalar_one()
 
-    await engine.dispose()
+    engine.dispose()
     return stored, stored_topic
 
 
 @pytest.fixture(scope="module")
 def seeded() -> tuple[Vacancy, Topic]:
-    return asyncio.run(_seed_vacancy_with_topic())
+    return _seed_vacancy_with_topic()
 
 
 def test_vacancy_has_all_prd_columns() -> None:

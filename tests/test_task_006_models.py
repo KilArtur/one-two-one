@@ -1,13 +1,12 @@
 """Проверки моделей Answer, TopicAssessment, StatusChangeLog и InterviewResult."""
 
-import asyncio
 import uuid
 from decimal import Decimal
 from pathlib import Path
 
 import pytest
-from sqlalchemy import inspect, select
-from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
+from sqlalchemy import create_engine, inspect, select
+from sqlalchemy.orm import Session
 
 from app.db import Base
 from app.models import (
@@ -35,7 +34,7 @@ ROOT_DIR = Path(__file__).resolve().parents[1]
 VERSIONS_DIR = ROOT_DIR / "backend" / "alembic" / "versions"
 
 
-async def _seed_assessment_graph() -> tuple[
+def _seed_assessment_graph() -> tuple[
     Answer,
     TopicAssessment,
     StatusChangeLog,
@@ -44,12 +43,10 @@ async def _seed_assessment_graph() -> tuple[
     Question,
 ]:
     """Создаёт схему во временной SQLite-БД и сохраняет полный граф сущностей TASK-006."""
-    engine = create_async_engine("sqlite+aiosqlite:///:memory:")
-    async with engine.begin() as connection:
-        await connection.run_sync(Base.metadata.create_all)
+    engine = create_engine("sqlite:///:memory:")
+    Base.metadata.create_all(engine)
 
-    session_factory = async_sessionmaker(engine, expire_on_commit=False)
-    async with session_factory() as session:
+    with Session(engine, expire_on_commit=False) as session:
         vacancy = Vacancy(title="Backend-разработчик", grade=VacancyGrade.SENIOR)
         topic = Topic(
             vacancy=vacancy,
@@ -65,7 +62,7 @@ async def _seed_assessment_graph() -> tuple[
             text="Расскажите про эксплуатацию Kafka под нагрузкой",
         )
         session.add_all([vacancy, candidate, question])
-        await session.flush()
+        session.flush()
         answer = Answer(
             question=question,
             video_url="s3://videos/answer-1.mp4",
@@ -120,34 +117,26 @@ async def _seed_assessment_graph() -> tuple[
             prompt_version="topic-assessment-v1",
         )
         session.add_all([answer, assessment, change_log, result])
-        await session.commit()
+        session.commit()
 
-        stored_answer = (
-            await session.execute(select(Answer).where(Answer.id == answer.id))
+        stored_answer = session.execute(select(Answer).where(Answer.id == answer.id)).scalar_one()
+        stored_assessment = session.execute(
+            select(TopicAssessment).where(TopicAssessment.id == assessment.id)
         ).scalar_one()
-        stored_assessment = (
-            await session.execute(
-                select(TopicAssessment).where(TopicAssessment.id == assessment.id)
-            )
+        stored_log = session.execute(
+            select(StatusChangeLog).where(StatusChangeLog.id == change_log.id)
         ).scalar_one()
-        stored_log = (
-            await session.execute(
-                select(StatusChangeLog).where(StatusChangeLog.id == change_log.id)
-            )
+        stored_result = session.execute(
+            select(InterviewResult).where(InterviewResult.candidate_id == candidate.id)
         ).scalar_one()
-        stored_result = (
-            await session.execute(
-                select(InterviewResult).where(InterviewResult.candidate_id == candidate.id)
-            )
+        stored_candidate = session.execute(
+            select(Candidate).where(Candidate.id == candidate.id)
         ).scalar_one()
-        stored_candidate = (
-            await session.execute(select(Candidate).where(Candidate.id == candidate.id))
-        ).scalar_one()
-        stored_question = (
-            await session.execute(select(Question).where(Question.id == question.id))
+        stored_question = session.execute(
+            select(Question).where(Question.id == question.id)
         ).scalar_one()
 
-    await engine.dispose()
+    engine.dispose()
     return (
         stored_answer,
         stored_assessment,
@@ -162,7 +151,7 @@ async def _seed_assessment_graph() -> tuple[
 def seeded() -> tuple[
     Answer, TopicAssessment, StatusChangeLog, InterviewResult, Candidate, Question
 ]:
-    return asyncio.run(_seed_assessment_graph())
+    return _seed_assessment_graph()
 
 
 def test_answer_has_all_prd_columns() -> None:

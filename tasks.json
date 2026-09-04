@@ -191,7 +191,7 @@
       "dependencies": [
         "TASK-002"
       ],
-      "status": "in_progress",
+      "status": "done",
       "assignee": "artur",
       "claimed_at": "2026-09-04T17:19:02.301385+00:00"
     },

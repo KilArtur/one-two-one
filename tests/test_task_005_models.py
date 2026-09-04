@@ -1,13 +1,12 @@
 """Проверки моделей Candidate, InterviewLink и Question: поля, enum, FK и self-FK."""
 
-import asyncio
 import uuid
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import pytest
-from sqlalchemy import inspect, select
-from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
+from sqlalchemy import create_engine, inspect, select
+from sqlalchemy.orm import Session
 
 from app.db import Base
 from app.models import (
@@ -28,14 +27,12 @@ ROOT_DIR = Path(__file__).resolve().parents[1]
 VERSIONS_DIR = ROOT_DIR / "backend" / "alembic" / "versions"
 
 
-async def _seed_interview() -> tuple[Candidate, InterviewLink, Question, Question]:
+def _seed_interview() -> tuple[Candidate, InterviewLink, Question, Question]:
     """Создаёт схему во временной SQLite-БД и сохраняет кандидата, ссылку и два вопроса."""
-    engine = create_async_engine("sqlite+aiosqlite:///:memory:")
-    async with engine.begin() as connection:
-        await connection.run_sync(Base.metadata.create_all)
+    engine = create_engine("sqlite:///:memory:")
+    Base.metadata.create_all(engine)
 
-    session_factory = async_sessionmaker(engine, expire_on_commit=False)
-    async with session_factory() as session:
+    with Session(engine, expire_on_commit=False) as session:
         vacancy = Vacancy(title="Backend-разработчик", grade=VacancyGrade.MIDDLE)
         topic = Topic(
             vacancy=vacancy,
@@ -64,28 +61,28 @@ async def _seed_interview() -> tuple[Candidate, InterviewLink, Question, Questio
             parent=core_question,
         )
         session.add_all([vacancy, candidate, core_question, follow_up])
-        await session.commit()
+        session.commit()
 
-        stored_candidate = (
-            await session.execute(select(Candidate).where(Candidate.id == candidate.id))
+        stored_candidate = session.execute(
+            select(Candidate).where(Candidate.id == candidate.id)
         ).scalar_one()
-        stored_link = (
-            await session.execute(select(InterviewLink).where(InterviewLink.id == link.id))
+        stored_link = session.execute(
+            select(InterviewLink).where(InterviewLink.id == link.id)
         ).scalar_one()
-        stored_core = (
-            await session.execute(select(Question).where(Question.id == core_question.id))
+        stored_core = session.execute(
+            select(Question).where(Question.id == core_question.id)
         ).scalar_one()
-        stored_follow_up = (
-            await session.execute(select(Question).where(Question.id == follow_up.id))
+        stored_follow_up = session.execute(
+            select(Question).where(Question.id == follow_up.id)
         ).scalar_one()
 
-    await engine.dispose()
+    engine.dispose()
     return stored_candidate, stored_link, stored_core, stored_follow_up
 
 
 @pytest.fixture(scope="module")
 def seeded() -> tuple[Candidate, InterviewLink, Question, Question]:
-    return asyncio.run(_seed_interview())
+    return _seed_interview()
 
 
 def test_candidate_has_all_prd_columns() -> None:
