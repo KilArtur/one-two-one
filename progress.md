@@ -161,7 +161,7 @@
   3. Шаг 1–2: plain + structured через локальный `/v1/chat/completions` mock
   4. Шаг 3: смена `OPENAI_BASE_URL`/`LLM_MODEL` только через Settings/env
   5. Шаг 4: `ConnectionError`/`TimeoutError` → `LLMError` с `cause`
-- **Коммиты:** (после commit)
+- **Коммиты:** dbcf9bd
 - **Заметки:**
   - Live OpenRouter skipped: в `.env` `OPENAI_API_KEY` содержит не-ASCII (кириллица) —
     нужен реальный `sk-…` ключ OpenRouter для optional live-теста
