@@ -279,7 +279,7 @@
   3. Шаг 1: пример + high → `confirmed` + quote/timecode/`question_id`
   4. Шаг 2: Redis/K8s в транскрипте — промпт с Р16, evidence только по Kafka
   5. Шаг 3: `current_status` меняется, `system_status` зафиксирован; overwrite → RuntimeError
-- **Коммиты:** (см. git log)
+- **Коммиты:** 42ab452
 - **Заметки:**
   - HTTP API оценки пока нет — сервис для пайплайна / batch (TASK-020/021)
   - Стоп-факторы (Р6) — отдельная **TASK-017**
