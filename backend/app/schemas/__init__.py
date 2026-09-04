@@ -6,6 +6,7 @@ from app.schemas.candidate_auth import (
     CandidateSessionRead,
     CandidateSessionResponse,
 )
+from app.schemas.interview_link import CandidateInterviewSubmitResponse, InterviewLinkRead
 from app.schemas.question import GeneratedCoreQuestion, QuestionRead
 from app.schemas.rbac import RbacCheckResult, TopicStatusChangeCheck
 from app.schemas.vacancy import (
@@ -28,8 +29,10 @@ __all__ = [
     "CandidateSessionExchangeRequest",
     "CandidateSessionRead",
     "CandidateSessionResponse",
+    "CandidateInterviewSubmitResponse",
     "CurrentUserRead",
     "GeneratedCoreQuestion",
+    "InterviewLinkRead",
     "QuestionRead",
     "RbacCheckResult",
     "TopicStatusChangeCheck",

@@ -10,7 +10,13 @@ from pydantic import BaseModel
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api import auth_router, candidate_auth_router, rbac_router, vacancies_router
+from app.api import (
+    auth_router,
+    candidate_auth_router,
+    interview_links_router,
+    rbac_router,
+    vacancies_router,
+)
 from app.config import Settings, get_settings
 from app.db import dispose_engine, get_db
 
@@ -73,6 +79,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(vacancies_router)
     app.include_router(auth_router)
     app.include_router(candidate_auth_router)
+    app.include_router(interview_links_router)
     app.include_router(rbac_router)
 
     return app
