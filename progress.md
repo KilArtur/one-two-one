@@ -33,7 +33,7 @@
   2. `uv run pytest` — 2 passed
   3. `docker compose up -d` → postgres+redis **healthy**
   4. `psql -c 'SELECT 1'` и `redis-cli ping` → OK; `docker compose down` очищает
-- **Коммиты:** (хеш после commit ниже)
+- **Коммиты:** edfbbbb
 - **Заметки:**
   - На этой машине `unix:///var/run/docker.sock` недоступен (user не в группе `docker`); работал Docker Desktop: `systemctl --user start docker-desktop` + `docker context use desktop-linux`.
   - Следующая задача по critical path: **TASK-002** (скелет FastAPI `/health`).
