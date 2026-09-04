@@ -62,8 +62,12 @@ def test_alembic_config_points_to_backend() -> None:
     assert not parser.has_option("alembic", "sqlalchemy.url")
 
 
-def test_single_initial_revision_exists() -> None:
-    revisions = sorted(VERSIONS_DIR.glob("*.py"))
+def test_single_baseline_revision_exists() -> None:
+    """Цепочка миграций начинается ровно с одной базовой ревизии."""
+    baselines = [
+        revision
+        for revision in sorted(VERSIONS_DIR.glob("*.py"))
+        if "down_revision: str | Sequence[str] | None = None" in revision.read_text()
+    ]
 
-    assert len(revisions) == 1
-    assert "down_revision: str | Sequence[str] | None = None" in revisions[0].read_text()
+    assert len(baselines) == 1

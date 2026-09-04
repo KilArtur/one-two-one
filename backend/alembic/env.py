@@ -8,6 +8,7 @@ from sqlalchemy.engine import Connection
 from sqlalchemy.ext.asyncio import create_async_engine
 
 from alembic import context
+from app import models  # noqa: F401  — регистрирует ORM-модели в метадате
 from app.config import get_settings
 from app.db import Base
 
