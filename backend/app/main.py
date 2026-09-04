@@ -1,10 +1,17 @@
 """Точка входа FastAPI-приложения."""
 
-from fastapi import FastAPI
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
+from typing import Annotated
+
+from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
+from sqlalchemy import text
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import Settings, get_settings
+from app.db import dispose_engine, get_db
 
 
 class HealthResponse(BaseModel):
@@ -15,11 +22,25 @@ class HealthResponse(BaseModel):
     version: str
 
 
+class DatabaseHealthResponse(BaseModel):
+    """Ответ проверки соединения с БД."""
+
+    status: str
+    database: str
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI) -> AsyncIterator[None]:
+    """Освобождает пул соединений к БД при остановке сервиса."""
+    yield
+    await dispose_engine()
+
+
 def create_app(settings: Settings | None = None) -> FastAPI:
     """Собирает приложение: CORS и системные эндпоинты."""
     settings = settings or get_settings()
 
-    app = FastAPI(title=settings.app_name, version=settings.app_version)
+    app = FastAPI(title=settings.app_name, version=settings.app_version, lifespan=lifespan)
     app.add_middleware(
         CORSMiddleware,
         allow_origins=settings.cors_origins,
@@ -36,6 +57,14 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             app_env=settings.app_env,
             version=settings.app_version,
         )
+
+    @app.get("/health/db", tags=["system"])
+    async def health_db(
+        session: Annotated[AsyncSession, Depends(get_db)],
+    ) -> DatabaseHealthResponse:
+        """Проверка соединения с БД: SELECT 1 через сессию из `get_db`."""
+        await session.execute(text("SELECT 1"))
+        return DatabaseHealthResponse(status="ok", database="ok")
 
     return app
 

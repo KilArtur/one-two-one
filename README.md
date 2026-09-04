@@ -39,11 +39,27 @@ codex login             # для Codex   (или задать OPENAI_API_KEY / A
 
 ```bash
 docker compose up -d                                        # postgres + redis
+uv run alembic upgrade head                                 # накатить миграции
 uv run uvicorn app.main:app --app-dir backend --reload      # API на localhost:8000
 ```
 
-`GET /health` — проверка живости, `/docs` — Swagger UI.
-Конфигурация читается из окружения и `.env` (см. `backend/app/config.py`).
+`GET /health` — проверка живости, `GET /health/db` — проверка соединения с БД,
+`/docs` — Swagger UI. Конфигурация читается из окружения и `.env`
+(см. `backend/app/config.py`).
+
+## Миграции
+
+Alembic настроен на корневой [`alembic.ini`](alembic.ini), ревизии лежат в
+`backend/alembic/versions`, URL берётся из `DATABASE_URL`.
+
+```bash
+uv run alembic revision --autogenerate -m "add vacancy"   # новая ревизия по моделям
+uv run alembic upgrade head                               # накатить
+uv run alembic downgrade -1                               # откатить одну ревизию
+```
+
+Модели наследуются от `app.db.Base`, сессия в эндпоинтах — через зависимость
+`app.db.get_db`.
 
 ## Разработка по задачам
 

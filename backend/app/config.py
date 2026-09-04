@@ -22,6 +22,9 @@ class Settings(BaseSettings):
     app_env: str = "development"
     cors_origins: list[str] = ["http://localhost:5173"]
 
+    database_url: str = "postgresql+asyncpg://interviewer:interviewer@localhost:5432/interviewer"
+    database_echo: bool = False
+
 
 @lru_cache
 def get_settings() -> Settings:
