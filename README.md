@@ -12,7 +12,7 @@
 ## Стек
 
 Python 3.12+ · FastAPI · PostgreSQL · Celery + Redis · React + TypeScript ·
-Yandex SpeechKit (ASR/TTS) · YandexGPT / GigaChat · S3-хранилище. Все ПДн — в РФ (152-ФЗ).
+OpenAI (LLM `gpt-4o`/`gpt-4o-mini`, Whisper ASR, TTS) · LangChain + LangGraph · S3-хранилище.
 
 ## Онбординг
 
