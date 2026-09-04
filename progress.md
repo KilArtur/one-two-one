@@ -240,3 +240,24 @@
   - Персональные вопросы / follow-up — отдельные задачи
   - Следующая по critical path: **TASK-015** (детерминированный статус Р13)
     или **TASK-029** (TTS) после S3
+
+## TASK-015 — детерминированное правило статуса топика (Р13)
+- **Дата:** 2026-09-04
+- **Статус:** done
+- **Что сделано:**
+  - `backend/app/services/topic_status.py` — чистая функция `resolve_topic_status`
+    + `TopicSignals` (correctness / example / personal_contribution)
+  - Ветки Р13: confirmed (3 сигнала + high), not_confirmed (skip / нет опыта /
+    correctness=False + high), needs_check по умолчанию (low/medium и неполные сигналы)
+  - Unit-тесты: `backend/tests/test_topic_status.py` (13 кейсов)
+- **Как проверено:**
+  1. `uv run ruff check .` — OK
+  2. `uv run pytest` — 62 passed, 1 skipped
+  3. Шаг 1: 3 сигнала + high → `confirmed`
+  4. Шаг 2: `no_experience=True` → `not_confirmed`
+  5. Шаг 3: medium confidence → `needs_check`
+- **Коммиты:** (после commit)
+- **Заметки:**
+  - Функция синхронная и без I/O — готова для вызова из LLM-оценки (TASK-016)
+  - `out_of_scope` сюда не входит (ставится по `verifiable_by_interview`, не по сигналам)
+  - Следующая по critical path: **TASK-016** (оценка топика из транскрипта + evidence)
