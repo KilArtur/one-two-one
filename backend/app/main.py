@@ -7,6 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.api.vacancies import router as vacancies_router
 from app.config import get_settings
 from app.db import get_db
 
@@ -39,6 +40,8 @@ def create_app() -> FastAPI:
         """Probe DB connectivity via get_db (SELECT 1)."""
         await session.execute(text("SELECT 1"))
         return {"status": "ok"}
+
+    application.include_router(vacancies_router)
 
     return application
 

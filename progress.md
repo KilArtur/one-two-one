@@ -168,3 +168,26 @@
   - Промпты пока передаются строкой + `prompt_version`; загрузчик из `prompts/*.md` —
     в следующих задачах генерации/оценки
   - Следующая по critical path: **TASK-011** (или **TASK-015** — детерминированный статус)
+
+## TASK-011 — CRUD вакансии с версионированием матрицы (M1)
+- **Дата:** 2026-09-04
+- **Статус:** done
+- **Что сделано:**
+  - `backend/app/schemas/vacancy.py` — Pydantic Create/Update/Read + TopicCreate
+  - `backend/app/services/vacancy.py` — CRUD; смена топиков у `active` → новая строка
+    `version+1` (иммутабельный снимок), старый id не трогается; `draft` — in-place
+  - `backend/app/api/vacancies.py` — `POST/GET/PATCH /vacancies`, `GET /vacancies/{id}`
+  - Тесты: `backend/tests/test_vacancies.py`
+- **Как проверено:**
+  1. `uv run ruff check .` — OK
+  2. `uv run pytest` — 37 passed, 1 skipped
+  3. Шаг 1: POST `/vacancies` → 201, `version=1`
+  4. Шаг 2: PATCH топиков active → ответ/GET новой версии с `version=2`
+  5. Шаг 3: GET по старому id → `version=1`, матрица без изменений
+- **Коммиты:** (см. следующий commit)
+- **Заметки:**
+  - Версионирование только при изменении состава топиков у `status=active`;
+    metadata-only и draft не бампят version
+  - Новая версия — новый UUID; клиент берёт id из ответа PATCH
+  - Валидация 5–9 топиков — **TASK-012**; здесь число топиков не ограничено
+  - Следующая по critical path: **TASK-012** (CRUD топиков + валидация Р8)
