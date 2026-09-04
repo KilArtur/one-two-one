@@ -81,3 +81,24 @@
   - `NullPool` выбран из‑за asyncpg + pytest event loop; при нагрузке можно вернуть QueuePool
   - Baseline пустой — таблицы Vacancy/Topic появятся в **TASK-004**
   - Следующая по critical path: **TASK-004** (ORM Vacancy + Topic)
+
+## TASK-004 — ORM Vacancy + Topic + миграция
+- **Дата:** 2026-09-04
+- **Статус:** done
+- **Что сделано:**
+  - `backend/app/models/` — Base, enums (grade/status/skill_type/importance), Vacancy, Topic
+  - Поля по PRD §5: `stop_factors` (text[]), `version`, FK `topic.vacancy_id` CASCADE
+  - `verifiable_by_interview` default/server_default = true
+  - Alembic-ревизия `0002_vacancy_topic`; `env.py` подключён к `Base.metadata`
+  - Тесты: `backend/tests/test_models_vacancy_topic.py`
+- **Как проверено:**
+  1. `uv run ruff check .` — OK
+  2. `uv run pytest` — 13 passed
+  3. `alembic upgrade head` → `0002_vacancy_topic`
+  4. `\d vacancy` / `\d topic` — все поля PRD на месте, FK и default `verifiable_by_interview=true`
+  5. psql INSERT vacancy + topic — JOIN ок, CASCADE delete
+- **Коммиты:** (после commit)
+- **Заметки:**
+  - Enum `vacancy_grade` хранит значение `middle+` как в PRD
+  - Колонка топика `"order"` (зарезервированное слово SQL) — в psql нужна кавычка
+  - Следующая по critical path: **TASK-005** (Candidate, InterviewLink, Question)

@@ -19,14 +19,14 @@ if str(_BACKEND_ROOT) not in sys.path:
     sys.path.insert(0, str(_BACKEND_ROOT))
 
 from app.config import get_settings  # noqa: E402
+from app.models import Base  # noqa: E402
 
 config = context.config
 
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
-# No ORM models yet (TASK-004+); baseline revision is intentionally empty.
-target_metadata = None
+target_metadata = Base.metadata
 
 
 def get_url() -> str:
