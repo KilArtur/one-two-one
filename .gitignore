@@ -1,0 +1,65 @@
+# --- ОС ---
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# --- Редакторы / IDE ---
+.idea/
+*.swp
+*.swo
+*~
+.\#*
+\#*\#
+
+# VS Code (оставляем шэренные настройки, прячем локальные)
+.vscode/*
+!.vscode/settings.json
+!.vscode/extensions.json
+
+# Obsidian (уроки часто пишут в нём)
+.obsidian/
+
+# --- Локальные данные и артефакты ---
+# Датасеты и артефакты остаются локальными, но PRD-документы шарим с командой.
+data/*
+!data/PRD-*.md
+
+# --- Python (кодовые примеры уроков, ноутбуки, скрипты) ---
+__pycache__/
+*.py[cod]
+.ipynb_checkpoints/
+.venv/
+venv/
+env/
+.env
+.env.*
+!.env.example
+.python-version
+
+# --- Node (если появятся вспомогательные скрипты) ---
+node_modules/
+npm-debug.log*
+
+# --- Временное ---
+*.tmp
+*.bak
+*.log
+/tmp/
+scratch/
+
+# Правила ассистентов шарим с командой; личные оверрайды и креды — нет.
+*CLAUDE.md
+!/CLAUDE.md
+
+.claude/**
+!.claude/agents/
+!.claude/agents/**
+!.claude/settings.json
+
+/.agents/
+/.codex/

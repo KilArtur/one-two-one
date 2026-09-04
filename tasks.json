@@ -1,0 +1,894 @@
+{
+  "project": "ИИ-интервьюер для первичной технической оценки кандидатов",
+  "source_prd": "data/PRD-AI-Interviewer-2026-09-04.md",
+  "generated_at": "2026-09-04",
+  "agent_instructions": {
+    "before_start": [
+      "Прочитай этот файл и git log --oneline -20",
+      "Выбери ОДНУ задачу со статусом pending и наивысшим приоритетом",
+      "Проверь, что все dependencies этой задачи имеют статус done"
+    ],
+    "during_work": [
+      "Работай только над выбранной задачей",
+      "Делай коммиты после каждого логического изменения",
+      "Не трогай код, не связанный с текущей задачей"
+    ],
+    "before_finish": [
+      "Выполни ВСЕ test_steps из задачи",
+      "Меняй status на done ТОЛЬКО после успешного прохождения всех тестов",
+      "Напиши summary в progress.md",
+      "ЗАПРЕЩЕНО удалять или редактировать задачи — только менять status"
+    ]
+  },
+  "critical_path": [
+    "TASK-001", "TASK-002", "TASK-003", "TASK-004", "TASK-005", "TASK-006",
+    "TASK-007", "TASK-011", "TASK-012", "TASK-014", "TASK-015", "TASK-016",
+    "TASK-017", "TASK-018", "TASK-019", "TASK-020", "TASK-021", "TASK-022"
+  ],
+  "tasks": [
+    {
+      "id": "TASK-001",
+      "category": "infrastructure",
+      "priority": "critical",
+      "description": "Скаффолд монорепо (backend/frontend/infra) и dev-окружение через docker-compose",
+      "acceptance_criteria": [
+        "docker compose up поднимает postgres и redis без ошибок",
+        "Есть .env.example со всеми необходимыми ключами",
+        "Структура папок соответствует backend/app, frontend/src, infra, docs"
+      ],
+      "test_steps": [
+        "Шаг 1: выполнить docker compose up -d",
+        "Шаг 2: проверить, что контейнеры postgres и redis в состоянии healthy",
+        "Шаг 3: подключиться psql и redis-cli, затем docker compose down очищает окружение"
+      ],
+      "dependencies": [],
+      "status": "pending"
+    },
+    {
+      "id": "TASK-002",
+      "category": "infrastructure",
+      "priority": "critical",
+      "description": "Скелет FastAPI: app/main.py, config.py (pydantic-settings, регион РФ), CORS, /health",
+      "acceptance_criteria": [
+        "Сервис стартует через uvicorn без ошибок",
+        "GET /health возвращает 200 с {status: ok}",
+        "Конфигурация читается из переменных окружения"
+      ],
+      "test_steps": [
+        "Шаг 1: запустить сервис uvicorn",
+        "Шаг 2: curl /health возвращает 200",
+        "Шаг 3: открыть /docs — доступен Swagger UI"
+      ],
+      "dependencies": ["TASK-001"],
+      "status": "pending"
+    },
+    {
+      "id": "TASK-003",
+      "category": "infrastructure",
+      "priority": "critical",
+      "description": "Подключение PostgreSQL и настройка Alembic с первой ревизией и зависимостью get_db",
+      "acceptance_criteria": [
+        "alembic upgrade head проходит без ошибок",
+        "API открывает сессию к БД через get_db",
+        "alembic downgrade корректно откатывает ревизию"
+      ],
+      "test_steps": [
+        "Шаг 1: выполнить alembic upgrade head",
+        "Шаг 2: пробный эндпоинт делает SELECT 1 и возвращает 200",
+        "Шаг 3: откатить ревизию через alembic downgrade"
+      ],
+      "dependencies": ["TASK-002"],
+      "status": "pending"
+    },
+    {
+      "id": "TASK-004",
+      "category": "infrastructure",
+      "priority": "critical",
+      "description": "ORM-модели Vacancy и Topic с версионированием и миграция (раздел 5 PRD)",
+      "acceptance_criteria": [
+        "Миграция создаёт таблицы vacancy и topic с FK topic->vacancy",
+        "Все поля и enum из PRD присутствуют (grade, stop_factors, skill_type hard/soft, importance)",
+        "Поле verifiable_by_interview имеет default true"
+      ],
+      "test_steps": [
+        "Шаг 1: выполнить alembic upgrade head",
+        "Шаг 2: проверить \\d vacancy и \\d topic — все поля на месте",
+        "Шаг 3: вставить вакансию и связанный топик через psql"
+      ],
+      "dependencies": ["TASK-003"],
+      "status": "pending"
+    },
+    {
+      "id": "TASK-005",
+      "category": "infrastructure",
+      "priority": "critical",
+      "description": "ORM-модели Candidate, InterviewLink, Question (self-FK для уточнений) и миграция",
+      "acceptance_criteria": [
+        "Таблицы созданы с корректными FK",
+        "Question.parent_question_id self-referential для уточнений",
+        "Enum-значения точно из PRD (Candidate.status, Question.type, Question.pattern)"
+      ],
+      "test_steps": [
+        "Шаг 1: выполнить миграцию",
+        "Шаг 2: вставить candidate и question вручную через psql",
+        "Шаг 3: создать follow_up-вопрос с parent_question_id и проверить self-FK"
+      ],
+      "dependencies": ["TASK-004"],
+      "status": "pending"
+    },
+    {
+      "id": "TASK-006",
+      "category": "infrastructure",
+      "priority": "critical",
+      "description": "ORM-модели Answer, TopicAssessment, StatusChangeLog (append-only), InterviewResult и миграция",
+      "acceptance_criteria": [
+        "jsonb-поля созданы (transcript_segments, signals, evidence)",
+        "TopicAssessment.system_status отдельно от current_status",
+        "StatusChangeLog проектируется как append-only (только insert в коде)"
+      ],
+      "test_steps": [
+        "Шаг 1: выполнить миграцию",
+        "Шаг 2: вставить assessment с evidence в jsonb",
+        "Шаг 3: проверить \\d topic_assessment — присутствуют оба статуса"
+      ],
+      "dependencies": ["TASK-005"],
+      "status": "pending"
+    },
+    {
+      "id": "TASK-007",
+      "category": "integration",
+      "priority": "critical",
+      "description": "Обёртка LLM-клиента (YandexGPT Pro/GigaChat) с версионированием model_version/prompt_version",
+      "acceptance_criteria": [
+        "Провайдер переключается через env",
+        "Возвращает текст + метаданные версий (model_version, prompt_version)",
+        "При ошибке — типизированное исключение, процесс не падает"
+      ],
+      "test_steps": [
+        "Шаг 1: вызвать complete() с тестовым промптом — получить ответ",
+        "Шаг 2: переключить провайдера через env — работает",
+        "Шаг 3: сымитировать ошибку сети — получить корректное типизированное исключение"
+      ],
+      "dependencies": ["TASK-002"],
+      "status": "pending"
+    },
+    {
+      "id": "TASK-008",
+      "category": "integration",
+      "priority": "high",
+      "description": "Обёртка S3-хранилища (Yandex Object Storage) с presigned URL и multipart, dev через MinIO",
+      "acceptance_criteria": [
+        "Загрузка и скачивание объекта работают",
+        "Presigned URL валиден и открывается",
+        "Поддержка multipart для чанковой загрузки"
+      ],
+      "test_steps": [
+        "Шаг 1: put файл — появляется в бакете",
+        "Шаг 2: get возвращает тот же байт-контент",
+        "Шаг 3: открыть presigned URL в браузере — файл доступен"
+      ],
+      "dependencies": ["TASK-001"],
+      "status": "pending"
+    },
+    {
+      "id": "TASK-009",
+      "category": "infrastructure",
+      "priority": "high",
+      "description": "Настройка Celery + Redis: celery_app.py, брокер, тестовая задача, воркер в compose",
+      "acceptance_criteria": [
+        "Воркер стартует без ошибок",
+        "Тестовая задача выполняется асинхронно",
+        "Результат виден в логах воркера"
+      ],
+      "test_steps": [
+        "Шаг 1: поднять воркер Celery",
+        "Шаг 2: поставить debug_task.delay() — задача выполняется",
+        "Шаг 3: проверить статус выполнения в логах"
+      ],
+      "dependencies": ["TASK-001"],
+      "status": "pending"
+    },
+    {
+      "id": "TASK-010",
+      "category": "infrastructure",
+      "priority": "high",
+      "description": "Скаффолд frontend (Vite + React + TS), роутинг и типизированный API-клиент",
+      "acceptance_criteria": [
+        "npm run dev поднимает SPA",
+        "API-клиент вызывает /health и выводит результат",
+        "Роутинг между двумя страницами работает"
+      ],
+      "test_steps": [
+        "Шаг 1: открыть localhost — отображается страница",
+        "Шаг 2: кнопка вызывает /health и выводит ok",
+        "Шаг 3: перейти по роуту на вторую страницу"
+      ],
+      "dependencies": ["TASK-002"],
+      "status": "pending"
+    },
+    {
+      "id": "TASK-011",
+      "category": "functional",
+      "priority": "critical",
+      "description": "CRUD вакансии с версионированием матрицы (M1): изменение состава требований инкрементит version",
+      "acceptance_criteria": [
+        "create/read/update/list вакансии работают",
+        "Изменение топиков активной вакансии создаёт version+1 (иммутабельный снимок)",
+        "Старая версия остаётся доступной по id"
+      ],
+      "test_steps": [
+        "Шаг 1: POST вакансию — получить 201",
+        "Шаг 2: изменить состав топиков — GET показывает version=2",
+        "Шаг 3: прочитать прежнюю версию по id — доступна"
+      ],
+      "dependencies": ["TASK-004"],
+      "status": "pending"
+    },
+    {
+      "id": "TASK-012",
+      "category": "functional",
+      "priority": "critical",
+      "description": "CRUD топиков вакансии со skill_type, importance, verifiable_by_interview, order и валидацией 5-9 (Р8)",
+      "acceptance_criteria": [
+        "Создание/редактирование/удаление топика работают",
+        "Валидация числа топиков 5-9 (Р8)",
+        "Пометка топика как «вне зоны интервью» (verifiable_by_interview=false)"
+      ],
+      "test_steps": [
+        "Шаг 1: добавить 7 топиков — получить 201",
+        "Шаг 2: попытка сохранить менее 5 топиков — получить 422",
+        "Шаг 3: снять verifiable_by_interview — изменение сохраняется"
+      ],
+      "dependencies": ["TASK-004", "TASK-011"],
+      "status": "pending"
+    },
+    {
+      "id": "TASK-013",
+      "category": "functional",
+      "priority": "medium",
+      "description": "Пользовательский словарь ASR на вакансию с авто-подсказкой терминов из топиков",
+      "acceptance_criteria": [
+        "Словарь терминов сохраняется и читается на уровне вакансии",
+        "Авто-сбор терминов из requirement_description топиков",
+        "Термины редактируются вручную"
+      ],
+      "test_steps": [
+        "Шаг 1: PUT словарь — GET возвращает его",
+        "Шаг 2: создать топик «Kafka» — термин предложен автоматически",
+        "Шаг 3: удалить термин из словаря"
+      ],
+      "dependencies": ["TASK-012"],
+      "status": "pending"
+    },
+    {
+      "id": "TASK-014",
+      "category": "functional",
+      "priority": "critical",
+      "description": "Сервис генерации ядра вопросов через LLM (M2): 1 core-вопрос на топик с pattern и source_reason, кеш",
+      "acceptance_criteria": [
+        "Генерирует core-вопрос на каждый топик с pattern",
+        "Сохраняет source_reason (почему вопрос проверяет требование)",
+        "Результат кешируется и переиспользуется; сбой не блокирует вакансию"
+      ],
+      "test_steps": [
+        "Шаг 1: POST generate — в БД появляются N вопросов type=core",
+        "Шаг 2: каждый имеет pattern из {technical, experience, reasoning}",
+        "Шаг 3: повторный вызов не дублирует вопросы"
+      ],
+      "dependencies": ["TASK-007", "TASK-012"],
+      "status": "pending"
+    },
+    {
+      "id": "TASK-015",
+      "category": "functional",
+      "priority": "critical",
+      "description": "Детерминированное правило статуса топика (Р13) как чистая функция от сигналов",
+      "acceptance_criteria": [
+        "Покрыты все ветки Р13 (correctness, example, personal_contribution, confidence)",
+        "Low/medium confidence -> needs_check (состояние по умолчанию)",
+        "Явный пропуск вопроса -> not_confirmed"
+      ],
+      "test_steps": [
+        "Шаг 1: unit — 3 сигнала + high confidence -> confirmed",
+        "Шаг 2: unit — явное «нет опыта» -> not_confirmed",
+        "Шаг 3: unit — средняя уверенность -> needs_check"
+      ],
+      "dependencies": ["TASK-006"],
+      "status": "pending"
+    },
+    {
+      "id": "TASK-016",
+      "category": "functional",
+      "priority": "critical",
+      "description": "Сервис оценки топика из транскрипта (LLM) с evidence и изоляцией топиков Р16",
+      "acceptance_criteria": [
+        "Возвращает signals + evidence (цитата, таймкод, question_id)",
+        "Оценивает только требование своего топика, игнорирует чужие технологии (Р16)",
+        "system_status фиксируется и никогда не перезаписывается"
+      ],
+      "test_steps": [
+        "Шаг 1: прогнать ответ с примером -> confirmed + цитата с таймкодом",
+        "Шаг 2: ответ с упоминанием чужой технологии — она не влияет на статус",
+        "Шаг 3: проверить, что system_status зафиксирован отдельно от current_status"
+      ],
+      "dependencies": ["TASK-007", "TASK-015"],
+      "status": "pending"
+    },
+    {
+      "id": "TASK-017",
+      "category": "functional",
+      "priority": "high",
+      "description": "Оценка стоп-факторов (Р6): авто «не подходит» только при явном ответе с высокой уверенностью",
+      "acceptance_criteria": [
+        "Явное однозначное срабатывание -> флаг с обязательной цитатой",
+        "Уклончивый ответ -> не срабатывает, уходит человеку",
+        "Флаг хранится отдельно от оценки топиков"
+      ],
+      "test_steps": [
+        "Шаг 1: явный стоп-ответ — recommendation учитывает стоп-фактор",
+        "Шаг 2: размытый ответ — стоп-фактор не срабатывает",
+        "Шаг 3: проверить наличие evidence с таймкодом"
+      ],
+      "dependencies": ["TASK-016"],
+      "status": "pending"
+    },
+    {
+      "id": "TASK-018",
+      "category": "functional",
+      "priority": "critical",
+      "description": "Детерминированная итоговая рекомендация (Р5) как чистая функция от матрицы топиков",
+      "acceptance_criteria": [
+        "Реализованы все три ветки алгоритма M6",
+        "Топики out_of_scope исключаются из расчёта",
+        "Вычисление без вызова LLM"
+      ],
+      "test_steps": [
+        "Шаг 1: unit — обязательный топик not_confirmed -> «не подходит»",
+        "Шаг 2: unit — один обязательный needs_check -> «требуется доп. проверка»",
+        "Шаг 3: unit — все обязательные confirmed -> «подходит»"
+      ],
+      "dependencies": ["TASK-015", "TASK-017"],
+      "status": "pending"
+    },
+    {
+      "id": "TASK-019",
+      "category": "functional",
+      "priority": "critical",
+      "description": "Расчёт Coverage (Р4): тройка чисел всегда, mandatory_coverage только без спорных, AI-score нигде",
+      "acceptance_criteria": [
+        "Тройка чисел (подтверждено/требует проверки/не подтверждено) считается всегда",
+        "mandatory_coverage = null при наличии needs_check, дробь появляется после закрытия спорных",
+        "desired_coverage считается отдельно; AI-score отсутствует в API и UI"
+      ],
+      "test_steps": [
+        "Шаг 1: при наличии спорных — тройка чисел, coverage=null",
+        "Шаг 2: закрыть все спорные — появляется дробь mandatory_coverage",
+        "Шаг 3: проверить, что API не отдаёт единый балл/AI-score"
+      ],
+      "dependencies": ["TASK-018"],
+      "status": "pending"
+    },
+    {
+      "id": "TASK-020",
+      "category": "functional",
+      "priority": "critical",
+      "description": "Сборка InterviewResult: агрегация TopicAssessment в результат с фиксацией версий",
+      "acceptance_criteria": [
+        "Агрегирует все TopicAssessment кандидата в InterviewResult",
+        "Фиксирует vacancy_version, model_version, prompt_version",
+        "Идемпотентен при повторном пересчёте"
+      ],
+      "test_steps": [
+        "Шаг 1: вызвать сборку по кандидату — создаётся запись InterviewResult",
+        "Шаг 2: проверить, что поля версий заполнены",
+        "Шаг 3: повторный вызов не создаёт дубликат"
+      ],
+      "dependencies": ["TASK-016", "TASK-018", "TASK-019"],
+      "status": "pending"
+    },
+    {
+      "id": "TASK-021",
+      "category": "functional",
+      "priority": "critical",
+      "description": "Batch-runner оценки существующих транскриптов без видео (scripts/batch_eval.py) — ключ Этапа 1 PRD",
+      "acceptance_criteria": [
+        "Читает 20-30 транскриптов из JSON/CSV по топикам",
+        "Выдаёт статус и рекомендацию по каждому",
+        "Работает без записи видео (только транскрипты)"
+      ],
+      "test_steps": [
+        "Шаг 1: запустить batch_eval.py на sample-файле — получить выходной отчёт",
+        "Шаг 2: проверить статусы вручную на 2-3 примерах",
+        "Шаг 3: повторный запуск при том же prompt_version даёт тот же результат"
+      ],
+      "dependencies": ["TASK-020"],
+      "status": "pending"
+    },
+    {
+      "id": "TASK-022",
+      "category": "functional",
+      "priority": "high",
+      "description": "Харнесс сравнения с экспертной разметкой (scripts/compare_expert.py) — метрика 80% совпадений",
+      "acceptance_criteria": [
+        "Считает долю совпадений system-рекомендации с экспертом",
+        "Строит confusion matrix по трём классам",
+        "Сравнивает system_status, а не правленый статус (раздел 11.1)"
+      ],
+      "test_steps": [
+        "Шаг 1: прогнать на размеченном sample — получить % совпадений",
+        "Шаг 2: проверить корректность confusion matrix",
+        "Шаг 3: подменить одну метку — % совпадений меняется корректно"
+      ],
+      "dependencies": ["TASK-021"],
+      "status": "pending"
+    },
+    {
+      "id": "TASK-023",
+      "category": "security",
+      "priority": "high",
+      "description": "Внутренняя JWT-аутентификация ролей (рекрутер, техспециалист, нанимающий менеджер)",
+      "acceptance_criteria": [
+        "Выдача и валидация JWT работают",
+        "Роль присутствует в claims токена",
+        "Protected-эндпоинт отклоняет запрос без токена"
+      ],
+      "test_steps": [
+        "Шаг 1: логин — получить токен",
+        "Шаг 2: запрос без токена -> 401",
+        "Шаг 3: запрос с валидным токеном -> 200"
+      ],
+      "dependencies": ["TASK-002"],
+      "status": "pending"
+    },
+    {
+      "id": "TASK-024",
+      "category": "security",
+      "priority": "high",
+      "description": "RBAC по матрице прав (раздел 2.5): рекрутер настраивает всё, но не меняет статусы; hard->техспец, soft->НМ",
+      "acceptance_criteria": [
+        "Рекрутер не может менять статус топика (403)",
+        "Hard-статус меняет только техспециалист, soft — только нанимающий менеджер",
+        "Выпуск ссылки доступен только рекрутеру"
+      ],
+      "test_steps": [
+        "Шаг 1: рекрутером PATCH статуса -> 403",
+        "Шаг 2: техспецом hard -> 200, soft -> 403",
+        "Шаг 3: нанимающим менеджером soft -> 200, hard -> 403"
+      ],
+      "dependencies": ["TASK-023"],
+      "status": "pending"
+    },
+    {
+      "id": "TASK-025",
+      "category": "security",
+      "priority": "critical",
+      "description": "Магические ссылки кандидата + короткоживущая JWT-сессия (Р20): одноразовый токен, 7 дней",
+      "acceptance_criteria": [
+        "Валидный токен обменивается на сессию, кандидат не регистрируется",
+        "Истёкший или отозванный токен -> отказ",
+        "Повторное использование после отправки -> отказ"
+      ],
+      "test_steps": [
+        "Шаг 1: открыть по токену — получить доступ",
+        "Шаг 2: отозвать ссылку -> 403",
+        "Шаг 3: протухший expires_at -> 403"
+      ],
+      "dependencies": ["TASK-023", "TASK-005"],
+      "status": "pending"
+    },
+    {
+      "id": "TASK-026",
+      "category": "functional",
+      "priority": "high",
+      "description": "API выпуска и отзыва ссылки интервью: InterviewLink на кандидата (+7 дней), гашение при отправке",
+      "acceptance_criteria": [
+        "Выпуск создаёт token и expires_at (+7 дней)",
+        "Отзыв устанавливает revoked=true",
+        "used_at заполняется при отправке интервью"
+      ],
+      "test_steps": [
+        "Шаг 1: POST link — получить token",
+        "Шаг 2: revoke — GET показывает revoked=true",
+        "Шаг 3: после submit used_at заполнен"
+      ],
+      "dependencies": ["TASK-024", "TASK-025"],
+      "status": "pending"
+    },
+    {
+      "id": "TASK-027",
+      "category": "security",
+      "priority": "critical",
+      "description": "Экран согласия на запись и обработку ПДн с фиксацией времени (раздел 8), без него нельзя продолжить",
+      "acceptance_criteria": [
+        "Без согласия невозможно продолжить интервью",
+        "consent_given_at сохраняется в БД",
+        "Текст согласия отображается кандидату"
+      ],
+      "test_steps": [
+        "Шаг 1: попытка пропустить согласие — блокируется",
+        "Шаг 2: принять согласие — в БД появляется timestamp",
+        "Шаг 3: кандидат переходит к проверке оборудования"
+      ],
+      "dependencies": ["TASK-025", "TASK-010"],
+      "status": "pending"
+    },
+    {
+      "id": "TASK-028",
+      "category": "ui",
+      "priority": "high",
+      "description": "Экран проверки камеры и микрофона с тестовой записью (MediaRecorder)",
+      "acceptance_criteria": [
+        "Запрос доступа к камере и микрофону",
+        "Тестовая запись воспроизводится в превью",
+        "Блокировка/предупреждение при отсутствии устройств"
+      ],
+      "test_steps": [
+        "Шаг 1: открыть экран — появляется запрос прав",
+        "Шаг 2: записать 3 секунды — превью воспроизводится",
+        "Шаг 3: отключить микрофон — показывается предупреждение"
+      ],
+      "dependencies": ["TASK-027"],
+      "status": "pending"
+    },
+    {
+      "id": "TASK-029",
+      "category": "integration",
+      "priority": "high",
+      "description": "TTS-интеграция SpeechKit с кешированием ядра вопросов в S3",
+      "acceptance_criteria": [
+        "Генерирует TTS-аудио для вопроса",
+        "core-вопросы кешируются в S3 и переиспользуются",
+        "Промах кеша генерирует аудио и сохраняет его"
+      ],
+      "test_steps": [
+        "Шаг 1: запросить озвучку core-вопроса — получить аудио",
+        "Шаг 2: повторный запрос отдаёт из кеша без нового вызова TTS",
+        "Шаг 3: персональный вопрос — новая генерация"
+      ],
+      "dependencies": ["TASK-008", "TASK-014"],
+      "status": "pending"
+    },
+    {
+      "id": "TASK-030",
+      "category": "ui",
+      "priority": "high",
+      "description": "UI прохождения интервью: показ вопроса текстом+TTS и таймер, стартующий после озвучки (Р9/Р10)",
+      "acceptance_criteria": [
+        "Таймер стартует после окончания озвучки вопроса",
+        "Корректные лимиты: 2 минуты основной, 1 минута уточнение",
+        "Видимый индикатор записи и обратного отсчёта"
+      ],
+      "test_steps": [
+        "Шаг 1: вопрос звучит — таймер стартует только после окончания озвучки",
+        "Шаг 2: основной вопрос = 120с, уточнение = 60с",
+        "Шаг 3: индикатор REC виден во время записи"
+      ],
+      "dependencies": ["TASK-028", "TASK-029"],
+      "status": "pending"
+    },
+    {
+      "id": "TASK-031",
+      "category": "functional",
+      "priority": "high",
+      "description": "Запись ответа MediaRecorder и чанковая загрузка на frontend (useRecorder/useChunkUpload)",
+      "acceptance_criteria": [
+        "Чанки уходят на сервер по ходу записи, не одним файлом в конце",
+        "Видео и аудио дорожки сохраняются раздельно",
+        "Явное подтверждение сохранения каждого ответа"
+      ],
+      "test_steps": [
+        "Шаг 1: записать ответ — в network видны последовательные чанки",
+        "Шаг 2: в S3 появляются части ответа",
+        "Шаг 3: UI показывает «ответ сохранён»"
+      ],
+      "dependencies": ["TASK-030", "TASK-032"],
+      "status": "pending"
+    },
+    {
+      "id": "TASK-032",
+      "category": "integration",
+      "priority": "high",
+      "description": "Backend приёма чанков и сборки в S3, создание Answer со статусом recorded",
+      "acceptance_criteria": [
+        "Эндпоинт принимает последовательные чанки (multipart)",
+        "Собирает финальный объект в S3",
+        "Создаёт Answer с video_url/audio_url, duration_sec, processing_status=recorded"
+      ],
+      "test_steps": [
+        "Шаг 1: отправить 3 чанка -> 200",
+        "Шаг 2: финальный объект в бакете корректен",
+        "Шаг 3: Answer.processing_status=recorded"
+      ],
+      "dependencies": ["TASK-008", "TASK-025", "TASK-006"],
+      "status": "pending"
+    },
+    {
+      "id": "TASK-033",
+      "category": "functional",
+      "priority": "high",
+      "description": "Восстановление сессии после обрыва (Р11): продолжение с того же вопроса, флаг technically_lost",
+      "acceptance_criteria": [
+        "Повторный вход по той же ссылке возвращает на текущий вопрос",
+        "Недоступные из-за обрыва вопросы помечаются technically_lost",
+        "TTL ссылки соблюдается"
+      ],
+      "test_steps": [
+        "Шаг 1: закрыть вкладку на 3-м вопросе, вернуться — снова 3-й вопрос",
+        "Шаг 2: прервать сессию — вопрос получает флаг technically_lost",
+        "Шаг 3: после истечения expires_at доступа нет"
+      ],
+      "dependencies": ["TASK-032"],
+      "status": "pending"
+    },
+    {
+      "id": "TASK-034",
+      "category": "functional",
+      "priority": "medium",
+      "description": "Пропуск вопроса (Р10) с предупреждением и экран подтверждения отправки с гашением ссылки",
+      "acceptance_criteria": [
+        "Пропуск ставит skipped=true и показывает предупреждение о последствии",
+        "Финальный экран подтверждения после последнего вопроса",
+        "Ссылка гасится (used_at заполнен)"
+      ],
+      "test_steps": [
+        "Шаг 1: пропустить вопрос — Answer.skipped=true",
+        "Шаг 2: завершить интервью — показан экран «отправлено»",
+        "Шаг 3: повторный вход по ссылке — недоступно"
+      ],
+      "dependencies": ["TASK-032", "TASK-026"],
+      "status": "pending"
+    },
+    {
+      "id": "TASK-035",
+      "category": "integration",
+      "priority": "high",
+      "description": "ASR-интеграция SpeechKit (async) со словарём вакансии и сегментами с таймкодами",
+      "acceptance_criteria": [
+        "Возвращает транскрипт и сегменты с таймкодами на уровне фраз",
+        "Применяет пользовательский словарь вакансии",
+        "Корректная обработка ошибки распознавания"
+      ],
+      "test_steps": [
+        "Шаг 1: прогнать тестовое аудио — получить транскрипт",
+        "Шаг 2: термин из словаря распознан верно",
+        "Шаг 3: битое аудио — типизированная ошибка"
+      ],
+      "dependencies": ["TASK-007", "TASK-013"],
+      "status": "pending"
+    },
+    {
+      "id": "TASK-036",
+      "category": "functional",
+      "priority": "high",
+      "description": "Celery-задача транскрибации с сегментами (M5) и детектом пустой/короткой дорожки -> error",
+      "acceptance_criteria": [
+        "Переводит статус recorded->transcribing->ready и пишет transcript_segments",
+        "Пустая или подозрительно короткая дорожка -> processing_status=error",
+        "При error топик получает needs_check, проф. оценка не выставляется"
+      ],
+      "test_steps": [
+        "Шаг 1: поставить задачу — статус transcribing->ready",
+        "Шаг 2: подать тишину — статус error",
+        "Шаг 3: при error топик получает needs_check"
+      ],
+      "dependencies": ["TASK-009", "TASK-035", "TASK-032"],
+      "status": "pending"
+    },
+    {
+      "id": "TASK-037",
+      "category": "integration",
+      "priority": "high",
+      "description": "Celery-задача анализа и оркестрация статусов пайплайна с graceful-обработкой сбоя LLM",
+      "acceptance_criteria": [
+        "Цепочка статусов recorded->transcribing->analyzing->ready видна рекрутеру",
+        "Сбой анализа не блокирует — топик закрывается по имеющимся данным",
+        "По завершении собирается InterviewResult"
+      ],
+      "test_steps": [
+        "Шаг 1: запустить пайплайн end-to-end на ответе -> ready",
+        "Шаг 2: в списке кандидатов виден текущий статус обработки",
+        "Шаг 3: сымитировать сбой LLM — топик закрыт, пайплайн не висит"
+      ],
+      "dependencies": ["TASK-036", "TASK-016", "TASK-020"],
+      "status": "pending"
+    },
+    {
+      "id": "TASK-038",
+      "category": "ui",
+      "priority": "medium",
+      "description": "UI списка кандидатов со статусами обработки и тройкой чисел (без AI-score)",
+      "acceptance_criteria": [
+        "Список кандидатов вакансии со статусами recorded...ready/error",
+        "Тройка чисел на карточке кандидата",
+        "Фильтр по статусу обработки"
+      ],
+      "test_steps": [
+        "Шаг 1: открыть экран — отображается список кандидатов",
+        "Шаг 2: статусы совпадают с данными в БД",
+        "Шаг 3: кандидат в состоянии error визуально помечен"
+      ],
+      "dependencies": ["TASK-010", "TASK-024", "TASK-037"],
+      "status": "pending"
+    },
+    {
+      "id": "TASK-039",
+      "category": "ui",
+      "priority": "high",
+      "description": "UI карточки результата: матрица топиков как главный объект (M7, принцип 1), рекомендация с расшифровкой",
+      "acceptance_criteria": [
+        "Матрица топиков (название, hard/soft, mandatory/desired, статус, автор) первым экраном",
+        "Итоговая рекомендация с расшифровкой правила Р5",
+        "Слои «заявлено в резюме» и «подтверждено в интервью» разведены"
+      ],
+      "test_steps": [
+        "Шаг 1: открыть карточку — первым виден блок матрицы топиков",
+        "Шаг 2: рекомендация показывает, по какому правилу получена",
+        "Шаг 3: AI-score нигде не отображается"
+      ],
+      "dependencies": ["TASK-038", "TASK-020"],
+      "status": "pending"
+    },
+    {
+      "id": "TASK-040",
+      "category": "ui",
+      "priority": "high",
+      "description": "Evidence по топикам и плеер с переходом по таймкоду (принцип 2), логирование просмотра Р19",
+      "acceptance_criteria": [
+        "От статуса переход в один клик к цитате и фрагменту видео",
+        "Плеер прыгает на нужный таймкод",
+        "Факт просмотра видео логируется (Р19)"
+      ],
+      "test_steps": [
+        "Шаг 1: клик по evidence — плеер переходит на нужную секунду",
+        "Шаг 2: цитата подсвечена",
+        "Шаг 3: в логах просмотра появилась запись"
+      ],
+      "dependencies": ["TASK-039"],
+      "status": "pending"
+    },
+    {
+      "id": "TASK-041",
+      "category": "ui",
+      "priority": "medium",
+      "description": "Полный транскрипт с подсветкой цитат и раздельными слоями резюме/интервью (принцип 3)",
+      "acceptance_criteria": [
+        "Транскрипт ответа с сегментами отображается",
+        "Evidence-цитаты подсвечены в транскрипте",
+        "Слои «заявлено в резюме» и «подтверждено в интервью» не смешаны"
+      ],
+      "test_steps": [
+        "Шаг 1: открыть транскрипт — видны сегменты",
+        "Шаг 2: evidence-фраза выделена",
+        "Шаг 3: блок резюме отображается отдельно от интервью"
+      ],
+      "dependencies": ["TASK-040"],
+      "status": "pending"
+    },
+    {
+      "id": "TASK-042",
+      "category": "functional",
+      "priority": "high",
+      "description": "StatusChangeLog append-only и смена статуса экспертом с обязательным комментарием (Р21)",
+      "acceptance_criteria": [
+        "Смена статуса требует обязательный комментарий",
+        "system_status не перезаписывается при смене current_status",
+        "Каждая смена — insert в StatusChangeLog, записи не редактируются/не удаляются"
+      ],
+      "test_steps": [
+        "Шаг 1: сменить статус без комментария -> 422",
+        "Шаг 2: после смены system_status прежний, current_status новый",
+        "Шаг 3: две смены — две записи в StatusChangeLog"
+      ],
+      "dependencies": ["TASK-006", "TASK-024"],
+      "status": "pending"
+    },
+    {
+      "id": "TASK-043",
+      "category": "functional",
+      "priority": "high",
+      "description": "Очередь ревью по ролям (M7, принцип 5): hard->техспец, soft->НМ, сортировка по уверенности",
+      "acceptance_criteria": [
+        "Фильтрация спорных топиков по роли (техспец — hard, НМ — soft)",
+        "Сортировка по confidence: самое неопределённое сверху",
+        "Закрытые статусы уходят из очереди"
+      ],
+      "test_steps": [
+        "Шаг 1: техспец видит только hard-топики со статусом needs_check",
+        "Шаг 2: верх списка — топики с low confidence",
+        "Шаг 3: закрыть топик — исчезает из очереди"
+      ],
+      "dependencies": ["TASK-042", "TASK-024"],
+      "status": "pending"
+    },
+    {
+      "id": "TASK-044",
+      "category": "ui",
+      "priority": "medium",
+      "description": "UI очереди ревью по роли с контекстом топика и формой смены статуса",
+      "acceptance_criteria": [
+        "Очередь отфильтрована по роли пользователя",
+        "При открытии топика видны вопрос, ответ, цитата и причина неопределённости",
+        "Смена статуса с обязательным комментарием проходит"
+      ],
+      "test_steps": [
+        "Шаг 1: войти техспециалистом — отображается hard-очередь",
+        "Шаг 2: открыть топик — виден полный контекст",
+        "Шаг 3: сменить статус — карточка результата обновилась"
+      ],
+      "dependencies": ["TASK-043", "TASK-040"],
+      "status": "pending"
+    },
+    {
+      "id": "TASK-045",
+      "category": "functional",
+      "priority": "high",
+      "description": "Адаптивные уточняющие вопросы (M4): синхронное решение быстрым LLM <=5с на коротком контексте, правила Р12",
+      "acceptance_criteria": [
+        "Задаёт уточнение при слишком общем ответе / отсутствии примера / неясном вкладе",
+        "Не задаёт по 4 условиям Р12 (статус определён, лимит, нет новизны, нет опыта)",
+        "Максимум 2 уточнения; сбой генерации -> топик закрывается по имеющимся данным"
+      ],
+      "test_steps": [
+        "Шаг 1: общий ответ — приходит follow_up-вопрос",
+        "Шаг 2: явное «нет опыта» — уточнение не задаётся",
+        "Шаг 3: после 2 уточнений уточнения прекращаются"
+      ],
+      "dependencies": ["TASK-016", "TASK-030"],
+      "status": "pending"
+    },
+    {
+      "id": "TASK-046",
+      "category": "functional",
+      "priority": "medium",
+      "description": "Экран продуктовых метрик (раздел 11.2): доли статусов, ревью, completion rate, доля сбоев",
+      "acceptance_criteria": [
+        "Считает доли статусов (подтверждено/требует проверки/не подтверждено)",
+        "Доля топиков, изменивших статус после ревью, и направление",
+        "completion rate интервью и доля технических сбоев"
+      ],
+      "test_steps": [
+        "Шаг 1: открыть экран — метрики на тестовых данных",
+        "Шаг 2: изменить статус — метрика ревью обновилась",
+        "Шаг 3: прерванное интервью снижает completion rate"
+      ],
+      "dependencies": ["TASK-042", "TASK-038"],
+      "status": "pending"
+    },
+    {
+      "id": "TASK-047",
+      "category": "security",
+      "priority": "medium",
+      "description": "Логирование просмотров видео (Р19) и отзываемая ссылка на результат на 30 дней",
+      "acceptance_criteria": [
+        "Каждый просмотр видео логируется (кто/когда)",
+        "Ссылка на результат живёт 30 дней и отзывается вручную",
+        "Аудит просмотров доступен всем трём внутренним ролям"
+      ],
+      "test_steps": [
+        "Шаг 1: открыть видео — появляется запись в логе просмотров",
+        "Шаг 2: отозвать ссылку результата -> 403",
+        "Шаг 3: через API виден аудит просмотров"
+      ],
+      "dependencies": ["TASK-040", "TASK-024"],
+      "status": "pending"
+    },
+    {
+      "id": "TASK-048",
+      "category": "security",
+      "priority": "medium",
+      "description": "Автоудаление по ретенции 6 месяцев (Р18) через Celery-beat, сохранение обезличенных агрегатов",
+      "acceptance_criteria": [
+        "Периодическая задача удаляет видео/аудио/транскрипты/резюме старше 6 месяцев",
+        "Обезличенные агрегаты без ПДн сохраняются дольше",
+        "Досрочное удаление данных кандидата по запросу"
+      ],
+      "test_steps": [
+        "Шаг 1: выставить дату старше 6 мес — объекты удаляются из S3 и БД",
+        "Шаг 2: InterviewResult-агрегат без ПДн сохранён",
+        "Шаг 3: запрос на удаление кандидата — данные стёрты, факт удаления залогирован"
+      ],
+      "dependencies": ["TASK-009", "TASK-008", "TASK-006"],
+      "status": "pending"
+    }
+  ]
+}
