@@ -1,6 +1,7 @@
 import { FormEvent, useEffect, useState } from "react";
 import { Navigate, useLocation, useNavigate } from "react-router-dom";
 
+import { EquipmentCheck } from "../components/EquipmentCheck";
 import { candidateApi } from "../api/client";
 
 const SESSION_KEY = "candidate-session";
@@ -77,14 +78,7 @@ export function CandidatePage() {
 
   if (location.pathname === "/interview/equipment") {
     if (!consented) return <Navigate to="/interview/consent" replace />;
-    return (
-      <main>
-        <p>Шаг 2 · Подготовка</p>
-        <h1>Проверка камеры и микрофона</h1>
-        <p>Согласие сохранено. Следующий шаг — проверка оборудования перед интервью.</p>
-        <p>Проверка оборудования пока недоступна.</p>
-      </main>
-    );
+    return <EquipmentCheck />;
   }
 
   return (
