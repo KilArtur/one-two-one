@@ -41,17 +41,19 @@ codex login             # для Codex   (или задать OPENAI_API_KEY / A
 в `CLAUDE.md` (раздел «Рабочий процесс»). Автоматический прогон циклом Ralph:
 
 ```bash
-./ralph.sh 5 codex     # выполнить 5 задач через Codex
-./ralph.sh 3 claude    # выполнить 3 задачи через Claude
+./ralph.sh 5 codex artur   # выполнить 5 задач через Codex, исполнитель artur
+./ralph.sh 3 claude zakhar # выполнить 3 задачи через Claude, исполнитель zakhar
 ./ralph.sh             # все оставшиеся задачи, агент — автоопределение
 ./ralph.sh --help      # справка
 ```
 
 Скрипт берёт `pending`-задачи с наивысшим приоритетом, проверяет их зависимости,
 прогоняет линт/тесты, помечает выполненные `done` и пишет заметки в `progress.md`.
+Если есть `task-owners.json`, Ralph выдаёт разработчику только его задачи.
 
 ## Совместная работа
 
 Двое (и больше) могут вести разработку параллельно: каждый берёт свою порцию задач,
-`ralph.sh` продвигает статусы в `tasks.json`, прогресс фиксируется в git и `progress.md`.
-Чтобы не пересекаться — согласуйте, кто какие задачи/эпики берёт, и работайте в ветках от `main`.
+`ralph.sh` бронирует задачи через `status: in_progress` + `assignee`, продвигает их до `done`, а прогресс фиксируется в git и `progress.md`.
+Для схемы `artur + zakhar` используйте [`docs/parallel-workflow.md`](/home/artur/projects/one-two-one/docs/parallel-workflow.md):
+там есть готовые ветки, разделение задач и команды для merge через `integration/arthur-zakhar`.
