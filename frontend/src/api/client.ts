@@ -47,3 +47,26 @@ export const candidateApi = {
   acceptConsent: (token: string) => candidateRequest<ConsentResponse>("consent", token, { accepted: true }),
   equipmentAccess: (token: string) => candidateRequest<ConsentResponse>("equipment-check", token),
 };
+
+
+export interface InterviewQuestion {
+  id: string;
+  type: "core" | "personal" | "follow_up";
+  text: string;
+}
+
+export async function getInterviewQuestions(token: string, signal?: AbortSignal): Promise<InterviewQuestion[]> {
+  const response = await fetch(`${API_BASE_URL}/candidate-interview/questions`, {
+    headers: { Authorization: `Bearer ${token}` }, signal,
+  });
+  if (!response.ok) throw new Error("Не удалось открыть вопросы. Проверьте приглашение или обратитесь к рекрутеру.");
+  return response.json() as Promise<InterviewQuestion[]>;
+}
+
+export async function getQuestionAudio(token: string, questionId: string, signal: AbortSignal): Promise<Response> {
+  const response = await fetch(`${API_BASE_URL}/candidate-interview/questions/${questionId}/audio`, {
+    headers: { Authorization: `Bearer ${token}` }, signal,
+  });
+  if (!response.ok) throw new Error("Озвучка недоступна. Попробуйте ещё раз.");
+  return response;
+}

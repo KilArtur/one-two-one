@@ -2,7 +2,7 @@
 
 import hashlib
 import json
-from collections.abc import AsyncIterator
+from collections.abc import AsyncGenerator
 from contextlib import aclosing
 from typing import Protocol
 
@@ -36,7 +36,7 @@ class QuestionAudioService:
         digest = hashlib.sha256(identity.encode()).hexdigest()
         return f"tts/core/v1/{digest}.mp3"
 
-    async def stream_audio(self, question: Question) -> AsyncIterator[bytes]:
+    async def stream_audio(self, question: Question) -> AsyncGenerator[bytes, None]:
         """Кеширует только полностью полученное аудио core-вопросов."""
         key = self.cache_key(question) if question.type == QuestionType.CORE else None
         if key:

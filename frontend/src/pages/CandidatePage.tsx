@@ -2,6 +2,7 @@ import { FormEvent, useEffect, useState } from "react";
 import { Navigate, useLocation, useNavigate } from "react-router-dom";
 
 import { EquipmentCheck } from "../components/EquipmentCheck";
+import { InterviewPage } from "./InterviewPage";
 import { candidateApi } from "../api/client";
 
 const SESSION_KEY = "candidate-session";
@@ -78,7 +79,12 @@ export function CandidatePage() {
 
   if (location.pathname === "/interview/equipment") {
     if (!consented) return <Navigate to="/interview/consent" replace />;
-    return <EquipmentCheck />;
+    return <EquipmentCheck onContinue={() => navigate("/interview/session")} />;
+  }
+
+  if (location.pathname === "/interview/session") {
+    if (!consented || !token) return <Navigate to="/interview/consent" replace />;
+    return <InterviewPage token={token} />;
   }
 
   return (

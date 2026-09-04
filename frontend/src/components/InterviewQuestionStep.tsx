@@ -1,0 +1,162 @@
+import { useEffect, useRef, useState } from "react";
+
+import { getQuestionAudio, InterviewQuestion } from "../api/client";
+import { attachQuestionAudio } from "../hooks/questionAudio";
+
+type Phase = "preparing" | "speaking" | "recording" | "stopping" | "recorded" | "error";
+
+export function InterviewQuestionStep({ question, token, onRecorded }: {
+  question: InterviewQuestion; token: string; onRecorded: (blob: Blob) => void;
+}) {
+  const limit = question.type === "follow_up" ? 60 : 120;
+  const [remaining, setRemaining] = useState(limit);
+  const [phase, setPhase] = useState<Phase>("preparing");
+  const [error, setError] = useState("");
+  const [needsPlay, setNeedsPlay] = useState(false);
+  const [attempt, setAttempt] = useState(0);
+  const [canRetry, setCanRetry] = useState(true);
+  const player = useRef<HTMLAudioElement>(null);
+  const camera = useRef<HTMLVideoElement>(null);
+  const stop = useRef<() => void>(() => undefined);
+  const recorded = useRef(onRecorded);
+  recorded.current = onRecorded;
+
+  useEffect(() => {
+    const controller = new AbortController();
+    let active = true;
+    let media: MediaStream | null = null;
+    let recorder: MediaRecorder | null = null;
+    let audioUrl: string | null = null;
+    let interval: ReturnType<typeof setInterval> | undefined;
+    let timeout: ReturnType<typeof setTimeout> | undefined;
+    let started = false;
+    let failed = false;
+    let playAttempted = false;
+    const audio = player.current!;
+    const chunks: Blob[] = [];
+    setPhase("preparing");
+    setRemaining(limit);
+    setError("");
+    setNeedsPlay(false);
+    setCanRetry(true);
+
+    function clearTimers() { clearInterval(interval); clearTimeout(timeout); }
+    function fail(message: string) {
+      if (!active || failed) return;
+      failed = true;
+      clearTimers();
+      controller.abort();
+      audio.pause();
+      if (recorder && recorder.state !== "inactive") recorder.stop();
+      media?.getTracks().forEach((track) => track.stop());
+      setCanRetry(!started);
+      setNeedsPlay(false);
+      setError(message);
+      setPhase("error");
+    }
+    function lostDevice() { fail("Камера или микрофон отключены. Запись ответа прервана."); }
+    stop.current = () => {
+      if (recorder?.state === "recording") {
+        clearTimers();
+        setPhase("stopping");
+        recorder.stop();
+      }
+    };
+    audio.oncanplay = () => {
+      if (playAttempted || failed || !active) return;
+      playAttempted = true;
+      setPhase("speaking");
+      void audio.play().catch(() => { if (active && !failed) setNeedsPlay(true); });
+    };
+    audio.onerror = () => fail("Не удалось воспроизвести вопрос. Повторите озвучку.");
+    audio.onended = () => {
+      if (!active || failed || started || !media) return;
+      try {
+        recorder = new MediaRecorder(media);
+        recorder.ondataavailable = (event) => { if (event.data.size) chunks.push(event.data); };
+        recorder.onstart = () => {
+          if (!active || failed) return;
+          const deadline = Date.now() + limit * 1000;
+          setPhase("recording");
+          setCanRetry(false);
+          const tick = () => {
+            const seconds = Math.max(0, Math.ceil((deadline - Date.now()) / 1000));
+            setRemaining(seconds);
+            if (seconds === 0) stop.current();
+          };
+          interval = setInterval(tick, 250);
+          timeout = setTimeout(tick, limit * 1000);
+        };
+        recorder.onerror = () => fail("Ошибка записи ответа. Обратитесь к рекрутеру.");
+        recorder.onstop = () => {
+          clearTimers();
+          if (!active || failed) return;
+          const blob = new Blob(chunks, { type: recorder?.mimeType || "video/webm" });
+          if (!blob.size) { fail("Запись ответа пуста. Обратитесь к рекрутеру."); return; }
+          media?.getTracks().forEach((track) => track.stop());
+          setPhase("recorded");
+          recorded.current(blob);
+        };
+        recorder.start();
+        started = true;
+      } catch { fail("Не удалось начать запись ответа. Проверьте устройства и повторите озвучку."); }
+    };
+    async function prepare() {
+      try {
+        if (!navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === "undefined") {
+          throw new Error("Браузер не поддерживает запись. Используйте современный браузер и HTTPS.");
+        }
+        media = await navigator.mediaDevices.getUserMedia({ audio: true, video: true });
+        if (!active) { media.getTracks().forEach((track) => track.stop()); return; }
+        if (!media.getAudioTracks().length || !media.getVideoTracks().length ||
+            media.getTracks().some((track) => track.readyState !== "live" || track.muted)) {
+          throw new Error("Для ответа нужны работающие камера и микрофон.");
+        }
+        media.getTracks().forEach((track) => {
+          track.addEventListener("ended", lostDevice);
+          track.addEventListener("mute", lostDevice);
+        });
+        if (camera.current) camera.current.srcObject = media;
+        const response = await getQuestionAudio(token, question.id, controller.signal);
+        await attachQuestionAudio(audio, response, controller.signal, (url) => { audioUrl = url; });
+      } catch (reason) {
+        if (active && !failed) fail(reason instanceof Error ? reason.message : "Не удалось подготовить вопрос.");
+      }
+    }
+    void prepare();
+    return () => {
+      active = false;
+      controller.abort();
+      clearTimers();
+      audio.onended = audio.oncanplay = audio.onerror = null;
+      audio.pause();
+      audio.removeAttribute("src");
+      audio.load();
+      if (recorder && recorder.state !== "inactive") recorder.stop();
+      media?.getTracks().forEach((track) => {
+        track.removeEventListener("ended", lostDevice);
+        track.removeEventListener("mute", lostDevice);
+        track.stop();
+      });
+      if (audioUrl) URL.revokeObjectURL(audioUrl);
+    };
+  }, [question.id, token, limit, attempt]);
+
+  return <section>
+    <h2>{question.text}</h2>
+    <p>Вопрос озвучен синтезированным голосом. После озвучки запись начнётся автоматически.</p>
+    <audio ref={player} aria-label="Озвучка вопроса" />
+    {needsPlay && <button onClick={() => {
+      void player.current?.play().then(() => setNeedsPlay(false)).catch(() => setNeedsPlay(true));
+    }}>Прослушать вопрос</button>}
+    <video ref={camera} autoPlay muted playsInline aria-label="Камера интервью"
+      style={{ width: "100%", maxHeight: 300, background: "#111" }} />
+    <p role="timer" aria-label="Осталось времени" style={{ fontSize: 32, fontVariantNumeric: "tabular-nums", margin: "12px 0" }}>{Math.floor(remaining / 60)}:{String(remaining % 60).padStart(2, "0")}</p>
+    <p role="status" style={{ color: phase === "recording" ? "#b91c1c" : "inherit", fontWeight: 600 }}>{phase === "recording" ? "● REC — идёт запись ответа" : phase === "speaking"
+      ? "Звучит вопрос — таймер ещё не запущен" : phase === "preparing" ? "Подготавливаем озвучку и устройства…"
+      : phase === "recorded" ? "Ответ записан в этой вкладке" : phase === "stopping" ? "Завершаем запись…" : "Запись остановлена"}</p>
+    {phase === "recording" && <button onClick={() => stop.current()}>Закончить ответ</button>}
+    {error && <p role="alert">{error}</p>}
+    {phase === "error" && canRetry && <button onClick={() => setAttempt(attempt + 1)}>Повторить озвучку</button>}
+  </section>;
+}

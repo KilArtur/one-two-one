@@ -11,7 +11,7 @@ function deviceError(reason: unknown): string {
   return "Не удалось включить камеру и микрофон. Закройте использующие их приложения и повторите проверку.";
 }
 
-export function EquipmentCheck() {
+export function EquipmentCheck({ onContinue }: { onContinue?: () => void }) {
   const liveVideo = useRef<HTMLVideoElement>(null);
   const stream = useRef<MediaStream | null>(null);
   const recorder = useRef<MediaRecorder | null>(null);
@@ -159,6 +159,7 @@ export function EquipmentCheck() {
         <video aria-label="Тестовая запись" src={preview} controls playsInline
           style={{ width: "100%", maxHeight: 360 }} />
         <p>Убедитесь, что вас видно и слышно. Если звука нет, проверьте микрофон и сделайте новую пробу.</p>
+        {onContinue && <button onClick={onContinue} disabled={!ready}>Меня видно и слышно — начать интервью</button>}
       </section>}
     </main>
   );
