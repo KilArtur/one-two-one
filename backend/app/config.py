@@ -28,6 +28,12 @@ class Settings(BaseSettings):
         ]
     )
 
+    # LLM via OpenAI-compatible protocol (OpenRouter / local / other)
+    openai_api_key: str = ""
+    openai_base_url: str = "https://openrouter.ai/api/v1"
+    llm_model: str = "qwen/qwen3-next-80b-a3b-instruct"
+    llm_fast_model: str = "qwen/qwen3-30b-a3b-instruct-2507"
+
     @field_validator("cors_origins", mode="before")
     @classmethod
     def split_cors_origins(cls, value: object) -> object:

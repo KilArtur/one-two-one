@@ -144,3 +144,27 @@
   - Recommendation: `suitable` / `not_suitable` / `needs_additional_check`
   - Unique `(candidate_id, topic_id)` на `topic_assessment`
   - Следующая по critical path: **TASK-007** (LLM-клиент LangChain) или **TASK-015** (зависит от 006)
+
+## TASK-007 — LLM-клиент LangChain ChatOpenAI
+- **Дата:** 2026-09-04
+- **Статус:** done
+- **Что сделано:**
+  - Зависимости: `langchain-openai`, `langchain-core`
+  - `Settings`: `openai_api_key`, `openai_base_url`, `llm_model`, `llm_fast_model` из env
+  - `backend/app/integrations/llm.py` — `LLMClient` на `ChatOpenAI` (quality/fast),
+    `acomplete` / `acomplete_structured` (`with_structured_output`), `LLMResult` +
+    `model_version`/`prompt_version`, типизированный `LLMError`
+  - Тесты: `backend/tests/test_llm.py` (unit + локальный OpenAI-compatible HTTP mock)
+- **Как проверено:**
+  1. `uv run ruff check .` — OK
+  2. `uv run pytest` — 31 passed, 1 skipped
+  3. Шаг 1–2: plain + structured через локальный `/v1/chat/completions` mock
+  4. Шаг 3: смена `OPENAI_BASE_URL`/`LLM_MODEL` только через Settings/env
+  5. Шаг 4: `ConnectionError`/`TimeoutError` → `LLMError` с `cause`
+- **Коммиты:** (после commit)
+- **Заметки:**
+  - Live OpenRouter skipped: в `.env` `OPENAI_API_KEY` содержит не-ASCII (кириллица) —
+    нужен реальный `sk-…` ключ OpenRouter для optional live-теста
+  - Промпты пока передаются строкой + `prompt_version`; загрузчик из `prompts/*.md` —
+    в следующих задачах генерации/оценки
+  - Следующая по critical path: **TASK-011** (или **TASK-015** — детерминированный статус)

@@ -191,7 +191,9 @@
       "dependencies": [
         "TASK-002"
       ],
-      "status": "pending"
+      "status": "done",
+      "assignee": "zakhar",
+      "claimed_at": "2026-09-04T15:56:47.204867+00:00"
     },
     {
       "id": "TASK-008",
