@@ -4,21 +4,28 @@ version = "0.1.0"
 description = "AI interviewer monorepo scaffold"
 readme = "README.md"
 requires-python = ">=3.12"
-dependencies = []
+dependencies = [
+    "fastapi>=0.141.1",
+    "pydantic-settings>=2.15.0",
+    "uvicorn[standard]>=0.52.4",
+]
 
 [dependency-groups]
 dev = [
+  "httpx>=0.28.1",
   "pytest>=8.4.2",
   "ruff>=0.13.0",
 ]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+pythonpath = ["backend"]
 
 [tool.ruff]
 target-version = "py312"
 line-length = 100
 extend-exclude = [".codex-home"]
+src = ["backend"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I"]

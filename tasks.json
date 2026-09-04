@@ -79,7 +79,9 @@
       "dependencies": [
         "TASK-001"
       ],
-      "status": "pending"
+      "status": "done",
+      "assignee": "artur",
+      "claimed_at": "2026-09-04T14:48:27.941284+00:00"
     },
     {
       "id": "TASK-003",

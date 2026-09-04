@@ -35,6 +35,16 @@ codex login             # для Codex   (или задать OPENAI_API_KEY / A
 > Скелет `backend/` и `frontend/` создаётся первыми задачами `tasks.json`
 > (TASK-001…003). До этого репозиторий содержит только план и правила.
 
+## Запуск backend
+
+```bash
+docker compose up -d                                        # postgres + redis
+uv run uvicorn app.main:app --app-dir backend --reload      # API на localhost:8000
+```
+
+`GET /health` — проверка живости, `/docs` — Swagger UI.
+Конфигурация читается из окружения и `.env` (см. `backend/app/config.py`).
+
 ## Разработка по задачам
 
 Работаем **по одной задаче за сессию** из `tasks.json`. Порядок и правила —
