@@ -62,7 +62,9 @@ CRUD вакансий с версионированием матрицы (M1): `
 confidence, флаг в отдельной таблице `stop_factor_flag`). Итоговая рекомендация Р5 —
 детерминированная чистая функция (`services.recommendation.compute_recommendation`);
 Coverage Р4 — тройка чисел + доли `mandatory_coverage`/`desired_coverage`
-(`services.coverage.compute_coverage`), без единого балла/AI-score.
+(`services.coverage.compute_coverage`), без единого балла/AI-score. Сборка результата —
+`services.interview_result.assemble_interview_result` (агрегация TopicAssessment в
+InterviewResult, фиксация версий, идемпотентно по `candidate_id`).
 
 ## Запуск frontend
 
