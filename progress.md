@@ -137,7 +137,7 @@
   3. `alembic upgrade head` → `0004_answer_assessment`
   4. INSERT assessment с evidence jsonb — OK (pytest)
   5. `\d topic_assessment` — есть `system_status` и `current_status` (оба `topic_status`)
-- **Коммиты:** (см. следующий commit)
+- **Коммиты:** d6bfab4
 - **Заметки:**
   - `StatusChangeLog`: запрещены только UPDATE (delete через CASCADE родителя разрешён для очистки)
   - `InterviewResult.candidate_id` — PK (1:1 с candidate), отдельного `id` нет (как в PRD)
