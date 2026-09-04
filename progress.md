@@ -191,3 +191,26 @@
   - Новая версия — новый UUID; клиент берёт id из ответа PATCH
   - Валидация 5–9 топиков — **TASK-012**; здесь число топиков не ограничено
   - Следующая по critical path: **TASK-012** (CRUD топиков + валидация Р8)
+
+## TASK-012 — CRUD топиков + валидация 5–9 (Р8)
+- **Дата:** 2026-09-04
+- **Статус:** done
+- **Что сделано:**
+  - Валидация Р8: матрица топиков 5–9 (пустой draft на create допустим)
+  - CRUD топиков: `GET/POST /vacancies/{id}/topics`,
+    `GET/PATCH/DELETE /vacancies/{id}/topics/{topic_id}`
+  - `TopicUpdate` + снятие `verifiable_by_interview` («вне зоны интервью»)
+  - Active: мутации матрицы по-прежнему версионируются (новый snapshot)
+  - Draft: create/update/delete топика in-place (id стабилен)
+  - Тесты: `backend/tests/test_topics.py`; обновлён `test_vacancies.py` под Р8
+- **Как проверено:**
+  1. `uv run ruff check .` — OK
+  2. `uv run pytest` — 43 passed, 1 skipped
+  3. Шаг 1: POST 7 топиков → 201
+  4. Шаг 2: PATCH/POST <5 топиков → 422
+  5. Шаг 3: PATCH `verifiable_by_interview=false` → сохраняется в GET
+- **Коммиты:** (см. git log после commit)
+- **Заметки:**
+  - Create vacancy с `topics=[]` всё ещё ок (черновик без матрицы)
+  - Active нельзя ужать ниже 5 топиков через DELETE (422)
+  - Следующая по critical path: **TASK-014** (генерация ядра вопросов) или **TASK-013**

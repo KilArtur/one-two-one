@@ -3,6 +3,7 @@
 from app.schemas.vacancy import (
     TopicCreate,
     TopicRead,
+    TopicUpdate,
     VacancyCreate,
     VacancyRead,
     VacancyUpdate,
@@ -11,6 +12,7 @@ from app.schemas.vacancy import (
 __all__ = [
     "TopicCreate",
     "TopicRead",
+    "TopicUpdate",
     "VacancyCreate",
     "VacancyRead",
     "VacancyUpdate",

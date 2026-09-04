@@ -1,12 +1,24 @@
-"""Vacancy and topic API schemas (TASK-011)."""
+"""Vacancy and topic API schemas (TASK-011 / TASK-012)."""
 
 from __future__ import annotations
 
 import uuid
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from app.models.enums import Importance, SkillType, VacancyGrade, VacancyStatus
+
+MIN_TOPICS = 5
+MAX_TOPICS = 9
+
+
+def validate_topic_count(count: int, *, allow_empty: bool = False) -> None:
+    """Enforce R8: interview matrix has 5–9 topics."""
+    if allow_empty and count == 0:
+        return
+    if not MIN_TOPICS <= count <= MAX_TOPICS:
+        msg = f"Topic count must be {MIN_TOPICS}–{MAX_TOPICS} (R8), got {count}"
+        raise ValueError(msg)
 
 
 class TopicCreate(BaseModel):
@@ -19,6 +31,18 @@ class TopicCreate(BaseModel):
     depth_expectations: str = ""
     verifiable_by_interview: bool = True
     order: int = 0
+
+
+class TopicUpdate(BaseModel):
+    """Partial update of a single topic."""
+
+    title: str | None = Field(default=None, min_length=1, max_length=512)
+    skill_type: SkillType | None = None
+    importance: Importance | None = None
+    requirement_description: str | None = None
+    depth_expectations: str | None = None
+    verifiable_by_interview: bool | None = None
+    order: int | None = None
 
 
 class TopicRead(TopicCreate):
@@ -41,6 +65,12 @@ class VacancyCreate(BaseModel):
     status: VacancyStatus = VacancyStatus.DRAFT
     topics: list[TopicCreate] = Field(default_factory=list)
 
+    @field_validator("topics")
+    @classmethod
+    def topics_r8(cls, value: list[TopicCreate]) -> list[TopicCreate]:
+        validate_topic_count(len(value), allow_empty=True)
+        return value
+
 
 class VacancyUpdate(BaseModel):
     """Partial update. Omitting `topics` leaves the matrix unchanged."""
@@ -52,6 +82,13 @@ class VacancyUpdate(BaseModel):
     specialist_profile: str | None = None
     status: VacancyStatus | None = None
     topics: list[TopicCreate] | None = None
+
+    @field_validator("topics")
+    @classmethod
+    def topics_r8(cls, value: list[TopicCreate] | None) -> list[TopicCreate] | None:
+        if value is not None:
+            validate_topic_count(len(value), allow_empty=False)
+        return value
 
 
 class VacancyRead(BaseModel):

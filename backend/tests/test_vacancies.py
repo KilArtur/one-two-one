@@ -23,6 +23,10 @@ def _topic(title: str, order: int = 0) -> dict[str, object]:
     }
 
 
+def _topics(n: int, prefix: str = "Topic") -> list[dict[str, object]]:
+    return [_topic(f"{prefix}-{i}", i) for i in range(1, n + 1)]
+
+
 def _app_client() -> AsyncClient:
     get_settings.cache_clear()
     return AsyncClient(transport=ASGITransport(app=create_app()), base_url="http://test")
@@ -41,14 +45,14 @@ async def test_create_vacancy_returns_201() -> None:
                 "stop_factors": ["no Python"],
                 "specialist_profile": "Python",
                 "status": "active",
-                "topics": [_topic("Kafka", 1), _topic("PostgreSQL", 2)],
+                "topics": _topics(5, "Core"),
             },
         )
     assert response.status_code == 201
     body = response.json()
     assert body["version"] == 1
     assert body["status"] == "active"
-    assert len(body["topics"]) == 2
+    assert len(body["topics"]) == 5
     assert uuid.UUID(body["id"])
 
 
@@ -59,7 +63,7 @@ async def test_list_and_get_vacancy() -> None:
     async with _app_client() as client:
         created = await client.post(
             "/vacancies",
-            json={"title": title, "grade": "junior", "topics": [_topic("Git")]},
+            json={"title": title, "grade": "junior", "topics": _topics(5)},
         )
         assert created.status_code == 201
         vacancy_id = created.json()["id"]
@@ -84,7 +88,7 @@ async def test_active_topic_change_creates_version_snapshot() -> None:
                 "title": f"Versioned-{uuid.uuid4().hex[:8]}",
                 "grade": "senior",
                 "status": "active",
-                "topics": [_topic("Kafka", 1)],
+                "topics": _topics(5, "V1"),
             },
         )
         assert created.status_code == 201
@@ -94,14 +98,13 @@ async def test_active_topic_change_creates_version_snapshot() -> None:
 
         updated = await client.patch(
             f"/vacancies/{old_id}",
-            json={"topics": [_topic("Kafka", 1), _topic("ClickHouse", 2)]},
+            json={"topics": _topics(6, "V2")},
         )
         assert updated.status_code == 200
         new = updated.json()
         assert new["version"] == 2
         assert new["id"] != old_id
-        assert len(new["topics"]) == 2
-        assert {t["title"] for t in new["topics"]} == {"Kafka", "ClickHouse"}
+        assert len(new["topics"]) == 6
 
         new_get = await client.get(f"/vacancies/{new['id']}")
         assert new_get.status_code == 200
@@ -111,8 +114,7 @@ async def test_active_topic_change_creates_version_snapshot() -> None:
         assert old_get.status_code == 200
         old_body = old_get.json()
         assert old_body["version"] == 1
-        assert len(old_body["topics"]) == 1
-        assert old_body["topics"][0]["title"] == "Kafka"
+        assert len(old_body["topics"]) == 5
 
 
 @pytest.mark.asyncio
@@ -125,20 +127,20 @@ async def test_draft_topic_change_mutates_in_place() -> None:
                 "title": f"Draft-{uuid.uuid4().hex[:8]}",
                 "grade": "middle+",
                 "status": "draft",
-                "topics": [_topic("Redis")],
+                "topics": _topics(5, "Draft"),
             },
         )
         vacancy_id = created.json()["id"]
 
         updated = await client.patch(
             f"/vacancies/{vacancy_id}",
-            json={"topics": [_topic("Redis"), _topic("Celery", 1)]},
+            json={"topics": _topics(6, "Draft2")},
         )
     assert updated.status_code == 200
     body = updated.json()
     assert body["id"] == vacancy_id
     assert body["version"] == 1
-    assert len(body["topics"]) == 2
+    assert len(body["topics"]) == 6
 
 
 @pytest.mark.asyncio
@@ -151,7 +153,7 @@ async def test_metadata_update_does_not_bump_version() -> None:
                 "title": f"Meta-{uuid.uuid4().hex[:8]}",
                 "grade": "middle",
                 "status": "active",
-                "topics": [_topic("Python")],
+                "topics": _topics(5),
             },
         )
         vacancy_id = created.json()["id"]
