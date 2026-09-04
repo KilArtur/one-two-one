@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from dataclasses import dataclass
 from functools import lru_cache
 from typing import Any
@@ -46,6 +47,7 @@ class S3StorageError(Exception):
     message: str
     bucket: str
     key: str | None = None
+    code: str | None = None
 
     def __str__(self) -> str:
         return self.message
@@ -78,7 +80,8 @@ class S3StorageClient:
         content_type: str = "application/octet-stream",
     ) -> S3Object:
         """Uploads object bytes into the configured bucket."""
-        response = self._call(
+        response = await asyncio.to_thread(
+            self._call,
             "put_object",
             error_bucket=self._settings.s3_bucket,
             error_key=key,
@@ -95,7 +98,8 @@ class S3StorageClient:
 
     async def get_object_bytes(self, key: str) -> bytes:
         """Downloads object bytes from the configured bucket."""
-        response = self._call(
+        response = await asyncio.to_thread(
+            self._call,
             "get_object",
             error_bucket=self._settings.s3_bucket,
             error_key=key,
@@ -103,7 +107,10 @@ class S3StorageClient:
             Key=key,
         )
         body = response["Body"]
-        return body.read()
+        try:
+            return await asyncio.to_thread(body.read)
+        finally:
+            await asyncio.to_thread(body.close)
 
     async def generate_presigned_get_url(
         self,
@@ -233,6 +240,7 @@ class S3StorageClient:
                 message=f"S3 operation '{operation}' failed",
                 bucket=error_bucket,
                 key=error_key,
+                code=error_code,
             ) from exc
         except BotoCoreError as exc:
             raise S3StorageError(

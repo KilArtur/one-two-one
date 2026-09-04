@@ -163,3 +163,43 @@ def test_client_builds_boto_config_for_minio_path_style() -> None:
     assert session.last_client_kwargs["aws_access_key_id"] == "minioadmin"
     config = session.last_client_kwargs["config"]
     assert getattr(config, "s3") == {"addressing_style": "path"}
+
+
+def test_reads_and_writes_run_off_event_loop_and_close_body() -> None:
+    import threading
+
+    class ThreadCheckingClient(FakeS3Client):
+        body = BytesIO(b"audio")
+
+        def get_object(self, **kwargs: object) -> dict[str, BytesIO]:
+            assert threading.current_thread() is not threading.main_thread()
+            return {"Body": self.body}
+
+        def put_object(self, **kwargs: object) -> dict[str, str]:
+            assert threading.current_thread() is not threading.main_thread()
+            return super().put_object(**kwargs)
+
+    fake = ThreadCheckingClient()
+    client, _ = build_client(fake)
+
+    async def run() -> None:
+        await client.put_object("tts/test.mp3", b"audio")
+        assert await client.get_object_bytes("tts/test.mp3") == b"audio"
+
+    asyncio.run(run())
+    assert fake.body.closed
+
+
+def test_missing_object_preserves_s3_error_code() -> None:
+    import pytest
+
+    from app.integrations.storage import S3StorageError
+
+    class MissingClient(FakeS3Client):
+        def get_object(self, **kwargs: object) -> dict[str, BytesIO]:
+            raise ClientError({"Error": {"Code": "NoSuchKey"}}, "GetObject")
+
+    client, _ = build_client(MissingClient())
+    with pytest.raises(S3StorageError) as error:
+        asyncio.run(client.get_object_bytes("tts/missing.mp3"))
+    assert error.value.code == "NoSuchKey"
