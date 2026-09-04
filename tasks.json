@@ -21,9 +21,24 @@
     ]
   },
   "critical_path": [
-    "TASK-001", "TASK-002", "TASK-003", "TASK-004", "TASK-005", "TASK-006",
-    "TASK-007", "TASK-011", "TASK-012", "TASK-014", "TASK-015", "TASK-016",
-    "TASK-017", "TASK-018", "TASK-019", "TASK-020", "TASK-021", "TASK-022"
+    "TASK-001",
+    "TASK-002",
+    "TASK-003",
+    "TASK-004",
+    "TASK-005",
+    "TASK-006",
+    "TASK-007",
+    "TASK-011",
+    "TASK-012",
+    "TASK-014",
+    "TASK-015",
+    "TASK-016",
+    "TASK-017",
+    "TASK-018",
+    "TASK-019",
+    "TASK-020",
+    "TASK-021",
+    "TASK-022"
   ],
   "tasks": [
     {
@@ -48,7 +63,7 @@
       "id": "TASK-002",
       "category": "infrastructure",
       "priority": "critical",
-      "description": "Скелет FastAPI: app/main.py, config.py (pydantic-settings, регион РФ), CORS, /health",
+      "description": "Скелет FastAPI: app/main.py, config.py (pydantic-settings, чтение .env), CORS, /health",
       "acceptance_criteria": [
         "Сервис стартует через uvicorn без ошибок",
         "GET /health возвращает 200 с {status: ok}",
@@ -59,7 +74,9 @@
         "Шаг 2: curl /health возвращает 200",
         "Шаг 3: открыть /docs — доступен Swagger UI"
       ],
-      "dependencies": ["TASK-001"],
+      "dependencies": [
+        "TASK-001"
+      ],
       "status": "pending"
     },
     {
@@ -77,7 +94,9 @@
         "Шаг 2: пробный эндпоинт делает SELECT 1 и возвращает 200",
         "Шаг 3: откатить ревизию через alembic downgrade"
       ],
-      "dependencies": ["TASK-002"],
+      "dependencies": [
+        "TASK-002"
+      ],
       "status": "pending"
     },
     {
@@ -95,7 +114,9 @@
         "Шаг 2: проверить \\d vacancy и \\d topic — все поля на месте",
         "Шаг 3: вставить вакансию и связанный топик через psql"
       ],
-      "dependencies": ["TASK-003"],
+      "dependencies": [
+        "TASK-003"
+      ],
       "status": "pending"
     },
     {
@@ -113,7 +134,9 @@
         "Шаг 2: вставить candidate и question вручную через psql",
         "Шаг 3: создать follow_up-вопрос с parent_question_id и проверить self-FK"
       ],
-      "dependencies": ["TASK-004"],
+      "dependencies": [
+        "TASK-004"
+      ],
       "status": "pending"
     },
     {
@@ -131,32 +154,38 @@
         "Шаг 2: вставить assessment с evidence в jsonb",
         "Шаг 3: проверить \\d topic_assessment — присутствуют оба статуса"
       ],
-      "dependencies": ["TASK-005"],
+      "dependencies": [
+        "TASK-005"
+      ],
       "status": "pending"
     },
     {
       "id": "TASK-007",
       "category": "integration",
       "priority": "critical",
-      "description": "Обёртка LLM-клиента (YandexGPT Pro/GigaChat) с версионированием model_version/prompt_version",
+      "description": "Обёртка LLM-клиента через LangChain ChatOpenAI (OpenAI-совместимый протокол, OpenRouter) с версионированием",
       "acceptance_criteria": [
-        "Провайдер переключается через env",
-        "Возвращает текст + метаданные версий (model_version, prompt_version)",
-        "При ошибке — типизированное исключение, процесс не падает"
+        "LLM вызывается через LangChain ChatOpenAI с base_url и ключом из env (OPENAI_BASE_URL / OPENAI_API_KEY) — провайдер/модель меняются только через .env",
+        "Отдельные модели для качества (LLM_MODEL) и горячего пути (LLM_FAST_MODEL)",
+        "Структурированный ответ — только через native structured outputs (with_structured_output / JSON schema), без ручного парсинга JSON",
+        "Возвращает результат + метаданные версий (model_version, prompt_version); при ошибке — типизированное исключение, процесс не падает"
       ],
       "test_steps": [
-        "Шаг 1: вызвать complete() с тестовым промптом — получить ответ",
-        "Шаг 2: переключить провайдера через env — работает",
-        "Шаг 3: сымитировать ошибку сети — получить корректное типизированное исключение"
+        "Шаг 1: вызвать клиент с тестовым промптом на OpenRouter — получить ответ",
+        "Шаг 2: запросить структурированный ответ по Pydantic-схеме — получить валидный объект без ручного парсинга",
+        "Шаг 3: сменить LLM_MODEL/OPENAI_BASE_URL в .env (напр. на локальный endpoint) — код не меняется, вызов работает",
+        "Шаг 4: сымитировать ошибку сети — получить корректное типизированное исключение"
       ],
-      "dependencies": ["TASK-002"],
+      "dependencies": [
+        "TASK-002"
+      ],
       "status": "pending"
     },
     {
       "id": "TASK-008",
       "category": "integration",
       "priority": "high",
-      "description": "Обёртка S3-хранилища (Yandex Object Storage) с presigned URL и multipart, dev через MinIO",
+      "description": "Обёртка S3-хранилища (AWS S3, dev через MinIO) с presigned URL и multipart",
       "acceptance_criteria": [
         "Загрузка и скачивание объекта работают",
         "Presigned URL валиден и открывается",
@@ -167,7 +196,9 @@
         "Шаг 2: get возвращает тот же байт-контент",
         "Шаг 3: открыть presigned URL в браузере — файл доступен"
       ],
-      "dependencies": ["TASK-001"],
+      "dependencies": [
+        "TASK-001"
+      ],
       "status": "pending"
     },
     {
@@ -185,7 +216,9 @@
         "Шаг 2: поставить debug_task.delay() — задача выполняется",
         "Шаг 3: проверить статус выполнения в логах"
       ],
-      "dependencies": ["TASK-001"],
+      "dependencies": [
+        "TASK-001"
+      ],
       "status": "pending"
     },
     {
@@ -203,7 +236,9 @@
         "Шаг 2: кнопка вызывает /health и выводит ok",
         "Шаг 3: перейти по роуту на вторую страницу"
       ],
-      "dependencies": ["TASK-002"],
+      "dependencies": [
+        "TASK-002"
+      ],
       "status": "pending"
     },
     {
@@ -221,7 +256,9 @@
         "Шаг 2: изменить состав топиков — GET показывает version=2",
         "Шаг 3: прочитать прежнюю версию по id — доступна"
       ],
-      "dependencies": ["TASK-004"],
+      "dependencies": [
+        "TASK-004"
+      ],
       "status": "pending"
     },
     {
@@ -239,7 +276,10 @@
         "Шаг 2: попытка сохранить менее 5 топиков — получить 422",
         "Шаг 3: снять verifiable_by_interview — изменение сохраняется"
       ],
-      "dependencies": ["TASK-004", "TASK-011"],
+      "dependencies": [
+        "TASK-004",
+        "TASK-011"
+      ],
       "status": "pending"
     },
     {
@@ -257,7 +297,9 @@
         "Шаг 2: создать топик «Kafka» — термин предложен автоматически",
         "Шаг 3: удалить термин из словаря"
       ],
-      "dependencies": ["TASK-012"],
+      "dependencies": [
+        "TASK-012"
+      ],
       "status": "pending"
     },
     {
@@ -275,7 +317,10 @@
         "Шаг 2: каждый имеет pattern из {technical, experience, reasoning}",
         "Шаг 3: повторный вызов не дублирует вопросы"
       ],
-      "dependencies": ["TASK-007", "TASK-012"],
+      "dependencies": [
+        "TASK-007",
+        "TASK-012"
+      ],
       "status": "pending"
     },
     {
@@ -293,7 +338,9 @@
         "Шаг 2: unit — явное «нет опыта» -> not_confirmed",
         "Шаг 3: unit — средняя уверенность -> needs_check"
       ],
-      "dependencies": ["TASK-006"],
+      "dependencies": [
+        "TASK-006"
+      ],
       "status": "pending"
     },
     {
@@ -311,7 +358,10 @@
         "Шаг 2: ответ с упоминанием чужой технологии — она не влияет на статус",
         "Шаг 3: проверить, что system_status зафиксирован отдельно от current_status"
       ],
-      "dependencies": ["TASK-007", "TASK-015"],
+      "dependencies": [
+        "TASK-007",
+        "TASK-015"
+      ],
       "status": "pending"
     },
     {
@@ -329,7 +379,9 @@
         "Шаг 2: размытый ответ — стоп-фактор не срабатывает",
         "Шаг 3: проверить наличие evidence с таймкодом"
       ],
-      "dependencies": ["TASK-016"],
+      "dependencies": [
+        "TASK-016"
+      ],
       "status": "pending"
     },
     {
@@ -347,7 +399,10 @@
         "Шаг 2: unit — один обязательный needs_check -> «требуется доп. проверка»",
         "Шаг 3: unit — все обязательные confirmed -> «подходит»"
       ],
-      "dependencies": ["TASK-015", "TASK-017"],
+      "dependencies": [
+        "TASK-015",
+        "TASK-017"
+      ],
       "status": "pending"
     },
     {
@@ -365,7 +420,9 @@
         "Шаг 2: закрыть все спорные — появляется дробь mandatory_coverage",
         "Шаг 3: проверить, что API не отдаёт единый балл/AI-score"
       ],
-      "dependencies": ["TASK-018"],
+      "dependencies": [
+        "TASK-018"
+      ],
       "status": "pending"
     },
     {
@@ -383,7 +440,11 @@
         "Шаг 2: проверить, что поля версий заполнены",
         "Шаг 3: повторный вызов не создаёт дубликат"
       ],
-      "dependencies": ["TASK-016", "TASK-018", "TASK-019"],
+      "dependencies": [
+        "TASK-016",
+        "TASK-018",
+        "TASK-019"
+      ],
       "status": "pending"
     },
     {
@@ -401,7 +462,9 @@
         "Шаг 2: проверить статусы вручную на 2-3 примерах",
         "Шаг 3: повторный запуск при том же prompt_version даёт тот же результат"
       ],
-      "dependencies": ["TASK-020"],
+      "dependencies": [
+        "TASK-020"
+      ],
       "status": "pending"
     },
     {
@@ -419,7 +482,9 @@
         "Шаг 2: проверить корректность confusion matrix",
         "Шаг 3: подменить одну метку — % совпадений меняется корректно"
       ],
-      "dependencies": ["TASK-021"],
+      "dependencies": [
+        "TASK-021"
+      ],
       "status": "pending"
     },
     {
@@ -437,7 +502,9 @@
         "Шаг 2: запрос без токена -> 401",
         "Шаг 3: запрос с валидным токеном -> 200"
       ],
-      "dependencies": ["TASK-002"],
+      "dependencies": [
+        "TASK-002"
+      ],
       "status": "pending"
     },
     {
@@ -455,7 +522,9 @@
         "Шаг 2: техспецом hard -> 200, soft -> 403",
         "Шаг 3: нанимающим менеджером soft -> 200, hard -> 403"
       ],
-      "dependencies": ["TASK-023"],
+      "dependencies": [
+        "TASK-023"
+      ],
       "status": "pending"
     },
     {
@@ -473,7 +542,10 @@
         "Шаг 2: отозвать ссылку -> 403",
         "Шаг 3: протухший expires_at -> 403"
       ],
-      "dependencies": ["TASK-023", "TASK-005"],
+      "dependencies": [
+        "TASK-023",
+        "TASK-005"
+      ],
       "status": "pending"
     },
     {
@@ -491,7 +563,10 @@
         "Шаг 2: revoke — GET показывает revoked=true",
         "Шаг 3: после submit used_at заполнен"
       ],
-      "dependencies": ["TASK-024", "TASK-025"],
+      "dependencies": [
+        "TASK-024",
+        "TASK-025"
+      ],
       "status": "pending"
     },
     {
@@ -509,7 +584,10 @@
         "Шаг 2: принять согласие — в БД появляется timestamp",
         "Шаг 3: кандидат переходит к проверке оборудования"
       ],
-      "dependencies": ["TASK-025", "TASK-010"],
+      "dependencies": [
+        "TASK-025",
+        "TASK-010"
+      ],
       "status": "pending"
     },
     {
@@ -527,14 +605,16 @@
         "Шаг 2: записать 3 секунды — превью воспроизводится",
         "Шаг 3: отключить микрофон — показывается предупреждение"
       ],
-      "dependencies": ["TASK-027"],
+      "dependencies": [
+        "TASK-027"
+      ],
       "status": "pending"
     },
     {
       "id": "TASK-029",
       "category": "integration",
       "priority": "high",
-      "description": "TTS-интеграция SpeechKit с кешированием ядра вопросов в S3",
+      "description": "TTS-интеграция OpenAI (tts-1) с кешированием ядра вопросов в S3",
       "acceptance_criteria": [
         "Генерирует TTS-аудио для вопроса",
         "core-вопросы кешируются в S3 и переиспользуются",
@@ -545,7 +625,10 @@
         "Шаг 2: повторный запрос отдаёт из кеша без нового вызова TTS",
         "Шаг 3: персональный вопрос — новая генерация"
       ],
-      "dependencies": ["TASK-008", "TASK-014"],
+      "dependencies": [
+        "TASK-008",
+        "TASK-014"
+      ],
       "status": "pending"
     },
     {
@@ -563,7 +646,10 @@
         "Шаг 2: основной вопрос = 120с, уточнение = 60с",
         "Шаг 3: индикатор REC виден во время записи"
       ],
-      "dependencies": ["TASK-028", "TASK-029"],
+      "dependencies": [
+        "TASK-028",
+        "TASK-029"
+      ],
       "status": "pending"
     },
     {
@@ -581,7 +667,10 @@
         "Шаг 2: в S3 появляются части ответа",
         "Шаг 3: UI показывает «ответ сохранён»"
       ],
-      "dependencies": ["TASK-030", "TASK-032"],
+      "dependencies": [
+        "TASK-030",
+        "TASK-032"
+      ],
       "status": "pending"
     },
     {
@@ -599,7 +688,11 @@
         "Шаг 2: финальный объект в бакете корректен",
         "Шаг 3: Answer.processing_status=recorded"
       ],
-      "dependencies": ["TASK-008", "TASK-025", "TASK-006"],
+      "dependencies": [
+        "TASK-008",
+        "TASK-025",
+        "TASK-006"
+      ],
       "status": "pending"
     },
     {
@@ -617,7 +710,9 @@
         "Шаг 2: прервать сессию — вопрос получает флаг technically_lost",
         "Шаг 3: после истечения expires_at доступа нет"
       ],
-      "dependencies": ["TASK-032"],
+      "dependencies": [
+        "TASK-032"
+      ],
       "status": "pending"
     },
     {
@@ -635,14 +730,17 @@
         "Шаг 2: завершить интервью — показан экран «отправлено»",
         "Шаг 3: повторный вход по ссылке — недоступно"
       ],
-      "dependencies": ["TASK-032", "TASK-026"],
+      "dependencies": [
+        "TASK-032",
+        "TASK-026"
+      ],
       "status": "pending"
     },
     {
       "id": "TASK-035",
       "category": "integration",
       "priority": "high",
-      "description": "ASR-интеграция SpeechKit (async) со словарём вакансии и сегментами с таймкодами",
+      "description": "ASR-интеграция OpenAI Whisper (whisper-1) со словарём терминов и сегментами с таймкодами",
       "acceptance_criteria": [
         "Возвращает транскрипт и сегменты с таймкодами на уровне фраз",
         "Применяет пользовательский словарь вакансии",
@@ -653,7 +751,10 @@
         "Шаг 2: термин из словаря распознан верно",
         "Шаг 3: битое аудио — типизированная ошибка"
       ],
-      "dependencies": ["TASK-007", "TASK-013"],
+      "dependencies": [
+        "TASK-007",
+        "TASK-013"
+      ],
       "status": "pending"
     },
     {
@@ -671,7 +772,11 @@
         "Шаг 2: подать тишину — статус error",
         "Шаг 3: при error топик получает needs_check"
       ],
-      "dependencies": ["TASK-009", "TASK-035", "TASK-032"],
+      "dependencies": [
+        "TASK-009",
+        "TASK-035",
+        "TASK-032"
+      ],
       "status": "pending"
     },
     {
@@ -689,7 +794,11 @@
         "Шаг 2: в списке кандидатов виден текущий статус обработки",
         "Шаг 3: сымитировать сбой LLM — топик закрыт, пайплайн не висит"
       ],
-      "dependencies": ["TASK-036", "TASK-016", "TASK-020"],
+      "dependencies": [
+        "TASK-036",
+        "TASK-016",
+        "TASK-020"
+      ],
       "status": "pending"
     },
     {
@@ -707,7 +816,11 @@
         "Шаг 2: статусы совпадают с данными в БД",
         "Шаг 3: кандидат в состоянии error визуально помечен"
       ],
-      "dependencies": ["TASK-010", "TASK-024", "TASK-037"],
+      "dependencies": [
+        "TASK-010",
+        "TASK-024",
+        "TASK-037"
+      ],
       "status": "pending"
     },
     {
@@ -725,7 +838,10 @@
         "Шаг 2: рекомендация показывает, по какому правилу получена",
         "Шаг 3: AI-score нигде не отображается"
       ],
-      "dependencies": ["TASK-038", "TASK-020"],
+      "dependencies": [
+        "TASK-038",
+        "TASK-020"
+      ],
       "status": "pending"
     },
     {
@@ -743,7 +859,9 @@
         "Шаг 2: цитата подсвечена",
         "Шаг 3: в логах просмотра появилась запись"
       ],
-      "dependencies": ["TASK-039"],
+      "dependencies": [
+        "TASK-039"
+      ],
       "status": "pending"
     },
     {
@@ -761,7 +879,9 @@
         "Шаг 2: evidence-фраза выделена",
         "Шаг 3: блок резюме отображается отдельно от интервью"
       ],
-      "dependencies": ["TASK-040"],
+      "dependencies": [
+        "TASK-040"
+      ],
       "status": "pending"
     },
     {
@@ -779,7 +899,10 @@
         "Шаг 2: после смены system_status прежний, current_status новый",
         "Шаг 3: две смены — две записи в StatusChangeLog"
       ],
-      "dependencies": ["TASK-006", "TASK-024"],
+      "dependencies": [
+        "TASK-006",
+        "TASK-024"
+      ],
       "status": "pending"
     },
     {
@@ -797,7 +920,10 @@
         "Шаг 2: верх списка — топики с low confidence",
         "Шаг 3: закрыть топик — исчезает из очереди"
       ],
-      "dependencies": ["TASK-042", "TASK-024"],
+      "dependencies": [
+        "TASK-042",
+        "TASK-024"
+      ],
       "status": "pending"
     },
     {
@@ -815,7 +941,10 @@
         "Шаг 2: открыть топик — виден полный контекст",
         "Шаг 3: сменить статус — карточка результата обновилась"
       ],
-      "dependencies": ["TASK-043", "TASK-040"],
+      "dependencies": [
+        "TASK-043",
+        "TASK-040"
+      ],
       "status": "pending"
     },
     {
@@ -833,7 +962,10 @@
         "Шаг 2: явное «нет опыта» — уточнение не задаётся",
         "Шаг 3: после 2 уточнений уточнения прекращаются"
       ],
-      "dependencies": ["TASK-016", "TASK-030"],
+      "dependencies": [
+        "TASK-016",
+        "TASK-030"
+      ],
       "status": "pending"
     },
     {
@@ -851,7 +983,10 @@
         "Шаг 2: изменить статус — метрика ревью обновилась",
         "Шаг 3: прерванное интервью снижает completion rate"
       ],
-      "dependencies": ["TASK-042", "TASK-038"],
+      "dependencies": [
+        "TASK-042",
+        "TASK-038"
+      ],
       "status": "pending"
     },
     {
@@ -869,7 +1004,10 @@
         "Шаг 2: отозвать ссылку результата -> 403",
         "Шаг 3: через API виден аудит просмотров"
       ],
-      "dependencies": ["TASK-040", "TASK-024"],
+      "dependencies": [
+        "TASK-040",
+        "TASK-024"
+      ],
       "status": "pending"
     },
     {
@@ -887,7 +1025,11 @@
         "Шаг 2: InterviewResult-агрегат без ПДн сохранён",
         "Шаг 3: запрос на удаление кандидата — данные стёрты, факт удаления залогирован"
       ],
-      "dependencies": ["TASK-009", "TASK-008", "TASK-006"],
+      "dependencies": [
+        "TASK-009",
+        "TASK-008",
+        "TASK-006"
+      ],
       "status": "pending"
     }
   ]
