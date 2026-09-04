@@ -256,7 +256,7 @@
   3. Шаг 1: 3 сигнала + high → `confirmed`
   4. Шаг 2: `no_experience=True` → `not_confirmed`
   5. Шаг 3: medium confidence → `needs_check`
-- **Коммиты:** (после commit)
+- **Коммиты:** 98c0ee3
 - **Заметки:**
   - Функция синхронная и без I/O — готова для вызова из LLM-оценки (TASK-016)
   - `out_of_scope` сюда не входит (ставится по `verifiable_by_interview`, не по сигналам)
