@@ -1,0 +1,69 @@
+{
+  "candidates": [
+    {
+      "id": "cand-strong",
+      "topics": [
+        {
+          "title": "PostgreSQL",
+          "skill_type": "hard",
+          "importance": "mandatory",
+          "requirement_description": "Проектирование схемы, индексы, партиционирование",
+          "question_text": "Расскажите о вашем опыте проектирования схемы в PostgreSQL",
+          "transcript_segments": [
+            {"text": "Я проектировал схему биллинга: нормализовал таблицы и добавил составные индексы под отчёты.", "start": 2.0, "end": 11.0},
+            {"text": "Крупную таблицу транзакций партиционировал по месяцам, выборки ускорились в разы.", "start": 11.0, "end": 18.0}
+          ]
+        },
+        {
+          "title": "Kafka",
+          "skill_type": "hard",
+          "importance": "mandatory",
+          "requirement_description": "Потоковая обработка, гарантии доставки",
+          "question_text": "Как обеспечиваете гарантии доставки в Kafka?",
+          "transcript_segments": [
+            {"text": "Настраивал acks=all и идемпотентного продюсера, обрабатывал ретраи и дедупликацию на консьюмере.", "start": 1.0, "end": 9.0}
+          ]
+        }
+      ]
+    },
+    {
+      "id": "cand-gap",
+      "topics": [
+        {
+          "title": "PostgreSQL",
+          "skill_type": "hard",
+          "importance": "mandatory",
+          "requirement_description": "Проектирование схемы, индексы",
+          "question_text": "Расскажите о вашем опыте проектирования схемы в PostgreSQL",
+          "transcript_segments": [
+            {"text": "Честно, с PostgreSQL почти не работал, в основном использовал MongoDB.", "start": 1.0, "end": 6.0}
+          ]
+        },
+        {
+          "title": "Docker",
+          "skill_type": "hard",
+          "importance": "desired",
+          "requirement_description": "Контейнеризация сервисов",
+          "question_text": "Как вы упаковываете сервисы в контейнеры?",
+          "transcript_segments": [
+            {"text": "Писал Dockerfile, собирал образы, поднимал через docker compose локально.", "start": 0.0, "end": 5.0}
+          ]
+        }
+      ]
+    },
+    {
+      "id": "cand-skip",
+      "topics": [
+        {
+          "title": "PostgreSQL",
+          "skill_type": "hard",
+          "importance": "mandatory",
+          "requirement_description": "Проектирование схемы",
+          "question_text": "Расскажите о вашем опыте проектирования схемы в PostgreSQL",
+          "transcript_segments": [],
+          "skipped": true
+        }
+      ]
+    }
+  ]
+}

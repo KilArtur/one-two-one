@@ -66,6 +66,10 @@ Coverage Р4 — тройка чисел + доли `mandatory_coverage`/`desire
 `services.interview_result.assemble_interview_result` (агрегация TopicAssessment в
 InterviewResult, фиксация версий, идемпотентно по `candidate_id`).
 
+Batch-оценка транскриптов без видео (Этап 1): `uv run python scripts/batch_eval.py
+<input.json|.csv> [-o report.json]` — статус/рекомендация/coverage по каждому кандидату
+(core в `services.batch_eval`, пример — `scripts/batch_eval_sample.json`).
+
 ## Запуск frontend
 
 ```bash

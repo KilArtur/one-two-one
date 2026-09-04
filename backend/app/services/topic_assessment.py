@@ -36,16 +36,36 @@ def _transcript_text(answer: Answer) -> str:
     return "\n".join(str(segment.get("text", "")) for segment in segments)
 
 
-def build_prompt(topic: Topic, question: Question, answer: Answer) -> str:
-    """Готовит промпт оценки одного топика (только его требование, Р16)."""
+def format_topic_assessment_prompt(
+    *,
+    topic_title: str,
+    skill_type: str,
+    requirement_description: str | None,
+    depth_expectations: str | None,
+    question_text: str,
+    transcript: str,
+) -> str:
+    """Готовит промпт оценки одного топика из плоских полей (без ORM), Р16."""
     template = load_prompt(TOPIC_ASSESSMENT_PROMPT)
     return template.format(
+        topic_title=topic_title,
+        skill_type=skill_type,
+        requirement_description=requirement_description or "—",
+        depth_expectations=depth_expectations or "—",
+        question_text=question_text,
+        transcript=transcript or "—",
+    )
+
+
+def build_prompt(topic: Topic, question: Question, answer: Answer) -> str:
+    """Готовит промпт оценки одного топика (только его требование, Р16)."""
+    return format_topic_assessment_prompt(
         topic_title=topic.title,
         skill_type=topic.skill_type.value,
-        requirement_description=topic.requirement_description or "—",
-        depth_expectations=topic.depth_expectations or "—",
+        requirement_description=topic.requirement_description,
+        depth_expectations=topic.depth_expectations,
         question_text=question.text,
-        transcript=_transcript_text(answer) or "—",
+        transcript=_transcript_text(answer),
     )
 
 
