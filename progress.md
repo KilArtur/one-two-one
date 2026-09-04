@@ -102,3 +102,23 @@
   - Enum `vacancy_grade` хранит значение `middle+` как в PRD
   - Колонка топика `"order"` (зарезервированное слово SQL) — в psql нужна кавычка
   - Следующая по critical path: **TASK-005** (Candidate, InterviewLink, Question)
+
+## TASK-005 — ORM Candidate, InterviewLink, Question + миграция
+- **Дата:** 2026-09-04
+- **Статус:** done
+- **Что сделано:**
+  - Enums: `CandidateStatus`, `QuestionType`, `QuestionPattern` (значения строго из PRD)
+  - Модели: `Candidate`, `InterviewLink` (FK на candidate, unique token), `Question` (self-FK `parent_question_id`)
+  - Alembic-ревизия `0003_candidate_question`
+  - Тесты: `backend/tests/test_models_candidate_question.py`
+- **Как проверено:**
+  1. `uv run ruff check .` — OK
+  2. `uv run pytest` — 18 passed
+  3. `alembic upgrade head` → `0003_candidate_question`
+  4. psql INSERT candidate + core question — OK
+  5. psql INSERT follow_up с `parent_question_id` — self-FK `question_parent_question_id_fkey` OK
+- **Коммиты:** (после commit)
+- **Заметки:**
+  - В PRD у InterviewLink нет `id`/`candidate_id` — добавлены `id` (PK) и `candidate_id` (нужно для TASK-026)
+  - `parent_question_id` ON DELETE SET NULL; `topic_id`/`vacancy_id`/`candidate_id` — CASCADE
+  - Следующая по critical path: **TASK-006** (Answer, TopicAssessment, StatusChangeLog, InterviewResult)

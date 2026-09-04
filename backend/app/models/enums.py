@@ -1,4 +1,4 @@
-"""Domain enums for Vacancy and Topic (PRD §5)."""
+"""Domain enums for ORM models (PRD §5)."""
 
 from enum import StrEnum
 
@@ -24,3 +24,23 @@ class SkillType(StrEnum):
 class Importance(StrEnum):
     MANDATORY = "mandatory"
     DESIRED = "desired"
+
+
+class CandidateStatus(StrEnum):
+    INVITED = "invited"
+    IN_PROGRESS = "in_progress"
+    SUBMITTED = "submitted"
+    PROCESSED = "processed"
+    REVIEWED = "reviewed"
+
+
+class QuestionType(StrEnum):
+    CORE = "core"
+    PERSONAL = "personal"
+    FOLLOW_UP = "follow_up"
+
+
+class QuestionPattern(StrEnum):
+    TECHNICAL = "technical"
+    EXPERIENCE = "experience"
+    REASONING = "reasoning"
