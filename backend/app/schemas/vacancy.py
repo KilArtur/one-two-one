@@ -1,0 +1,82 @@
+"""Схемы вакансии и топиков для CRUD с версионированием матрицы (M1)."""
+
+from __future__ import annotations
+
+import uuid
+
+from pydantic import BaseModel, ConfigDict, Field
+
+from app.models.topic import SkillType, TopicImportance
+from app.models.vacancy import VacancyGrade, VacancyStatus
+
+
+class TopicWrite(BaseModel):
+    """Входные данные топика при создании или замене состава требований."""
+
+    title: str = Field(min_length=1, max_length=255)
+    skill_type: SkillType
+    importance: TopicImportance
+    requirement_description: str | None = None
+    depth_expectations: str | None = None
+    verifiable_by_interview: bool = True
+    order: int = 0
+
+
+class TopicRead(BaseModel):
+    """Топик в ответе API."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    title: str
+    skill_type: SkillType
+    importance: TopicImportance
+    requirement_description: str | None
+    depth_expectations: str | None
+    verifiable_by_interview: bool
+    order: int
+
+
+class VacancyCreate(BaseModel):
+    """Создание вакансии вместе с исходным составом топиков."""
+
+    title: str = Field(min_length=1, max_length=255)
+    grade: VacancyGrade
+    tasks: str | None = None
+    stop_factors: list[str] = Field(default_factory=list)
+    specialist_profile: str | None = None
+    topics: list[TopicWrite] = Field(default_factory=list)
+
+
+class VacancyUpdate(BaseModel):
+    """Частичное обновление скалярных полей вакансии (без изменения состава топиков)."""
+
+    title: str | None = Field(default=None, min_length=1, max_length=255)
+    grade: VacancyGrade | None = None
+    tasks: str | None = None
+    stop_factors: list[str] | None = None
+    specialist_profile: str | None = None
+    status: VacancyStatus | None = None
+
+
+class TopicsReplace(BaseModel):
+    """Новый состав топиков вакансии."""
+
+    topics: list[TopicWrite]
+
+
+class VacancyRead(BaseModel):
+    """Вакансия в ответе API — конкретный снимок версии матрицы."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    lineage_id: uuid.UUID
+    title: str
+    grade: VacancyGrade
+    tasks: str | None
+    stop_factors: list[str]
+    specialist_profile: str | None
+    version: int
+    status: VacancyStatus
+    topics: list[TopicRead]

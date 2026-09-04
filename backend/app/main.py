@@ -10,6 +10,7 @@ from pydantic import BaseModel
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.api import vacancies_router
 from app.config import Settings, get_settings
 from app.db import dispose_engine, get_db
 
@@ -65,6 +66,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         """Проверка соединения с БД: SELECT 1 через сессию из `get_db`."""
         await session.execute(text("SELECT 1"))
         return DatabaseHealthResponse(status="ok", database="ok")
+
+    app.include_router(vacancies_router)
 
     return app
 

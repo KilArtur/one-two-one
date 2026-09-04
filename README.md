@@ -47,6 +47,21 @@ uv run uvicorn app.main:app --app-dir backend --reload      # API на localhost
 `/docs` — Swagger UI. Конфигурация читается из окружения и `.env`
 (см. `backend/app/config.py`).
 
+CRUD вакансий с версионированием матрицы (M1): `POST/GET/PATCH /vacancies`,
+`PUT /vacancies/{id}/topics` (замена состава активной вакансии создаёт новую версию-снимок).
+
+## Запуск frontend
+
+```bash
+cd frontend
+npm install
+npm run dev            # SPA на localhost:5173 (Vite + React + TS)
+```
+
+Базовый URL API берётся из `VITE_API_BASE_URL` (см. `frontend/.env.example`,
+по умолчанию `http://localhost:8000`). `npm run build` — production-сборка,
+`npm run typecheck` — проверка типов.
+
 ## Миграции
 
 Alembic настроен на корневой [`alembic.ini`](alembic.ini), ревизии лежат в

@@ -39,6 +39,9 @@ class Vacancy(Base, TimestampMixin):
     __tablename__ = "vacancy"
 
     id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    lineage_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, nullable=False, index=True, default=uuid.uuid4
+    )
     title: Mapped[str] = mapped_column(String(255), nullable=False)
     grade: Mapped[VacancyGrade] = mapped_column(
         enum_column(VacancyGrade, "vacancy_grade"), nullable=False
