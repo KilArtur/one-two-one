@@ -1,6 +1,11 @@
 """Pydantic-схемы API."""
 
 from app.schemas.auth import AuthTokenRequest, AuthTokenResponse, CurrentUserRead
+from app.schemas.candidate_auth import (
+    CandidateSessionExchangeRequest,
+    CandidateSessionRead,
+    CandidateSessionResponse,
+)
 from app.schemas.question import GeneratedCoreQuestion, QuestionRead
 from app.schemas.rbac import RbacCheckResult, TopicStatusChangeCheck
 from app.schemas.vacancy import (
@@ -20,6 +25,9 @@ __all__ = [
     "AuthTokenResponse",
     "AsrDictionaryRead",
     "AsrDictionaryUpdate",
+    "CandidateSessionExchangeRequest",
+    "CandidateSessionRead",
+    "CandidateSessionResponse",
     "CurrentUserRead",
     "GeneratedCoreQuestion",
     "QuestionRead",

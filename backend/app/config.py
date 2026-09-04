@@ -25,6 +25,7 @@ class Settings(BaseSettings):
     jwt_secret_key: str = ""
     internal_auth_password: str = "change-me"
     jwt_access_token_ttl_seconds: int = 3600
+    candidate_jwt_access_token_ttl_seconds: int = 1800
 
     database_url: str = "postgresql+asyncpg://interviewer:interviewer@localhost:5432/interviewer"
     database_echo: bool = False
