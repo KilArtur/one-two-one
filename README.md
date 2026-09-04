@@ -59,7 +59,10 @@ CRUD вакансий с версионированием матрицы (M1): `
 (`services.topic_status.resolve_topic_status`); LLM-оценка топика из транскрипта с evidence
 и изоляцией Р16 (`services.topic_assessment.assess_topic`, `system_status` не перезаписывается);
 стоп-факторы Р6 (`services.stop_factor` — авто «не подходит» только при явном ответе с high
-confidence, флаг в отдельной таблице `stop_factor_flag`).
+confidence, флаг в отдельной таблице `stop_factor_flag`). Итоговая рекомендация Р5 —
+детерминированная чистая функция (`services.recommendation.compute_recommendation`);
+Coverage Р4 — тройка чисел + доли `mandatory_coverage`/`desired_coverage`
+(`services.coverage.compute_coverage`), без единого балла/AI-score.
 
 ## Запуск frontend
 
