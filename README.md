@@ -34,7 +34,12 @@ uv sync                  # ставит зависимости из pyproject.to
 # 4. Секреты
 cp .env.example .env     # затем заполнить значения — см. комментарии в файле
 
-# 5. Аутентификация ассистента (один раз, у себя)
+# 5. Backend API (FastAPI)
+uv run uvicorn app.main:app --app-dir backend --reload --host 0.0.0.0 --port 8000
+# проверка: curl -s http://127.0.0.1:8000/health  → {"status":"ok"}
+# Swagger:  http://127.0.0.1:8000/docs
+
+# 6. Аутентификация ассистента (один раз, у себя)
 claude login            # для Claude Code
 codex login             # для Codex   (или задать OPENAI_API_KEY / ANTHROPIC_API_KEY)
 ```

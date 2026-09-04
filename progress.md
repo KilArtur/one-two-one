@@ -37,3 +37,24 @@
 - **Заметки:**
   - На этой машине `unix:///var/run/docker.sock` недоступен (user не в группе `docker`); работал Docker Desktop: `systemctl --user start docker-desktop` + `docker context use desktop-linux`.
   - Следующая задача по critical path: **TASK-002** (скелет FastAPI `/health`).
+
+## TASK-002 — скелет FastAPI: config, CORS, /health
+- **Дата:** 2026-09-04
+- **Статус:** done
+- **Что сделано:**
+  - `backend/app/config.py` — pydantic-settings (`Settings` + `get_settings`), чтение `.env`, `CORS_ORIGINS` через запятую
+  - `backend/app/main.py` — FastAPI app, CORS middleware, `GET /health` → `{status: ok}`, Swagger `/docs`
+  - Зависимости: fastapi, uvicorn[standard], pydantic-settings, httpx
+  - Тесты: `backend/tests/test_health.py` (health, docs, settings из env)
+  - Обновлены `.env.example` (`CORS_ORIGINS`) и `README.md` (команда uvicorn)
+- **Как проверено:**
+  1. `uv run ruff check .` — OK
+  2. `uv run pytest` — 5 passed
+  3. `uv run uvicorn app.main:app --app-dir backend --host 127.0.0.1 --port 8000` — старт без ошибок
+  4. `curl /health` → HTTP 200 `{"status":"ok"}`
+  5. `curl /docs` → HTTP 200, Swagger UI
+- **Коммиты:** (см. git log после commit)
+- **Заметки:**
+  - Запуск: `uv run uvicorn app.main:app --app-dir backend --reload --port 8000`
+  - Следующая по critical path: **TASK-003** (PostgreSQL + Alembic + `get_db`)
+  - В Settings пока только `app_env` / `secret_key` / `cors_origins` — остальные ключи из `.env.example` добавятся по мере задач
