@@ -122,3 +122,25 @@
   - В PRD у InterviewLink нет `id`/`candidate_id` — добавлены `id` (PK) и `candidate_id` (нужно для TASK-026)
   - `parent_question_id` ON DELETE SET NULL; `topic_id`/`vacancy_id`/`candidate_id` — CASCADE
   - Следующая по critical path: **TASK-006** (Answer, TopicAssessment, StatusChangeLog, InterviewResult)
+
+## TASK-006 — ORM Answer, TopicAssessment, StatusChangeLog, InterviewResult
+- **Дата:** 2026-09-04
+- **Статус:** done
+- **Что сделано:**
+  - Enums: `ProcessingStatus`, `TopicStatus`, `Confidence`, `AuthorRole`, `Recommendation`
+  - Модели: `Answer` (jsonb `transcript_segments`), `TopicAssessment` (`system_status` + `current_status`, jsonb `signals`/`evidence`), `StatusChangeLog` (append-only: ORM update → RuntimeError), `InterviewResult` (PK=`candidate_id`, coverage + recommendation + версии)
+  - Alembic-ревизия `0004_answer_assessment`
+  - Тесты: `backend/tests/test_models_answer_assessment.py`
+- **Как проверено:**
+  1. `uv run ruff check .` — OK
+  2. `uv run pytest` — 25 passed
+  3. `alembic upgrade head` → `0004_answer_assessment`
+  4. INSERT assessment с evidence jsonb — OK (pytest)
+  5. `\d topic_assessment` — есть `system_status` и `current_status` (оба `topic_status`)
+- **Коммиты:** (см. следующий commit)
+- **Заметки:**
+  - `StatusChangeLog`: запрещены только UPDATE (delete через CASCADE родителя разрешён для очистки)
+  - `InterviewResult.candidate_id` — PK (1:1 с candidate), отдельного `id` нет (как в PRD)
+  - Recommendation: `suitable` / `not_suitable` / `needs_additional_check`
+  - Unique `(candidate_id, topic_id)` на `topic_assessment`
+  - Следующая по critical path: **TASK-007** (LLM-клиент LangChain) или **TASK-015** (зависит от 006)

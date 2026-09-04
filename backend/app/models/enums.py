@@ -44,3 +44,37 @@ class QuestionPattern(StrEnum):
     TECHNICAL = "technical"
     EXPERIENCE = "experience"
     REASONING = "reasoning"
+
+
+class ProcessingStatus(StrEnum):
+    RECORDED = "recorded"
+    TRANSCRIBING = "transcribing"
+    ANALYZING = "analyzing"
+    READY = "ready"
+    ERROR = "error"
+
+
+class TopicStatus(StrEnum):
+    CONFIRMED = "confirmed"
+    NEEDS_CHECK = "needs_check"
+    NOT_CONFIRMED = "not_confirmed"
+    OUT_OF_SCOPE = "out_of_scope"
+
+
+class Confidence(StrEnum):
+    HIGH = "high"
+    MEDIUM = "medium"
+    LOW = "low"
+
+
+class AuthorRole(StrEnum):
+    SYSTEM = "system"
+    RECRUITER = "recruiter"
+    TECH_SPECIALIST = "tech_specialist"
+    HIRING_MANAGER = "hiring_manager"
+
+
+class Recommendation(StrEnum):
+    SUITABLE = "suitable"
+    NOT_SUITABLE = "not_suitable"
+    NEEDS_ADDITIONAL_CHECK = "needs_additional_check"
