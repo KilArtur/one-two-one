@@ -20,20 +20,26 @@ OpenAI (LLM `gpt-4o`/`gpt-4o-mini`, Whisper ASR, TTS) · LangChain + LangGraph �
 # 1. Клонировать и войти в проект
 git clone <repo-url> && cd one-two-one
 
-# 2. Python-окружение (uv)
-uv venv                  # создаёт .venv
-uv sync                  # ставит зависимости из pyproject.toml (после TASK-001)
+# 2. Dev-инфра (Postgres + Redis)
+docker compose up -d     # healthcheck: interviewer-postgres, interviewer-redis
+# проверка: docker compose ps
+# psql:  docker compose exec postgres psql -U interviewer -d interviewer
+#        (host port 5433 → container 5432; см. DATABASE_URL в .env.example)
+# redis: docker compose exec redis redis-cli ping
+# стоп:  docker compose down
 
-# 3. Секреты
+# 3. Python-окружение (uv)
+uv sync                  # ставит зависимости из pyproject.toml (.venv)
+
+# 4. Секреты
 cp .env.example .env     # затем заполнить значения — см. комментарии в файле
 
-# 4. Аутентификация ассистента (один раз, у себя)
+# 5. Аутентификация ассистента (один раз, у себя)
 claude login            # для Claude Code
 codex login             # для Codex   (или задать OPENAI_API_KEY / ANTHROPIC_API_KEY)
 ```
 
-> Скелет `backend/` и `frontend/` создаётся первыми задачами `tasks.json`
-> (TASK-001…003). До этого репозиторий содержит только план и правила.
+Структура монорепо: `backend/app`, `frontend/src`, `infra`, `docs`.
 
 ## Разработка по задачам
 
@@ -41,9 +47,10 @@ codex login             # для Codex   (или задать OPENAI_API_KEY / A
 в `CLAUDE.md` (раздел «Рабочий процесс»). Автоматический прогон циклом Ralph:
 
 ```bash
-./ralph.sh 5 codex artur   # выполнить 5 задач через Codex, исполнитель artur
-./ralph.sh 3 claude zakhar # выполнить 3 задачи через Claude, исполнитель zakhar
-./ralph.sh             # все оставшиеся задачи, агент — автоопределение
+./ralph.sh 5 codex artur    # выполнить 5 задач через Codex, исполнитель artur
+./ralph.sh 3 cursor zakhar  # Cursor CLI (не Claude Code), исполнитель zakhar
+./ralph.sh 3 claude zakhar  # Claude Code CLI, если он установлен
+./ralph.sh                  # все оставшиеся задачи, агент — автоопределение
 ./ralph.sh --help      # справка
 ```
 

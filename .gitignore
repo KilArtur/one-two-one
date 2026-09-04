@@ -45,6 +45,13 @@ env/
 node_modules/
 npm-debug.log*
 
+# --- Frontend ---
+frontend/dist/
+frontend/.vite/
+
+# --- Docker / local compose overrides ---
+docker-compose.override.yml
+
 # --- Временное ---
 *.tmp
 *.bak
