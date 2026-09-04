@@ -302,7 +302,7 @@
   3. Шаг 1: явный стоп → `triggered` + `recommendation=not_suitable`
   4. Шаг 2: размытый ответ → не срабатывает → `needs_additional_check`
   5. Шаг 3: evidence с `quote` + `timecode_sec` (+ `answer_id`)
-- **Коммиты:** (будет после commit)
+- **Коммиты:** 8832fdb
 - **Заметки:**
   - Полная матричная рекомендация Р5 — **TASK-018** (должна OR-ить `StopFactorFlag.triggered`)
   - Сборка `InterviewResult` — **TASK-020**; туда же прокинуть флаг/evidence стоп-фактора
