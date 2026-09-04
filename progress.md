@@ -53,7 +53,7 @@
   3. `uv run uvicorn app.main:app --app-dir backend --host 127.0.0.1 --port 8000` — старт без ошибок
   4. `curl /health` → HTTP 200 `{"status":"ok"}`
   5. `curl /docs` → HTTP 200, Swagger UI
-- **Коммиты:** (см. git log после commit)
+- **Коммиты:** 113bfae
 - **Заметки:**
   - Запуск: `uv run uvicorn app.main:app --app-dir backend --reload --port 8000`
   - Следующая по critical path: **TASK-003** (PostgreSQL + Alembic + `get_db`)
