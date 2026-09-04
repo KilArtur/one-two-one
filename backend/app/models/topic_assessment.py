@@ -5,7 +5,7 @@ from __future__ import annotations
 import uuid
 from typing import TYPE_CHECKING, Any
 
-from sqlalchemy import Enum, ForeignKey, Text, UniqueConstraint
+from sqlalchemy import Enum, ForeignKey, Text, UniqueConstraint, event, inspect
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -98,3 +98,22 @@ class TopicAssessment(Base):
         back_populates="assessment",
         cascade="all, delete-orphan",
     )
+
+
+@event.listens_for(TopicAssessment, "before_update")
+def _reject_system_status_overwrite(
+    mapper: object,
+    connection: object,
+    target: TopicAssessment,
+) -> None:
+    """Reject changes to system_status; experts edit current_status only (Р21)."""
+    state = inspect(target)
+    history = state.attrs.system_status.history
+    if not history.has_changes():
+        return
+    old = history.deleted[0] if history.deleted else None
+    new = history.added[0] if history.added else None
+    if old != new:
+        raise RuntimeError(
+            "TopicAssessment.system_status is immutable and cannot be overwritten"
+        )

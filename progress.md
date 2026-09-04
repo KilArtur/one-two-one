@@ -261,3 +261,26 @@
   - Функция синхронная и без I/O — готова для вызова из LLM-оценки (TASK-016)
   - `out_of_scope` сюда не входит (ставится по `verifiable_by_interview`, не по сигналам)
   - Следующая по critical path: **TASK-016** (оценка топика из транскрипта + evidence)
+
+## TASK-016 — оценка топика из транскрипта (LLM) + evidence + Р16
+- **Дата:** 2026-09-04
+- **Статус:** done
+- **Что сделано:**
+  - `prompts/assess_topic.md` (`assess-topic-v1`) — изоляция топика Р16, сигналы, evidence
+  - `backend/app/services/topic_assessment.py` — `assess_topic`: LLM structured output →
+    `resolve_topic_status` (Р13) → `TopicAssessment` с `system_status=current_status`
+  - Идемпотентность: повторный вызов не трогает LLM и не перезаписывает `system_status`
+  - ORM-guard: `before_update` запрещает менять `system_status` (Р21)
+  - Skip без LLM → `not_confirmed`; `technically_lost` → `needs_check`
+  - Тесты: `backend/tests/test_topic_assessment.py` (5 кейсов, FakeLLM)
+- **Как проверено:**
+  1. `uv run ruff check .` — OK
+  2. `uv run pytest` — 67 passed, 1 skipped
+  3. Шаг 1: пример + high → `confirmed` + quote/timecode/`question_id`
+  4. Шаг 2: Redis/K8s в транскрипте — промпт с Р16, evidence только по Kafka
+  5. Шаг 3: `current_status` меняется, `system_status` зафиксирован; overwrite → RuntimeError
+- **Коммиты:** (см. git log)
+- **Заметки:**
+  - HTTP API оценки пока нет — сервис для пайплайна / batch (TASK-020/021)
+  - Стоп-факторы (Р6) — отдельная **TASK-017**
+  - Следующая по critical path: **TASK-017** или **TASK-018** (после 017)

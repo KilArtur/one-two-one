@@ -384,7 +384,9 @@
         "TASK-007",
         "TASK-015"
       ],
-      "status": "pending"
+      "status": "done",
+      "assignee": "zakhar",
+      "claimed_at": "2026-09-04T16:20:45.350105+00:00"
     },
     {
       "id": "TASK-017",
