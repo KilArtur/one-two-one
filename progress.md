@@ -214,3 +214,29 @@
   - Create vacancy с `topics=[]` всё ещё ок (черновик без матрицы)
   - Active нельзя ужать ниже 5 топиков через DELETE (422)
   - Следующая по critical path: **TASK-014** (генерация ядра вопросов) или **TASK-013**
+
+## TASK-014 — генерация ядра вопросов через LLM (M2)
+- **Дата:** 2026-09-04
+- **Статус:** done
+- **Что сделано:**
+  - `prompts/generate_core_questions.md` + загрузчик `backend/app/prompts/`
+    (`prompt_version` из HTML-комментария)
+  - `backend/app/services/questions.py` — один core-вопрос на топик
+    (`verifiable_by_interview=true`) с `pattern` и `source_reason`;
+    кеш в БД (повторный вызов без LLM); сбой LLM не пишет частичных строк
+  - API: `POST /vacancies/{id}/questions/generate`,
+    `GET /vacancies/{id}/questions`
+  - Тесты: `backend/tests/test_questions_generate.py` (fake LLM)
+- **Как проверено:**
+  1. `uv run ruff check .` — OK
+  2. `uv run pytest` — 49 passed, 1 skipped
+  3. Шаг 1: POST generate → N вопросов `type=core` в БД/ответе
+  4. Шаг 2: каждый `pattern` ∈ {technical, experience, reasoning}
+  5. Шаг 3: повторный POST → `cached=true`, те же id, LLM не вызывается
+- **Коммиты:** (см. следующий commit)
+- **Заметки:**
+  - Топики с `verifiable_by_interview=false` не получают core-вопрос
+  - При ошибке LLM — HTTP 502, вакансия читается, вопросов 0
+  - Персональные вопросы / follow-up — отдельные задачи
+  - Следующая по critical path: **TASK-015** (детерминированный статус Р13)
+    или **TASK-029** (TTS) после S3

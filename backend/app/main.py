@@ -7,6 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.api.questions import router as questions_router
 from app.api.vacancies import router as vacancies_router
 from app.config import get_settings
 from app.db import get_db
@@ -42,6 +43,7 @@ def create_app() -> FastAPI:
         return {"status": "ok"}
 
     application.include_router(vacancies_router)
+    application.include_router(questions_router)
 
     return application
 
