@@ -22,6 +22,9 @@ class Settings(BaseSettings):
     app_version: str = "0.1.0"
     app_env: str = "development"
     cors_origins: list[str] = ["http://localhost:5173"]
+    jwt_secret_key: str = ""
+    internal_auth_password: str = "change-me"
+    jwt_access_token_ttl_seconds: int = 3600
 
     database_url: str = "postgresql+asyncpg://interviewer:interviewer@localhost:5432/interviewer"
     database_echo: bool = False

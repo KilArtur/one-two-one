@@ -1,5 +1,6 @@
 """Pydantic-схемы API."""
 
+from app.schemas.auth import AuthTokenRequest, AuthTokenResponse, CurrentUserRead
 from app.schemas.question import GeneratedCoreQuestion, QuestionRead
 from app.schemas.vacancy import (
     AsrDictionaryRead,
@@ -14,8 +15,11 @@ from app.schemas.vacancy import (
 )
 
 __all__ = [
+    "AuthTokenRequest",
+    "AuthTokenResponse",
     "AsrDictionaryRead",
     "AsrDictionaryUpdate",
+    "CurrentUserRead",
     "GeneratedCoreQuestion",
     "QuestionRead",
     "TopicRead",

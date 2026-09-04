@@ -10,7 +10,7 @@ from pydantic import BaseModel
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api import vacancies_router
+from app.api import auth_router, vacancies_router
 from app.config import Settings, get_settings
 from app.db import dispose_engine, get_db
 
@@ -39,9 +39,12 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
 def create_app(settings: Settings | None = None) -> FastAPI:
     """Собирает приложение: CORS и системные эндпоинты."""
+    provided_settings = settings
     settings = settings or get_settings()
 
     app = FastAPI(title=settings.app_name, version=settings.app_version, lifespan=lifespan)
+    if provided_settings is not None:
+        app.dependency_overrides[get_settings] = lambda: settings
     app.add_middleware(
         CORSMiddleware,
         allow_origins=settings.cors_origins,
@@ -68,6 +71,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         return DatabaseHealthResponse(status="ok", database="ok")
 
     app.include_router(vacancies_router)
+    app.include_router(auth_router)
 
     return app
 
