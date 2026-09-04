@@ -25,6 +25,12 @@ class Settings(BaseSettings):
     database_url: str = "postgresql+asyncpg://interviewer:interviewer@localhost:5432/interviewer"
     database_echo: bool = False
 
+    openai_api_key: str = ""
+    openai_base_url: str = "https://api.openai.com/v1"
+    llm_model: str = "gpt-4o"
+    llm_fast_model: str = "gpt-4o-mini"
+    llm_timeout_seconds: float = 30.0
+
 
 @lru_cache
 def get_settings() -> Settings:
