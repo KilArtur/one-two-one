@@ -1,0 +1,42 @@
+{
+  "candidates": [
+    {
+      "id": "cand-fit",
+      "recommendation": "fit",
+      "topics": [
+        {
+          "title": "PostgreSQL",
+          "system_status": "confirmed"
+        },
+        {
+          "title": "Kafka",
+          "system_status": "confirmed"
+        }
+      ]
+    },
+    {
+      "id": "cand-check",
+      "recommendation": "additional_check",
+      "topics": [
+        {
+          "title": "Redis",
+          "system_status": "needs_check"
+        },
+        {
+          "title": "Docker",
+          "system_status": "confirmed"
+        }
+      ]
+    },
+    {
+      "id": "cand-gap",
+      "recommendation": "not_fit",
+      "topics": [
+        {
+          "title": "PostgreSQL",
+          "system_status": "confirmed"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,49 @@
+{
+  "prompt_version": "topic-assessment-v1",
+  "model_version": "stub-model",
+  "candidates": [
+    {
+      "id": "cand-fit",
+      "recommendation": "fit",
+      "topics": [
+        {
+          "title": "PostgreSQL",
+          "system_status": "confirmed",
+          "current_status": "not_confirmed"
+        },
+        {
+          "title": "Kafka",
+          "system_status": "confirmed",
+          "current_status": "confirmed"
+        }
+      ]
+    },
+    {
+      "id": "cand-check",
+      "recommendation": "additional_check",
+      "topics": [
+        {
+          "title": "Redis",
+          "system_status": "needs_check",
+          "current_status": "confirmed"
+        },
+        {
+          "title": "Docker",
+          "system_status": "confirmed",
+          "current_status": "confirmed"
+        }
+      ]
+    },
+    {
+      "id": "cand-gap",
+      "recommendation": "not_fit",
+      "topics": [
+        {
+          "title": "PostgreSQL",
+          "system_status": "not_confirmed",
+          "current_status": "not_confirmed"
+        }
+      ]
+    }
+  ]
+}
