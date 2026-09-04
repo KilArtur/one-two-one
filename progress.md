@@ -209,7 +209,7 @@
   3. Шаг 1: POST 7 топиков → 201
   4. Шаг 2: PATCH/POST <5 топиков → 422
   5. Шаг 3: PATCH `verifiable_by_interview=false` → сохраняется в GET
-- **Коммиты:** (см. git log после commit)
+- **Коммиты:** 335ddbd
 - **Заметки:**
   - Create vacancy с `topics=[]` всё ещё ок (черновик без матрицы)
   - Active нельзя ужать ниже 5 топиков через DELETE (422)
