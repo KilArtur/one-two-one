@@ -97,7 +97,7 @@
   3. `alembic upgrade head` → `0002_vacancy_topic`
   4. `\d vacancy` / `\d topic` — все поля PRD на месте, FK и default `verifiable_by_interview=true`
   5. psql INSERT vacancy + topic — JOIN ок, CASCADE delete
-- **Коммиты:** (после commit)
+- **Коммиты:** dee2e40
 - **Заметки:**
   - Enum `vacancy_grade` хранит значение `middle+` как в PRD
   - Колонка топика `"order"` (зарезервированное слово SQL) — в psql нужна кавычка
