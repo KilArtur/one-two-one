@@ -233,7 +233,7 @@
   3. Шаг 1: POST generate → N вопросов `type=core` в БД/ответе
   4. Шаг 2: каждый `pattern` ∈ {technical, experience, reasoning}
   5. Шаг 3: повторный POST → `cached=true`, те же id, LLM не вызывается
-- **Коммиты:** (см. следующий commit)
+- **Коммиты:** 899cfe4
 - **Заметки:**
   - Топики с `verifiable_by_interview=false` не получают core-вопрос
   - При ошибке LLM — HTTP 502, вакансия читается, вопросов 0
