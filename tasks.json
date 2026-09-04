@@ -392,7 +392,9 @@
         "TASK-007",
         "TASK-015"
       ],
-      "status": "pending"
+      "status": "done",
+      "assignee": "artur",
+      "claimed_at": "2026-09-05T09:00:00.000000+00:00"
     },
     {
       "id": "TASK-017",
@@ -412,7 +414,9 @@
       "dependencies": [
         "TASK-016"
       ],
-      "status": "pending"
+      "status": "done",
+      "assignee": "artur",
+      "claimed_at": "2026-09-05T09:00:00.000000+00:00"
     },
     {
       "id": "TASK-018",

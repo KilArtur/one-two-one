@@ -5,6 +5,7 @@ from app.models.candidate import Candidate, CandidateStatus
 from app.models.interview_link import InterviewLink
 from app.models.interview_result import InterviewRecommendation, InterviewResult
 from app.models.question import Question, QuestionPattern, QuestionType
+from app.models.stop_factor import StopFactorFlag
 from app.models.topic import SkillType, Topic, TopicImportance
 from app.models.topic_assessment import (
     AssessmentConfidence,
@@ -31,6 +32,7 @@ __all__ = [
     "ReviewerRole",
     "SkillType",
     "StatusChangeLog",
+    "StopFactorFlag",
     "Topic",
     "TopicAssessment",
     "TopicImportance",

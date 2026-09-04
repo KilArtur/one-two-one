@@ -55,6 +55,12 @@ CRUD вакансий с версионированием матрицы (M1): `
 через LLM: `POST /vacancies/{id}/core-questions` (1 core-вопрос на топик, кеш, повтор без дублей).
 Промпты — в `prompts/*.md` (загрузчик `app.prompts.load_prompt`).
 
+Оценка (сервисы, вызываются пайплайном): статус топика — детерминированное правило Р13
+(`services.topic_status.resolve_topic_status`); LLM-оценка топика из транскрипта с evidence
+и изоляцией Р16 (`services.topic_assessment.assess_topic`, `system_status` не перезаписывается);
+стоп-факторы Р6 (`services.stop_factor` — авто «не подходит» только при явном ответе с high
+confidence, флаг в отдельной таблице `stop_factor_flag`).
+
 ## Запуск frontend
 
 ```bash
