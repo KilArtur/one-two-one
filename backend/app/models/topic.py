@@ -12,6 +12,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.db.base import Base, TimestampMixin, enum_column
 
 if TYPE_CHECKING:
+    from app.models.topic_assessment import TopicAssessment
     from app.models.vacancy import Vacancy
 
 
@@ -53,3 +54,8 @@ class Topic(Base, TimestampMixin):
     order: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default=text("0"))
 
     vacancy: Mapped[Vacancy] = relationship(back_populates="topics")
+    assessments: Mapped[list[TopicAssessment]] = relationship(
+        back_populates="topic",
+        cascade="all, delete-orphan",
+        lazy="selectin",
+    )
