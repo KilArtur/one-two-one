@@ -3,6 +3,7 @@
 from functools import lru_cache
 from pathlib import Path
 
+from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 ROOT_DIR = Path(__file__).resolve().parents[2]
@@ -24,12 +25,24 @@ class Settings(BaseSettings):
 
     database_url: str = "postgresql+asyncpg://interviewer:interviewer@localhost:5432/interviewer"
     database_echo: bool = False
+    redis_url: str = "redis://localhost:6379/0"
+    celery_broker_url: str = "redis://localhost:6379/1"
+    celery_result_backend: str = "redis://localhost:6379/2"
 
     openai_api_key: str = ""
     openai_base_url: str = "https://api.openai.com/v1"
+    openai_default_headers: dict[str, str] = Field(default_factory=dict)
     llm_model: str = "gpt-4o"
     llm_fast_model: str = "gpt-4o-mini"
     llm_timeout_seconds: float = 30.0
+
+    s3_endpoint_url: str = "http://localhost:9000"
+    s3_region: str = "us-east-1"
+    s3_access_key_id: str = ""
+    s3_secret_access_key: str = ""
+    s3_bucket: str = "interviewer-media"
+    s3_presigned_url_ttl_seconds: int = 3600
+    s3_use_path_style: bool = True
 
 
 @lru_cache

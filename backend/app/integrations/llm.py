@@ -120,6 +120,7 @@ class LangChainLLMClient:
             model=model_name,
             api_key=self._settings.openai_api_key,
             base_url=self._settings.openai_base_url,
+            default_headers=self._settings.openai_default_headers,
             timeout=self._settings.llm_timeout_seconds,
             max_retries=0,
         )

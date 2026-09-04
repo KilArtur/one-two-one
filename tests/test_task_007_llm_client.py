@@ -77,6 +77,7 @@ def build_client() -> LangChainLLMClient:
     settings = Settings(
         openai_api_key="test-key",
         openai_base_url="https://router.example/v1",
+        openai_default_headers={"X-Mlp-Provider": "openrouter"},
         llm_model="quality-model",
         llm_fast_model="fast-model",
         llm_timeout_seconds=12.5,
@@ -104,6 +105,9 @@ async def test_generate_text_uses_quality_model_and_returns_versions() -> None:
     assert ChatOpenAIStub.instances[0].kwargs["model"] == "quality-model"
     assert ChatOpenAIStub.instances[0].kwargs["base_url"] == "https://router.example/v1"
     assert ChatOpenAIStub.instances[0].kwargs["api_key"] == "test-key"
+    assert ChatOpenAIStub.instances[0].kwargs["default_headers"] == {
+        "X-Mlp-Provider": "openrouter"
+    }
     assert ChatOpenAIStub.instances[0].kwargs["timeout"] == 12.5
 
 
