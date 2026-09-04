@@ -21,6 +21,7 @@ from app.models.interview_link import InterviewLink
 from app.models.interview_result import InterviewResult
 from app.models.question import Question
 from app.models.status_change_log import StatusChangeLog
+from app.models.stop_factor_flag import StopFactorFlag
 from app.models.topic import Topic
 from app.models.topic_assessment import TopicAssessment
 from app.models.vacancy import Vacancy
@@ -42,6 +43,7 @@ __all__ = [
     "Recommendation",
     "SkillType",
     "StatusChangeLog",
+    "StopFactorFlag",
     "Topic",
     "TopicAssessment",
     "TopicStatus",

@@ -284,3 +284,26 @@
   - HTTP API оценки пока нет — сервис для пайплайна / batch (TASK-020/021)
   - Стоп-факторы (Р6) — отдельная **TASK-017**
   - Следующая по critical path: **TASK-017** или **TASK-018** (после 017)
+
+## TASK-017 — оценка стоп-факторов (Р6)
+- **Дата:** 2026-09-04
+- **Статус:** done
+- **Что сделано:**
+  - `prompts/assess_stop_factors.md` (`assess-stop-factors-v1`) — явный триггер + high confidence
+  - ORM `StopFactorFlag` + миграция `0005_stop_factor_flag` (флаг отдельно от топиков)
+  - `backend/app/services/stop_factors.py`:
+    - `resolve_stop_factor_trigger` — детерминированный гейт Р6
+    - `recommendation_with_stop_factor` — triggered → `not_suitable`, иначе human path
+    - `assess_stop_factors` — LLM structured output → гейт → persist; идемпотентно
+  - Тесты: `backend/tests/test_stop_factors.py` (unit + 3 test_steps + LLM fail)
+- **Как проверено:**
+  1. `uv run ruff check .` — OK
+  2. `uv run pytest` — 73 passed, 1 skipped
+  3. Шаг 1: явный стоп → `triggered` + `recommendation=not_suitable`
+  4. Шаг 2: размытый ответ → не срабатывает → `needs_additional_check`
+  5. Шаг 3: evidence с `quote` + `timecode_sec` (+ `answer_id`)
+- **Коммиты:** (будет после commit)
+- **Заметки:**
+  - Полная матричная рекомендация Р5 — **TASK-018** (должна OR-ить `StopFactorFlag.triggered`)
+  - Сборка `InterviewResult` — **TASK-020**; туда же прокинуть флаг/evidence стоп-фактора
+  - HTTP API оценки пока нет — сервис для пайплайна / batch
