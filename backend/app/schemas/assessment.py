@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
-from pydantic import BaseModel, Field
+import uuid
 
-from app.models.topic_assessment import AssessmentConfidence
+from pydantic import BaseModel, ConfigDict, Field
+
+from app.models.topic_assessment import AssessmentConfidence, AssessmentStatus
 
 
 class TopicAssessmentLLM(BaseModel):
@@ -29,3 +31,24 @@ class StopFactorLLM(BaseModel):
     confidence: AssessmentConfidence = Field(description="Категориальная уверенность вывода")
     evidence_quote: str = Field(description="Точная цитата из транскрипта (или пустая строка)")
     reasoning_summary: str = Field(description="Краткое обоснование вывода")
+
+
+class TopicStatusChangeRequest(BaseModel):
+    """Смена статуса топика экспертом с обязательным комментарием (Р21)."""
+
+    new_status: AssessmentStatus
+    comment: str = Field(min_length=1, max_length=2000)
+
+
+class TopicAssessmentRead(BaseModel):
+    """Оценка топика в ответе API."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    candidate_id: uuid.UUID
+    topic_id: uuid.UUID
+    system_status: AssessmentStatus
+    current_status: AssessmentStatus
+    confidence: AssessmentConfidence
+    reviewer_comment: str | None

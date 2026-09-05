@@ -74,6 +74,12 @@ ASR (Whisper): `integrations.asr.OpenAIWhisperClient` — транскрипт �
 словарь вакансии через `prompt` (audio-провайдер из `AUDIO_*`/`ASR_MODEL`). Транскрибация
 ответа (M5) — Celery-задача `app.transcribe_answer` (`services.transcription.transcribe_answer`):
 `recorded→transcribing→ready`; пустая/битая дорожка → `error` и топик получает `needs_check`.
+Оркестрация обработки ответа (M5): Celery-задача `app.process_answer`
+(`services.pipeline.process_answer`) — транскрибация → анализ → сборка `InterviewResult`;
+статусы recorded→transcribing→analyzing→ready, сбой LLM не блокирует (топик → needs_check).
+Смена статуса экспертом (Р21): `PATCH /topic-assessments/{id}/status` — обязательный
+комментарий, RBAC (hard→техспец, soft→НМ), `system_status` неизменен, каждая смена —
+append-only запись в `StatusChangeLog`.
 
 ## Запуск frontend
 

@@ -18,11 +18,20 @@ from app.integrations.llm import LangChainLLMClient, get_llm_client
 from app.models.answer import Answer
 from app.models.question import Question
 from app.models.topic import Topic
-from app.models.topic_assessment import AssessmentConfidence, TopicAssessment
+from app.models.topic_assessment import (
+    AssessmentConfidence,
+    AssessmentStatus,
+    ReviewerRole,
+    StatusChangeLog,
+    TopicAssessment,
+)
 from app.prompts import load_prompt
 from app.schemas.assessment import TopicAssessmentLLM
+from app.services.auth import CurrentUser, ensure_topic_status_change_allowed
 from app.services.evidence import locate_evidence
 from app.services.topic_status import TopicSignals, resolve_topic_status
+
+_AUTHOR_NAMESPACE = uuid.UUID("00000000-0000-0000-0000-0000000000a2")
 
 TOPIC_ASSESSMENT_PROMPT = "topic_assessment"
 TOPIC_ASSESSMENT_PROMPT_VERSION = "topic-assessment-v1"
@@ -159,6 +168,47 @@ async def assess_topic(
         reasoning_summary=verdict.reasoning_summary,
     )
     session.add(assessment)
+    await session.commit()
+    await session.refresh(assessment)
+    return assessment
+
+
+async def change_topic_status(
+    session: AsyncSession,
+    assessment_id: uuid.UUID,
+    *,
+    user: CurrentUser,
+    new_status: AssessmentStatus,
+    comment: str,
+) -> TopicAssessment | None:
+    """Меняет current_status экспертом (RBAC + обязательный комментарий, Р21).
+
+    `system_status` не перезаписывается никогда; каждая смена — append-only запись
+    в StatusChangeLog. Право зависит от типа топика (hard → техспец, soft → НМ).
+    """
+    assessment = await session.get(TopicAssessment, assessment_id)
+    if assessment is None:
+        return None
+    topic = await session.get(Topic, assessment.topic_id)
+    if topic is None:
+        return None
+
+    ensure_topic_status_change_allowed(user, topic.skill_type)
+
+    old_status = assessment.current_status
+    assessment.current_status = new_status
+    assessment.reviewer_comment = comment
+    assessment.reviewed_by = uuid.uuid5(_AUTHOR_NAMESPACE, user.username)
+    session.add(
+        StatusChangeLog(
+            assessment_id=assessment.id,
+            author_id=uuid.uuid5(_AUTHOR_NAMESPACE, user.username),
+            author_role=ReviewerRole(user.role.value),
+            old_status=old_status,
+            new_status=new_status,
+            comment=comment,
+        )
+    )
     await session.commit()
     await session.refresh(assessment)
     return assessment

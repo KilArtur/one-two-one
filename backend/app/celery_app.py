@@ -30,9 +30,11 @@ def create_celery_app(settings: Settings | None = None) -> Celery:
         enable_utc=True,
     )
     register_debug_task(app)
+    from app.tasks.pipeline import register_pipeline_task
     from app.tasks.transcription import register_transcription_task
 
     register_transcription_task(app)
+    register_pipeline_task(app)
     return app
 
 

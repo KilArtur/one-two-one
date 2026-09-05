@@ -19,6 +19,7 @@ from app.api import (
 )
 from app.api.answer_upload import router as answer_upload_router
 from app.api.candidate_interview import router as candidate_interview_router
+from app.api.topic_assessments import router as topic_assessments_router
 from app.config import Settings, get_settings
 from app.db import dispose_engine, get_db
 
@@ -85,6 +86,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(answer_upload_router)
     app.include_router(interview_links_router)
     app.include_router(rbac_router)
+    app.include_router(topic_assessments_router)
 
     return app
 
