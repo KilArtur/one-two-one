@@ -287,3 +287,17 @@ export async function internalLogin(username: string, password: string, role: st
   if (!response.ok) throw new Error("Не удалось войти. Проверьте данные.");
   return ((await response.json()) as { access_token: string }).access_token;
 }
+
+export interface MetricShare { count: number; total: number; share: number | null }
+export interface ProductMetrics {
+  system_statuses: Record<string, MetricShare>;
+  current_statuses: Record<string, MetricShare>;
+  reviewed_topics: number;
+  changed_after_review: MetricShare;
+  disputed_changed_after_review: MetricShare;
+  review_directions: { from_status: string; to_status: string; count: number }[];
+  completion: MetricShare;
+  technical_failures: MetricShare;
+}
+export const getProductMetrics = (token: string, vacancyId?: string, signal?: AbortSignal) =>
+  internalRequest<ProductMetrics>(`/metrics/product${vacancyId ? `?vacancy_id=${encodeURIComponent(vacancyId)}` : ""}`, token, signal);

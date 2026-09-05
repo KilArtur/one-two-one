@@ -5,11 +5,17 @@ import { HealthPage } from "./pages/HealthPage";
 import { HomePage } from "./pages/HomePage";
 
 import { InternalSession } from "./components/InternalSession";
+import { ProductMetricsPage } from "./pages/ProductMetricsPage";
 import { CandidateResultPage } from "./pages/CandidateResultPage";
 
 function ResultRoute() {
   const { candidateId } = useParams();
   return <InternalSession>{(token) => <CandidateResultPage token={token} candidateId={candidateId!} />}</InternalSession>;
+}
+
+function MetricsRoute() {
+  const { vacancyId } = useParams();
+  return <InternalSession>{(token) => <ProductMetricsPage token={token} vacancyId={vacancyId} />}</InternalSession>;
 }
 
 export default function App() {
@@ -18,8 +24,11 @@ export default function App() {
       <nav style={{ display: "flex", gap: 16, marginBottom: 24 }}>
         <Link to="/">Главная</Link>
         <Link to="/health">Статус системы</Link>
+        <Link to="/staff/metrics">Метрики</Link>
       </nav>
       <Routes>
+        <Route path="/staff/metrics" element={<MetricsRoute />} />
+        <Route path="/staff/vacancies/:vacancyId/metrics" element={<MetricsRoute />} />
         <Route path="/staff/candidates/:candidateId" element={<ResultRoute />} />
         <Route path="/interview/*" element={<CandidatePage />} />
         <Route path="/" element={<HomePage />} />
