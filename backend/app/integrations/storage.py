@@ -207,6 +207,16 @@ class S3StorageClient:
             UploadId=upload.upload_id,
         )
 
+    async def delete_object(self, key: str) -> None:
+        """Удаляет объект из бакета (идемпотентно для отсутствующего ключа)."""
+        self._call(
+            "delete_object",
+            error_bucket=self._settings.s3_bucket,
+            error_key=key,
+            Bucket=self._settings.s3_bucket,
+            Key=key,
+        )
+
     async def compose_objects(self, keys: list[str], target: str, content_type: str) -> S3Object:
         """Собирает малые чанки в multipart-части S3 размером минимум 5 MiB."""
         return await asyncio.to_thread(self._compose_objects, keys, target, content_type)

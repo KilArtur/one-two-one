@@ -52,3 +52,18 @@ class TopicAssessmentRead(BaseModel):
     current_status: AssessmentStatus
     confidence: AssessmentConfidence
     reviewer_comment: str | None
+
+
+class ReviewQueueItem(BaseModel):
+    """Спорный топик в очереди ревью."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    assessment_id: uuid.UUID
+    candidate_id: uuid.UUID
+    topic_id: uuid.UUID
+    topic_title: str
+    skill_type: str
+    confidence: AssessmentConfidence
+    current_status: AssessmentStatus
+    reasoning_summary: str | None

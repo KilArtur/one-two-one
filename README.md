@@ -79,7 +79,10 @@ ASR (Whisper): `integrations.asr.OpenAIWhisperClient` — транскрипт �
 статусы recorded→transcribing→analyzing→ready, сбой LLM не блокирует (топик → needs_check).
 Смена статуса экспертом (Р21): `PATCH /topic-assessments/{id}/status` — обязательный
 комментарий, RBAC (hard→техспец, soft→НМ), `system_status` неизменен, каждая смена —
-append-only запись в `StatusChangeLog`.
+append-only запись в `StatusChangeLog`. Очередь ревью по ролям: `GET /review-queue`
+(hard→техспец, soft→НМ; только `needs_check`, самое неопределённое сверху). Ретенция 6
+месяцев (Р18): Celery-beat `app.purge_expired_data` (`services.retention`) удаляет ПДн
+старше срока и хранит обезличенный `InterviewResult`; досрочно — `POST /candidates/{id}/purge`.
 
 ## Запуск frontend
 

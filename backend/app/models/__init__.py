@@ -3,6 +3,7 @@
 from app.models.answer import Answer, AnswerProcessingStatus
 from app.models.answer_upload import AnswerUpload
 from app.models.candidate import Candidate, CandidateStatus
+from app.models.data_deletion import DataDeletionLog
 from app.models.interview_link import InterviewLink
 from app.models.interview_result import InterviewRecommendation, InterviewResult
 from app.models.question import Question, QuestionPattern, QuestionType
@@ -25,6 +26,7 @@ __all__ = [
     "AssessmentStatus",
     "Candidate",
     "CandidateStatus",
+    "DataDeletionLog",
     "InterviewRecommendation",
     "InterviewLink",
     "InterviewResult",
