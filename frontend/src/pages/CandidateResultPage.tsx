@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 
 import { getResultCard, ResultCard } from "../api/client";
 
+import { EvidencePanel } from "../components/EvidencePanel";
+
 const STATUS_LABEL: Record<string, string> = {
   confirmed: "✅ подтверждено",
   needs_check: "❓ требует проверки",
@@ -37,6 +39,7 @@ export function CandidateResultPage({
   candidateId: string;
 }) {
   const [card, setCard] = useState<ResultCard | null>(null);
+  const [topic, setTopic] = useState<string | null>(null);
   const [error, setError] = useState("");
 
   useEffect(() => {
@@ -77,7 +80,7 @@ export function CandidateResultPage({
                 <td>{row.topic_title}</td>
                 <td>{row.skill_type === "hard" ? "hard" : "soft"}</td>
                 <td>{row.importance === "mandatory" ? "обязательный" : "желательный"}</td>
-                <td>{STATUS_LABEL[row.current_status] ?? row.current_status}</td>
+                <td>{row.has_evidence ? <button onClick={() => setTopic(row.topic_id)}>{STATUS_LABEL[row.current_status] ?? row.current_status} — цитата и видео</button> : STATUS_LABEL[row.current_status] ?? row.current_status}</td>
                 <td>{AUTHOR_LABEL[row.author] ?? row.author}</td>
               </tr>
             ))}
@@ -91,6 +94,8 @@ export function CandidateResultPage({
           )}
         </p>
       </section>
+
+      {topic && <EvidencePanel key={topic} token={token} candidateId={candidateId} topicId={topic} />}
 
       <section aria-label="Рекомендация">
         <h2>Итоговая рекомендация</h2>

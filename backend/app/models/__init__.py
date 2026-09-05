@@ -17,8 +17,10 @@ from app.models.topic_assessment import (
     TopicAssessment,
 )
 from app.models.vacancy import Vacancy, VacancyGrade, VacancyStatus
+from app.models.video_view import VideoViewLog
 
 __all__ = [
+    "VideoViewLog",
     "Answer",
     "AnswerUpload",
     "AnswerProcessingStatus",

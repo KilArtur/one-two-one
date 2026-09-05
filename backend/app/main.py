@@ -20,6 +20,7 @@ from app.api import (
 from app.api.answer_upload import router as answer_upload_router
 from app.api.candidate_interview import router as candidate_interview_router
 from app.api.candidates import router as candidates_router
+from app.api.evidence import router as evidence_router
 from app.api.review_queue import router as review_queue_router
 from app.api.topic_assessments import router as topic_assessments_router
 from app.config import Settings, get_settings
@@ -91,6 +92,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(topic_assessments_router)
     app.include_router(review_queue_router)
     app.include_router(candidates_router)
+    app.include_router(evidence_router)
 
     return app
 

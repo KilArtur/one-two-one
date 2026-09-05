@@ -89,6 +89,7 @@ class ResultTopicRowRead(BaseModel):
     current_status: str
     author: str
     reasoning_summary: str | None
+    has_evidence: bool = False
 
 
 class ResultCardRead(BaseModel):

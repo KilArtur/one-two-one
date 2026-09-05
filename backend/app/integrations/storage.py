@@ -120,7 +120,8 @@ class S3StorageClient:
     ) -> str:
         """Builds a presigned GET URL for the object."""
         ttl = expires_in or self._settings.s3_presigned_url_ttl_seconds
-        return self._call(
+        return await asyncio.to_thread(
+            self._call,
             "generate_presigned_url",
             error_bucket=self._settings.s3_bucket,
             error_key=key,

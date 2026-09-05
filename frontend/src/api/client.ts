@@ -181,6 +181,7 @@ export interface ResultTopicRow {
   current_status: string;
   author: string;
   reasoning_summary: string | null;
+  has_evidence?: boolean;
 }
 
 export interface ResultCard {
@@ -257,3 +258,32 @@ export const answerUploadApi = {
       video_chunks: videoChunks, audio_chunks: audioChunks, duration_sec: duration,
     }),
 };
+
+export async function internalRequest<T>(path: string, token: string, signal?: AbortSignal, body?: object): Promise<T> {
+  const response = await fetch(`${API_BASE_URL}${path}`, {
+    method: body ? "POST" : "GET", signal,
+    headers: { Authorization: `Bearer ${token}`, ...(body ? { "Content-Type": "application/json" } : {}) },
+    ...(body ? { body: JSON.stringify(body) } : {}),
+  });
+  if (!response.ok) throw new Error(response.status === 401 ? "Сессия истекла. Войдите снова." : "Не удалось загрузить данные. Повторите попытку.");
+  return response.json() as Promise<T>;
+}
+
+export interface EvidenceItem {
+  answer_id: string; question_id: string; question: string; quote: string;
+  start_sec: number | null; end_sec: number | null; video_available: boolean;
+}
+export interface AnswerMedia { video_url: string; audio_url: string | null }
+export const getEvidence = (token: string, candidate: string, topic: string, signal?: AbortSignal) =>
+  internalRequest<EvidenceItem[]>(`/candidates/${candidate}/topics/${topic}/evidence`, token, signal);
+export const getAnswerMedia = (token: string, candidate: string, answer: string, signal?: AbortSignal) =>
+  internalRequest<AnswerMedia>(`/candidates/${candidate}/answers/${answer}/media`, token, signal);
+export const recordVideoView = (token: string, candidate: string, answer: string, eventId: string, position: number) =>
+  internalRequest(`/candidates/${candidate}/answers/${answer}/views`, token, undefined, { event_id: eventId, position_sec: position });
+export async function internalLogin(username: string, password: string, role: string): Promise<string> {
+  const response = await fetch(`${API_BASE_URL}/auth/token`, {
+    method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ username, password, role }),
+  });
+  if (!response.ok) throw new Error("Не удалось войти. Проверьте данные.");
+  return ((await response.json()) as { access_token: string }).access_token;
+}

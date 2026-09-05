@@ -35,6 +35,7 @@ class ResultTopicRow:
     current_status: str
     author: str
     reasoning_summary: str | None
+    has_evidence: bool = False
 
 
 @dataclass(slots=True, frozen=True)
@@ -93,6 +94,7 @@ async def build_result_card(
                 current_status=assessment.current_status.value,
                 author=await _last_author(session, assessment.id),
                 reasoning_summary=assessment.reasoning_summary,
+                has_evidence=bool(assessment.evidence),
             )
         )
         outcomes.append(
