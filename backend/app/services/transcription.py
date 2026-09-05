@@ -76,6 +76,12 @@ async def transcribe_answer(
     answer = await session.get(Answer, answer_id)
     if answer is None:
         return None
+    # Пропущенный ответ не транскрибируется; статус топика (not_confirmed) выставит анализ.
+    if answer.skipped:
+        answer.processing_status = AnswerProcessingStatus.READY
+        await session.commit()
+        await session.refresh(answer)
+        return answer
     question = await session.get(Question, answer.question_id)
     topic_id = question.topic_id if question is not None else None
 

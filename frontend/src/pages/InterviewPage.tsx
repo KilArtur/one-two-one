@@ -5,6 +5,8 @@ import {
   getInterviewSession,
   InterviewQuestion,
   requestFollowup,
+  skipQuestion,
+  submitInterview,
 } from "../api/client";
 import { InterviewQuestionStep } from "../components/InterviewQuestionStep";
 
@@ -14,13 +16,14 @@ export function InterviewPage({ token }: { token: string }) {
   const [index, setIndex] = useState(0);
   const [answers, setAnswers] = useState<Record<string, boolean>>({});
   const [deciding, setDeciding] = useState(false);
+  const [submitted, setSubmitted] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
     const controller = new AbortController();
     async function load() {
       try {
         const list = await getInterviewQuestions(token, controller.signal);
-        // Р11: восстановление сессии — продолжаем с первого неотвеченного вопроса.
         const session = await getInterviewSession(token, controller.signal);
         setQuestions(list);
         setIndex(Math.min(session.answered_count, Math.max(list.length - 1, 0)));
@@ -34,6 +37,14 @@ export function InterviewPage({ token }: { token: string }) {
     return () => controller.abort();
   }, [token]);
 
+  if (submitted) {
+    return (
+      <main>
+        <h1>Интервью отправлено</h1>
+        <p>Спасибо! Ваши ответы сохранены и переданы команде. Ссылка больше не активна.</p>
+      </main>
+    );
+  }
   if (error) {
     return (
       <main>
@@ -53,11 +64,11 @@ export function InterviewPage({ token }: { token: string }) {
   }
 
   const question = questions[index];
+  const isLast = index + 1 >= questions.length;
 
   async function onSaved() {
     const saved = question;
     setAnswers((current) => ({ ...current, [saved.id]: true }));
-    // M4/Р12: синхронное решение об уточнении по текущему топику.
     setDeciding(true);
     try {
       const decision = await requestFollowup(token, saved.topic_id);
@@ -71,13 +82,32 @@ export function InterviewPage({ token }: { token: string }) {
         });
       }
     } catch {
-      // сбой решения не блокирует прохождение — просто идём дальше
+      // сбой решения не блокирует прохождение
     } finally {
       setDeciding(false);
     }
   }
 
-  const isLast = index + 1 >= questions.length;
+  async function onSkip() {
+    try {
+      await skipQuestion(token, question.id);
+    } catch {
+      // пропуск best-effort — всё равно двигаемся дальше
+    }
+    setAnswers((current) => ({ ...current, [question.id]: true }));
+  }
+
+  async function onSubmit() {
+    setSubmitting(true);
+    try {
+      await submitInterview(token);
+      setSubmitted(true);
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "Не удалось отправить интервью.");
+    } finally {
+      setSubmitting(false);
+    }
+  }
 
   return (
     <main>
@@ -86,12 +116,20 @@ export function InterviewPage({ token }: { token: string }) {
       </h1>
       <p>На основной вопрос — 2 минуты, на уточнение — 1 минута. Перезапись ответа недоступна.</p>
       <InterviewQuestionStep key={question.id} question={question} token={token} onSaved={onSaved} />
+      {!answers[question.id] && (
+        <div>
+          <p>Пропуск нельзя отменить: вопрос будет засчитан как «не подтверждено».</p>
+          <button onClick={onSkip}>Пропустить вопрос</button>
+        </div>
+      )}
       {answers[question.id] && (
         <>
           {deciding && <p role="status">Проверяем, нужно ли уточнение…</p>}
           {!deciding &&
             (isLast ? (
-              <p>Все ответы сохранены.</p>
+              <button onClick={onSubmit} disabled={submitting}>
+                {submitting ? "Отправляем…" : "Завершить и отправить интервью"}
+              </button>
             ) : (
               <button onClick={() => setIndex(index + 1)}>Следующий вопрос</button>
             ))}

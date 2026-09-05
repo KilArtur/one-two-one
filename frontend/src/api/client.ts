@@ -120,6 +120,58 @@ export async function getQuestionAudio(token: string, questionId: string, signal
   return response;
 }
 
+export async function skipQuestion(
+  token: string,
+  questionId: string,
+  signal?: AbortSignal,
+): Promise<{ question_id: string; skipped: boolean }> {
+  const response = await fetch(
+    `${API_BASE_URL}/candidate-interview/questions/${questionId}/skip`,
+    { method: "POST", headers: { Authorization: `Bearer ${token}` }, signal },
+  );
+  if (!response.ok) throw new Error("Не удалось пропустить вопрос.");
+  return response.json() as Promise<{ question_id: string; skipped: boolean }>;
+}
+
+export interface SubmitResult {
+  candidate_id: string;
+  used_at: string;
+  candidate_status: string;
+}
+
+export async function submitInterview(token: string, signal?: AbortSignal): Promise<SubmitResult> {
+  const response = await fetch(`${API_BASE_URL}/candidate-auth/submit`, {
+    method: "POST", headers: { Authorization: `Bearer ${token}` }, signal,
+  });
+  if (!response.ok) throw new Error("Не удалось отправить интервью.");
+  return response.json() as Promise<SubmitResult>;
+}
+
+export interface CandidateOverview {
+  candidate_id: string;
+  candidate_status: string;
+  processing_status: string;
+  confirmed_count: number;
+  needs_check_count: number;
+  not_confirmed_count: number;
+  recommendation: string | null;
+}
+
+export async function listCandidates(
+  token: string,
+  vacancyId: string,
+  processingStatus?: string,
+  signal?: AbortSignal,
+): Promise<CandidateOverview[]> {
+  const params = new URLSearchParams({ vacancy_id: vacancyId });
+  if (processingStatus) params.set("processing_status", processingStatus);
+  const response = await fetch(`${API_BASE_URL}/candidates?${params.toString()}`, {
+    headers: { Authorization: `Bearer ${token}` }, signal,
+  });
+  if (!response.ok) throw new Error("Не удалось загрузить список кандидатов.");
+  return response.json() as Promise<CandidateOverview[]>;
+}
+
 export interface UploadSession {
   id: string;
   video_chunks: number;

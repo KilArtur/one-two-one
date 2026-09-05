@@ -42,6 +42,10 @@ beforeEach(() => {
     finished: false,
   });
   vi.mocked(client.requestFollowup).mockResolvedValue({ ask: false, reason: "x", question: null });
+  vi.mocked(client.skipQuestion).mockResolvedValue({ question_id: "q0", skipped: true });
+  vi.mocked(client.submitInterview).mockResolvedValue({
+    candidate_id: "c", used_at: "2026-09-05T00:00:00Z", candidate_status: "submitted",
+  });
 });
 afterEach(() => cleanup());
 
@@ -83,5 +87,31 @@ describe("InterviewPage", () => {
     await waitFor(() => screen.getByRole("button", { name: "Следующий вопрос" }));
     fireEvent.click(screen.getByRole("button", { name: "Следующий вопрос" }));
     expect(screen.getByText("Вопрос 1")).toBeTruthy();
+  });
+
+  it("пропуск вопроса вызывает skip и предупреждает о последствии (Р10)", async () => {
+    render(<InterviewPage token="session" />);
+    await waitFor(() => screen.getByText("Вопрос 0"));
+    expect(screen.getByText(/Пропуск нельзя отменить/)).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Пропустить вопрос" }));
+    await waitFor(() =>
+      expect(client.skipQuestion).toHaveBeenCalledWith("session", "q0"),
+    );
+    await waitFor(() => screen.getByRole("button", { name: "Следующий вопрос" }));
+  });
+
+  it("на последнем вопросе показывает отправку и экран подтверждения", async () => {
+    vi.mocked(client.getInterviewSession).mockResolvedValue({
+      current_question: Q("q2", "t2", "Вопрос 2"), answered_count: 2, total: 3, finished: false,
+    });
+    render(<InterviewPage token="session" />);
+    await waitFor(() => screen.getByText("Вопрос 2"));
+    fireEvent.click(screen.getByRole("button", { name: "Сохранить" }));
+    await waitFor(() =>
+      screen.getByRole("button", { name: "Завершить и отправить интервью" }),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Завершить и отправить интервью" }));
+    await waitFor(() => screen.getByText("Интервью отправлено"));
+    expect(client.submitInterview).toHaveBeenCalledWith("session");
   });
 });

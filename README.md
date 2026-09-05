@@ -86,7 +86,10 @@ append-only запись в `StatusChangeLog`. Очередь ревью по р
 Адаптивные уточнения (M4/Р12) на LangGraph: `POST /candidate-interview/topics/{id}/followup`
 (`services.followup` — быстрый LLM, до 2 уточнений). Восстановление сессии (Р11):
 `GET /candidate-interview/session` (продолжение с текущего вопроса, TTL ссылки),
-`POST .../session/interrupt` (technically_lost → needs_check).
+`POST .../session/interrupt` (technically_lost → needs_check). Пропуск вопроса (Р10):
+`POST /candidate-interview/questions/{id}/skip`; отправка с гашением ссылки — `POST
+/candidate-auth/submit`. Список кандидатов вакансии (рекрутер): `GET /candidates?vacancy_id=`
+— статус обработки + тройка чисел (без AI-score), фильтр по статусу.
 
 ## Запуск frontend
 

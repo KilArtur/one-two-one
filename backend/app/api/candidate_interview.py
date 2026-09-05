@@ -15,6 +15,7 @@ from app.db import get_db
 from app.integrations.llm import LangChainLLMClient, get_llm_client
 from app.integrations.storage import S3StorageError
 from app.integrations.tts import TTSClientError
+from app.models.answer import Answer, AnswerProcessingStatus
 from app.models.candidate import Candidate
 from app.models.question import Question, QuestionType
 from app.models.topic import Topic
@@ -155,3 +156,41 @@ async def interrupt_session(candidate: CandidateDep, session: SessionDep) -> Ses
         total=state.total,
         finished=state.finished,
     )
+
+
+class SkipResult(BaseModel):
+    """Результат пропуска вопроса (Р10)."""
+
+    question_id: uuid.UUID
+    skipped: bool
+
+
+@router.post("/questions/{question_id}/skip", response_model=SkipResult)
+async def skip_question(
+    question_id: uuid.UUID, candidate: CandidateDep, session: SessionDep
+) -> SkipResult:
+    """Помечает вопрос пропущенным (Р10); пропуск ведёт к «не подтверждено» при оценке."""
+    question = await session.scalar(
+        select(Question)
+        .join(Topic, Question.topic_id == Topic.id)
+        .where(Question.id == question_id, Topic.vacancy_id == candidate.vacancy_id)
+    )
+    if question is None:
+        raise HTTPException(status_code=404, detail="Question not found")
+    existing = await session.scalar(
+        select(Answer).where(
+            Answer.candidate_id == candidate.id, Answer.question_id == question_id
+        )
+    )
+    if existing is not None:
+        raise HTTPException(status_code=409, detail="Answer already exists")
+    session.add(
+        Answer(
+            candidate_id=candidate.id,
+            question_id=question_id,
+            skipped=True,
+            processing_status=AnswerProcessingStatus.READY,
+        )
+    )
+    await session.commit()
+    return SkipResult(question_id=question_id, skipped=True)
