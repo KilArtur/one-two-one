@@ -27,6 +27,7 @@ class ResultTopicRow:
     """Строка матрицы топиков в карточке результата."""
 
     topic_id: uuid.UUID
+    assessment_id: uuid.UUID | None
     topic_title: str
     skill_type: str
     importance: str
@@ -84,6 +85,7 @@ async def build_result_card(session: AsyncSession, candidate_id: uuid.UUID) -> R
         topics.append(
             ResultTopicRow(
                 topic_id=assessment.topic_id,
+                assessment_id=assessment.id,
                 topic_title=assessment.topic.title,
                 skill_type=assessment.topic.skill_type.value,
                 importance=assessment.topic.importance.value,
@@ -106,6 +108,7 @@ async def build_result_card(session: AsyncSession, candidate_id: uuid.UUID) -> R
             topics.append(
                 ResultTopicRow(
                     topic_id=topic.id,
+                    assessment_id=None,
                     topic_title=topic.title,
                     skill_type=topic.skill_type.value,
                     importance=topic.importance.value,

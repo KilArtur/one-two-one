@@ -261,3 +261,26 @@ async def test_personalization_failure_does_not_block_invite(
     assert created.status_code == 201
     listed = (await client.get(f"/vacancies/{vacancy_id}/questions")).json()
     assert [item["id"] for item in listed] == [questions[0]["id"]]
+
+
+@pytest.mark.anyio
+async def test_recruiter_deletes_candidate(client: httpx.AsyncClient) -> None:
+    vacancy_id, _ = await _vacancy_with_questions(client)
+    await client.post(
+        f"/vacancies/{vacancy_id}/questions/approve", headers=_headers(AppRole.TECH_SPECIALIST)
+    )
+    created = await _invite(client, vacancy_id, RESUME)
+    candidate_id = created.json()["id"]
+
+    forbidden = await client.delete(
+        f"/candidates/{candidate_id}", headers=_headers(AppRole.TECH_SPECIALIST)
+    )
+    assert forbidden.status_code == 403
+
+    deleted = await client.delete(
+        f"/candidates/{candidate_id}", headers=_headers(AppRole.RECRUITER)
+    )
+    assert deleted.status_code == 204
+    assert (
+        await client.get(f"/candidates/{candidate_id}/result", headers=_headers(AppRole.RECRUITER))
+    ).status_code == 404

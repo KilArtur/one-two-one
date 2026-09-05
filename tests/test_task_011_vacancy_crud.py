@@ -164,3 +164,32 @@ async def test_update_scalar_fields_keeps_version(client: httpx.AsyncClient) -> 
     assert body["title"] == "Senior Backend"
     assert body["grade"] == "senior"
     assert body["version"] == 1
+
+
+@pytest.mark.anyio
+async def test_delete_vacancy_removes_all_lineage_versions(client: httpx.AsyncClient) -> None:
+    created = (await client.post("/vacancies", json=_payload())).json()
+    vacancy_id = created["id"]
+    await client.patch(f"/vacancies/{vacancy_id}", json={"status": "active"})
+    snapshot = (
+        await client.put(
+            f"/vacancies/{vacancy_id}/topics",
+            json={
+                "topics": [
+                    {"title": "Python", "skill_type": "hard", "importance": "mandatory", "order": 0},
+                    {"title": "Kafka", "skill_type": "hard", "importance": "mandatory", "order": 1},
+                    {"title": "Docker", "skill_type": "hard", "importance": "desired", "order": 2},
+                    {"title": "Redis", "skill_type": "hard", "importance": "desired", "order": 3},
+                    {"title": "gRPC", "skill_type": "hard", "importance": "desired", "order": 4},
+                ]
+            },
+        )
+    ).json()
+
+    deleted = await client.delete(f"/vacancies/{snapshot['id']}")
+    assert deleted.status_code == 204
+    assert (await client.get(f"/vacancies/{vacancy_id}")).status_code == 404
+    assert (await client.get(f"/vacancies/{snapshot['id']}")).status_code == 404
+    assert (await client.get("/vacancies")).json() == []
+    missing = await client.delete("/vacancies/00000000-0000-0000-0000-000000000000")
+    assert missing.status_code == 404

@@ -5,31 +5,55 @@ import {
   CandidateOverview,
   ResumeCard,
   createCandidate,
+  deleteCandidate,
   draftResumeCard,
   issueInterviewLink,
   listCandidates,
 } from "../api/client";
 import { Breadcrumbs, EmptyState, PageHead, StatusPill } from "../layouts/Shell";
-import { PROCESSING_LABEL, RECOMMENDATION_LABEL, STATUS_TONE, coverageText } from "../lib/labels";
+import {
+  PROCESSING_LABEL,
+  RECOMMENDATION_LABEL,
+  STATUS_TONE,
+  coveragePct,
+  coverageText,
+  skillCoverage,
+} from "../lib/labels";
+
+type RecommendationFilter = "" | "fit" | "not_fit" | "additional_check" | "none";
+type SortKey = "coverage_desc" | "coverage_asc";
+
+function coverageOf(candidate: CandidateOverview): number | null {
+  return skillCoverage(
+    candidate.confirmed_count,
+    candidate.needs_check_count,
+    candidate.not_confirmed_count,
+    candidate.skill_coverage,
+  );
+}
 
 export function CandidateListPage({ token, vacancyId }: { token: string; vacancyId: string }) {
   const navigate = useNavigate();
   const [candidates, setCandidates] = useState<CandidateOverview[] | null>(null);
   const [filter, setFilter] = useState("");
+  const [recommendation, setRecommendation] = useState<RecommendationFilter>("");
+  const [sort, setSort] = useState<SortKey>("coverage_desc");
   const [error, setError] = useState("");
   const [linkInfo, setLinkInfo] = useState("");
   const [revision, setRevision] = useState(0);
   const [resume, setResume] = useState("");
+  const [sourceText, setSourceText] = useState("");
   const [card, setCard] = useState<ResumeCard["profile"] | null>(null);
   const [resumeNote, setResumeNote] = useState("");
   const [parsing, setParsing] = useState(false);
   const [creating, setCreating] = useState(false);
+  const [busyId, setBusyId] = useState("");
   const recruiter = sessionStorage.getItem("internal-role") === "recruiter";
 
   useEffect(() => {
     const controller = new AbortController();
     setError("");
-    listCandidates(token, vacancyId, filter || undefined, controller.signal)
+    listCandidates(token, vacancyId, controller.signal)
       .then(setCandidates)
       .catch((reason) => {
         if (!controller.signal.aborted) {
@@ -37,7 +61,7 @@ export function CandidateListPage({ token, vacancyId }: { token: string; vacancy
         }
       });
     return () => controller.abort();
-  }, [token, vacancyId, filter, revision]);
+  }, [token, vacancyId, revision]);
 
   useEffect(() => {
     const timer = window.setInterval(() => setRevision((value) => value + 1), 5000);
@@ -51,9 +75,12 @@ export function CandidateListPage({ token, vacancyId }: { token: string; vacancy
       const parsed = await draftResumeCard(token, file);
       setCard(parsed.profile);
       setResume(parsed.resume_text);
+      setSourceText(parsed.source_text ?? "");
       setResumeNote(
-        `Резюме разобрано: навыков ${parsed.profile.skills.length}, ` +
-          `мест работы ${parsed.profile.experience.length}.`,
+        parsed.parsed_by_model === false
+          ? "Текст из PDF получен, модель не извлекла основное. Проверьте текст ниже."
+          : `Из PDF извлечено основное: навыков ${parsed.profile.skills.length}, ` +
+              `мест работы ${parsed.profile.experience.length}. Проверьте и поправьте.`,
       );
     } catch (reason) {
       setResumeNote(reason instanceof Error ? reason.message : "Не удалось разобрать резюме.");
@@ -68,6 +95,7 @@ export function CandidateListPage({ token, vacancyId }: { token: string; vacancy
       const candidate = await createCandidate(token, vacancyId, resume);
       await copyLink(candidate.id);
       setResume("");
+      setSourceText("");
       setCard(null);
       setResumeNote("");
       setRevision((value) => value + 1);
@@ -78,15 +106,50 @@ export function CandidateListPage({ token, vacancyId }: { token: string; vacancy
     }
   }
 
+  const visible = useMemo(() => {
+    const rows = (candidates ?? []).filter((candidate) => {
+      if (filter && candidate.processing_status !== filter) return false;
+      if (recommendation === "none") return candidate.recommendation === null;
+      if (recommendation && candidate.recommendation !== recommendation) return false;
+      return true;
+    });
+    const ranked = [...rows].sort((left, right) => {
+      const a = coverageOf(left);
+      const b = coverageOf(right);
+      if (a === null && b === null) return 0;
+      if (a === null) return 1;
+      if (b === null) return -1;
+      return sort === "coverage_asc" ? a - b : b - a;
+    });
+    return ranked;
+  }, [candidates, filter, recommendation, sort]);
+
   const summary = useMemo(() => {
     const rows = candidates ?? [];
+    const scored = rows.map(coverageOf).filter((value): value is number => value !== null);
+    const average = scored.length === 0 ? null : scored.reduce((sum, value) => sum + value, 0) / scored.length;
     return {
       total: rows.length,
-      ready: rows.filter((c) => c.processing_status === "ready").length,
-      error: rows.filter((c) => c.processing_status === "error").length,
-      check: rows.reduce((sum, c) => sum + c.needs_check_count, 0),
+      fit: rows.filter((c) => c.recommendation === "fit").length,
+      notFit: rows.filter((c) => c.recommendation === "not_fit").length,
+      check: rows.filter((c) => c.recommendation === "additional_check").length,
+      average,
     };
   }, [candidates]);
+
+  async function remove(candidateId: string) {
+    if (!window.confirm("Удалить кандидата и его интервью?")) return;
+    setBusyId(candidateId);
+    setLinkInfo("");
+    try {
+      await deleteCandidate(token, candidateId);
+      setCandidates((rows) => (rows ?? []).filter((row) => row.candidate_id !== candidateId));
+    } catch (reason) {
+      setLinkInfo(reason instanceof Error ? reason.message : "Не удалось удалить кандидата.");
+    } finally {
+      setBusyId("");
+    }
+  }
 
   async function copyLink(candidateId: string) {
     setLinkInfo("");
@@ -119,29 +182,53 @@ export function CandidateListPage({ token, vacancyId }: { token: string; vacancy
           <span>Всего</span>
         </div>
         <div className="summary-cell">
-          <strong>{summary.ready}</strong>
-          <span>Готово</span>
+          <strong>{summary.fit}</strong>
+          <span>Проходит</span>
+        </div>
+        <div className="summary-cell">
+          <strong>{summary.notFit}</strong>
+          <span>Не проходит</span>
         </div>
         <div className="summary-cell">
           <strong>{summary.check}</strong>
-          <span>Топиков к проверке</span>
+          <span>На проверке</span>
         </div>
         <div className="summary-cell">
-          <strong>{summary.error}</strong>
-          <span>Ошибки обработки</span>
+          <strong>{coveragePct(summary.average)}</strong>
+          <span>Среднее покрытие</span>
         </div>
       </div>
 
       <div className="filterbar" style={{ marginTop: 28 }}>
         <label>
-          Фильтр по статусу:{" "}
-          <select className="field" value={filter} onChange={(event) => setFilter(event.target.value)}>
+          Обработка{" "}
+          <select
+            aria-label="Фильтр по статусу обработки"
+            className="field"
+            value={filter}
+            onChange={(event) => setFilter(event.target.value)}
+          >
             <option value="">Все</option>
             {Object.entries(PROCESSING_LABEL).map(([value, label]) => (
               <option key={value} value={value}>
                 {label}
               </option>
             ))}
+          </select>
+        </label>
+        <label>
+          Рекомендация{" "}
+          <select
+            aria-label="Фильтр по рекомендации"
+            className="field"
+            value={recommendation}
+            onChange={(event) => setRecommendation(event.target.value as RecommendationFilter)}
+          >
+            <option value="">Все</option>
+            <option value="fit">Проходит</option>
+            <option value="not_fit">Не проходит</option>
+            <option value="additional_check">На проверке</option>
+            <option value="none">Ещё нет оценки</option>
           </select>
         </label>
         <span className="spacer" />
@@ -152,6 +239,10 @@ export function CandidateListPage({ token, vacancyId }: { token: string; vacancy
 
       {recruiter && <section className="panel" style={{ marginTop: 20 }}>
         <label htmlFor="candidate-resume-pdf">Резюме в PDF (необязательно)</label>
+        <p className="meta">
+          Сначала считываем текст из PDF, затем модель извлекает основное — как у вакансии. Карточку
+          и текст ниже можно поправить перед приглашением.
+        </p>
         <input
           id="candidate-resume-pdf"
           type="file"
@@ -163,15 +254,11 @@ export function CandidateListPage({ token, vacancyId }: { token: string; vacancy
             if (file) void loadResume(file);
           }}
         />
-        <p className="meta">
-          Из файла соберётся карточка кандидата — навыки, опыт и образование. Текст ниже можно
-          поправить перед приглашением.
-        </p>
-        {parsing && <p role="status">Разбираем резюме…</p>}
+        {parsing && <p role="status">Считываем текст и извлекаем основное…</p>}
         {!parsing && resumeNote && <p role="status">{resumeNote}</p>}
-        {card && (
+        {card && (card.full_name || card.headline || card.skills.length > 0) && (
           <div className="matrix" style={{ marginBottom: 16 }}>
-            <section className="panel">
+            <section className="panel" aria-label="Извлечённое основное">
               <div className="title-cell">{card.full_name || "Кандидат"}</div>
               {card.headline && <p className="meta">{card.headline}</p>}
               {card.skills.length > 0 && (
@@ -203,7 +290,13 @@ export function CandidateListPage({ token, vacancyId }: { token: string; vacancy
             </section>
           </div>
         )}
-        <label htmlFor="candidate-resume">Резюме кандидата (необязательно)</label>
+        {sourceText && (
+          <details style={{ marginBottom: 16 }}>
+            <summary className="meta">Текст из PDF</summary>
+            <p style={{ whiteSpace: "pre-wrap" }}>{sourceText}</p>
+          </details>
+        )}
+        <label htmlFor="candidate-resume">Основное из резюме (необязательно)</label>
         <textarea id="candidate-resume" value={resume} onChange={(event) => setResume(event.target.value)} />
         <button className="btn primary" disabled={creating || parsing} onClick={() => void invite()}>
           {creating ? "Создаём приглашение…" : "Пригласить кандидата"}
@@ -213,10 +306,14 @@ export function CandidateListPage({ token, vacancyId }: { token: string; vacancy
 
       {candidates === null ? (
         <p role="status">Загружаем кандидатов…</p>
-      ) : candidates.length === 0 ? (
+      ) : visible.length === 0 ? (
         <EmptyState
-          title="Кандидатов нет"
-          text="Рекрутер может пригласить кандидата с помощью формы выше."
+          title={candidates.length === 0 ? "Кандидатов нет" : "Никто не попал в фильтр"}
+          text={
+            candidates.length === 0
+              ? "Рекрутер может пригласить кандидата с помощью формы выше."
+              : "Снимите фильтр по обработке или рекомендации."
+          }
         />
       ) : (
         <div className="table-wrap">
@@ -225,13 +322,24 @@ export function CandidateListPage({ token, vacancyId }: { token: string; vacancy
               <tr>
                 <th>Кандидат</th>
                 <th>Обработка</th>
-                <th>Покрытие</th>
+                <th aria-sort={sort === "coverage_asc" ? "ascending" : "descending"}>
+                  <button
+                    type="button"
+                    className="btn small ghost"
+                    aria-label="Сортировать по проценту покрытия"
+                    onClick={() =>
+                      setSort((value) => (value === "coverage_desc" ? "coverage_asc" : "coverage_desc"))
+                    }
+                  >
+                    Покрытие {sort === "coverage_asc" ? "↑" : "↓"}
+                  </button>
+                </th>
                 <th>Рекомендация</th>
                 <th />
               </tr>
             </thead>
             <tbody>
-              {candidates.map((candidate) => (
+              {visible.map((candidate) => (
                 <tr
                   key={candidate.candidate_id}
                   className="clickable"
@@ -252,18 +360,21 @@ export function CandidateListPage({ token, vacancyId }: { token: string; vacancy
                     )}
                   </td>
                   <td>
-                    {coverageText(
-                      candidate.confirmed_count,
-                      candidate.needs_check_count,
-                      candidate.not_confirmed_count,
-                    )}
+                    <div className="title-cell">{coveragePct(coverageOf(candidate))}</div>
+                    <div className="cell-sub">
+                      {coverageText(
+                        candidate.confirmed_count,
+                        candidate.needs_check_count,
+                        candidate.not_confirmed_count,
+                      )}
+                    </div>
                   </td>
                   <td>
                     {candidate.recommendation
                       ? RECOMMENDATION_LABEL[candidate.recommendation] ?? candidate.recommendation
                       : "—"}
                   </td>
-                  <td>
+                  <td className="inline">
                     <button
                       type="button"
                       className="btn small ghost"
@@ -274,6 +385,19 @@ export function CandidateListPage({ token, vacancyId }: { token: string; vacancy
                     >
                       Ссылка
                     </button>
+                    {recruiter && (
+                      <button
+                        type="button"
+                        className="btn small ghost"
+                        disabled={busyId === candidate.candidate_id}
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          void remove(candidate.candidate_id);
+                        }}
+                      >
+                        Удалить
+                      </button>
+                    )}
                   </td>
                 </tr>
               ))}

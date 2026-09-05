@@ -36,6 +36,7 @@ class ChatOpenAIStub:
     instances: list["ChatOpenAIStub"] = []
     next_text_response: AIMessage | Exception | None = None
     next_structured_response: dict[str, object] | Exception | None = None
+    fail_json_schema: bool = False
 
     def __init__(self, **kwargs: object) -> None:
         self.kwargs = kwargs
@@ -57,6 +58,8 @@ class ChatOpenAIStub:
         **kwargs: object,
     ) -> StructuredRunnableStub:
         self.structured_calls.append({"schema": schema, **kwargs})
+        if ChatOpenAIStub.fail_json_schema and kwargs.get("method") == "json_schema":
+            raise RuntimeError("json_schema not supported")
         response = ChatOpenAIStub.next_structured_response
         if isinstance(response, Exception):
             raise response
@@ -70,6 +73,7 @@ def reset_stub_state() -> None:
     ChatOpenAIStub.instances.clear()
     ChatOpenAIStub.next_text_response = None
     ChatOpenAIStub.next_structured_response = None
+    ChatOpenAIStub.fail_json_schema = False
 
 
 def build_client() -> LangChainLLMClient:
@@ -159,6 +163,31 @@ async def test_generate_structured_uses_json_schema_native_output() -> None:
             "include_raw": True,
         }
     ]
+
+
+@pytest.mark.anyio
+async def test_generate_structured_falls_back_to_function_calling() -> None:
+    parsed = CandidateSignal(topic="Kafka", supported=True)
+    ChatOpenAIStub.fail_json_schema = True
+    ChatOpenAIStub.next_structured_response = {
+        "parsed": parsed,
+        "raw": AIMessage(content="", response_metadata={"model_name": "compat-model"}),
+    }
+    client = build_client()
+
+    result = await client.generate_structured(
+        "Extract coverage for Kafka.",
+        schema=CandidateSignal,
+        prompt_version="resume-draft-v1",
+    )
+
+    assert result.content == parsed
+    methods = [
+        call["method"]
+        for inst in ChatOpenAIStub.instances
+        for call in inst.structured_calls
+    ]
+    assert methods == ["json_schema", "function_calling"]
 
 
 @pytest.mark.anyio

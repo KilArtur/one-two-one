@@ -56,6 +56,21 @@ export function coverageText(confirmed: number, needs: number, notConfirmed: num
   return `✅ ${confirmed} · ❓ ${needs} · ❌ ${notConfirmed}`;
 }
 
+export function skillCoverage(
+  confirmed: number,
+  needs: number,
+  notConfirmed: number,
+  stored?: number | null,
+): number | null {
+  if (stored !== null && stored !== undefined) return stored;
+  const total = confirmed + needs + notConfirmed;
+  return total === 0 ? null : confirmed / total;
+}
+
+export function coveragePct(value: number | null): string {
+  return value === null ? "—" : `${Math.round(value * 100)}%`;
+}
+
 export function pct(share: number | null, count: number, total: number): string {
   if (share === null) return `Нет данных (${count} / ${total})`;
   return `${Math.round(share * 100)}% (${count} / ${total})`;

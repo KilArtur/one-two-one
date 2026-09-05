@@ -96,6 +96,7 @@ async def test_matrix_and_recommendation(session: AsyncSession) -> None:
     assert card is not None
     # матрица первым объектом, в порядке order
     assert [t.topic_title for t in card.topics] == ["PostgreSQL", "Kafka"]
+    assert all(t.assessment_id is not None for t in card.topics)
     # оба обязательных теперь confirmed -> fit
     assert card.recommendation == "fit"
     assert card.recommendation_reason == "all_mandatory_confirmed"

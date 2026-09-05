@@ -155,16 +155,17 @@ export interface CandidateOverview {
   needs_check_count: number;
   not_confirmed_count: number;
   recommendation: string | null;
+  skill_coverage: number | null;
+  mandatory_coverage: number | null;
+  desired_coverage: number | null;
 }
 
 export async function listCandidates(
   token: string,
   vacancyId: string,
-  processingStatus?: string,
   signal?: AbortSignal,
 ): Promise<CandidateOverview[]> {
   const params = new URLSearchParams({ vacancy_id: vacancyId });
-  if (processingStatus) params.set("processing_status", processingStatus);
   const response = await fetch(`${API_BASE_URL}/candidates?${params.toString()}`, {
     headers: { Authorization: `Bearer ${token}` }, signal,
   });
@@ -174,6 +175,7 @@ export async function listCandidates(
 
 export interface ResultTopicRow {
   topic_id: string;
+  assessment_id?: string | null;
   topic_title: string;
   skill_type: "hard" | "soft";
   importance: "mandatory" | "desired";
@@ -338,6 +340,27 @@ export async function changeAssessmentStatus(token: string, assessmentId: string
   if (!response.ok) throw new Error(response.status === 403 ? "Ваша роль не может изменить этот топик." : "Не удалось сохранить статус. Проверьте комментарий и повторите попытку.");
 }
 
+export async function changeTopicStatus(
+  token: string,
+  candidateId: string,
+  topicId: string,
+  status: string,
+  comment: string,
+): Promise<void> {
+  const response = await fetch(`${API_BASE_URL}/candidates/${candidateId}/topics/${topicId}/status`, {
+    method: "PATCH",
+    headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ new_status: status, comment: comment.trim() }),
+  });
+  if (!response.ok) {
+    throw new Error(
+      response.status === 403
+        ? "Ваша роль не может изменить этот топик."
+        : "Не удалось сохранить статус. Проверьте комментарий и повторите попытку.",
+    );
+  }
+}
+
 export interface ResultLinkInfo {
   id: string; candidate_id: string; created_by: string; expires_at: string; revoked_at: string | null;
 }
@@ -395,6 +418,14 @@ export async function listVacancies(token: string, signal?: AbortSignal): Promis
 
 export async function getVacancy(token: string, id: string, signal?: AbortSignal): Promise<Vacancy> {
   return internalRequest<Vacancy>(`/vacancies/${id}`, token, signal);
+}
+
+export async function deleteVacancy(token: string, vacancyId: string): Promise<void> {
+  const response = await fetch(`${API_BASE_URL}/vacancies/${vacancyId}`, {
+    method: "DELETE",
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!response.ok) throw new Error("Не удалось удалить вакансию.");
 }
 
 export interface VacancyDraft {
@@ -498,6 +529,8 @@ export interface ResumeCard {
     education: string[];
   };
   resume_text: string;
+  source_text?: string;
+  parsed_by_model?: boolean;
 }
 
 export async function draftResumeCard(token: string, file: File): Promise<ResumeCard> {
@@ -570,6 +603,14 @@ export async function createCandidate(token: string, vacancyId: string, resumeTe
   if (response.status === 409) throw new Error("Сначала откройте «Вакансии» и сгенерируйте Core-вопросы.");
   if (!response.ok) throw new Error("Не удалось создать кандидата. Проверьте роль и соединение.");
   return response.json() as Promise<{id: string}>;
+}
+
+export async function deleteCandidate(token: string, candidateId: string): Promise<void> {
+  const response = await fetch(`${API_BASE_URL}/candidates/${candidateId}`, {
+    method: "DELETE",
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!response.ok) throw new Error("Не удалось удалить кандидата.");
 }
 
 export async function issueInterviewLink(

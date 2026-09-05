@@ -20,7 +20,9 @@ class ResumeDraft(BaseModel):
 
 
 class ResumeCard(BaseModel):
-    """Ответ API: разобранная карточка и готовый текст резюме для приглашения."""
+    """Ответ API: текст из PDF и извлечённое моделью основное."""
 
     profile: ResumeDraft
     resume_text: str
+    source_text: str = ""
+    parsed_by_model: bool = True

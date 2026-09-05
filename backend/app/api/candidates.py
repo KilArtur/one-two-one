@@ -13,7 +13,9 @@ from app.db import get_db
 from app.integrations.llm import LangChainLLMClient, LLMClientError, get_llm_client
 from app.integrations.storage import S3StorageClient, get_s3_storage_client
 from app.models.candidate import Candidate
+from app.models.topic_assessment import AssessmentStatus
 from app.models.vacancy import Vacancy
+from app.schemas.assessment import TopicAssessmentRead, TopicStatusChangeRequest
 from app.schemas.candidate import ResumeCard
 from app.services.auth import CurrentUser, ensure_interview_link_issue_allowed, get_current_user
 from app.services.candidate_overview import list_vacancy_candidates
@@ -22,8 +24,9 @@ from app.services.question_personalization import personalize_questions
 from app.services.question_review import QUESTIONS_NOT_APPROVED, questions_approved
 from app.services.result_card import build_result_card
 from app.services.result_links import get_result_user
-from app.services.resume_draft import build_resume_card
+from app.services.resume_draft import build_resume_card, fallback_resume_card
 from app.services.retention import purge_candidate
+from app.services.topic_assessment import change_candidate_topic_status
 
 router = APIRouter(prefix="/candidates", tags=["candidates"])
 
@@ -66,9 +69,22 @@ async def create_candidate(
     return candidate
 
 
+@router.delete("/{candidate_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_candidate(
+    candidate_id: uuid.UUID, current_user: CurrentUserDep, session: SessionDep
+) -> None:
+    """Удаляет кандидата и связанные материалы интервью."""
+    ensure_interview_link_issue_allowed(current_user)
+    candidate = await session.get(Candidate, candidate_id)
+    if candidate is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Candidate not found")
+    await session.delete(candidate)
+    await session.commit()
+
+
 @router.post("/resume-draft", response_model=ResumeCard)
 async def draft_resume_card(file: UploadFile, llm: LLMDep) -> ResumeCard:
-    """Разбирает PDF-резюме в карточку кандидата; ничего не сохраняет."""
+    """Сначала текст из PDF, затем модель извлекает основное — как черновик вакансии."""
     try:
         data = await file.read(MAX_DOCUMENT_BYTES + 1)
     finally:
@@ -81,10 +97,8 @@ async def draft_resume_card(file: UploadFile, llm: LLMDep) -> ResumeCard:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(exc)) from exc
     try:
         return await build_resume_card(text, llm_client=llm)
-    except LLMClientError as exc:
-        raise HTTPException(
-            status.HTTP_503_SERVICE_UNAVAILABLE, "Модель недоступна, вставьте резюме текстом"
-        ) from exc
+    except LLMClientError:
+        return fallback_resume_card(text)
 
 
 class PurgeRequest(BaseModel):
@@ -124,6 +138,9 @@ class CandidateOverviewRead(BaseModel):
     needs_check_count: int
     not_confirmed_count: int
     recommendation: str | None
+    skill_coverage: float | None = None
+    mandatory_coverage: float | None = None
+    desired_coverage: float | None = None
 
 
 @router.get("", response_model=list[CandidateOverviewRead])
@@ -144,6 +161,7 @@ class ResultTopicRowRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     topic_id: uuid.UUID
+    assessment_id: uuid.UUID | None = None
     topic_title: str
     skill_type: str
     importance: str
@@ -182,3 +200,34 @@ async def read_result_card(
     if card is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Candidate not found")
     return ResultCardRead.model_validate(card)
+
+
+@router.patch("/{candidate_id}/topics/{topic_id}/status", response_model=TopicAssessmentRead)
+async def change_result_topic_status(
+    candidate_id: uuid.UUID,
+    topic_id: uuid.UUID,
+    data: TopicStatusChangeRequest,
+    current_user: CurrentUserDep,
+    session: SessionDep,
+) -> TopicAssessmentRead:
+    """Меняет статус топика на карточке; system_status не перезаписывается."""
+    if data.new_status not in {
+        AssessmentStatus.CONFIRMED,
+        AssessmentStatus.NEEDS_CHECK,
+        AssessmentStatus.NOT_CONFIRMED,
+    }:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail="Экспертом выставляется только confirmed/needs_check/not_confirmed",
+        )
+    assessment = await change_candidate_topic_status(
+        session,
+        candidate_id,
+        topic_id,
+        user=current_user,
+        new_status=data.new_status,
+        comment=data.comment,
+    )
+    if assessment is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Not found")
+    return TopicAssessmentRead.model_validate(assessment)

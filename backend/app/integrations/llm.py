@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from collections.abc import Callable
 from dataclasses import dataclass
 from functools import lru_cache
@@ -18,6 +19,12 @@ from app.config import Settings, get_settings
 
 SchemaT = TypeVar("SchemaT", bound=BaseModel)
 ChatModelFactory = Callable[..., Any]
+logger = logging.getLogger(__name__)
+
+_STRUCTURED_METHODS: tuple[dict[str, Any], ...] = (
+    {"method": "json_schema", "strict": True, "include_raw": True},
+    {"method": "function_calling", "include_raw": True},
+)
 
 
 @dataclass(slots=True, frozen=True)
@@ -89,38 +96,45 @@ class LangChainLLMClient:
     ) -> LLMInvocationResult[SchemaT]:
         """Возвращает ответ модели, валидированный native structured outputs."""
         model_name = self._resolve_model_name(use_fast_model=use_fast_model)
-        model = self._build_model(model_name)
-        structured_model = model.with_structured_output(
-            schema,
-            method="json_schema",
-            strict=True,
-            include_raw=True,
-        )
+        last_error: Exception | None = None
 
-        try:
-            response = await structured_model.ainvoke(prompt)
-        except Exception as exc:
-            raise self._map_error(
-                exc,
-                model_name=model_name,
-                prompt_version=prompt_version,
-            ) from exc
+        for options in _STRUCTURED_METHODS:
+            model = self._build_model(model_name)
+            try:
+                structured_model = model.with_structured_output(schema, **options)
+                response = await structured_model.ainvoke(prompt)
+            except Exception as exc:
+                last_error = exc
+                logger.warning(
+                    "Structured output %s failed: %s: %s",
+                    options.get("method"),
+                    type(exc).__name__,
+                    str(exc)[:300],
+                )
+                continue
 
-        parsed = response["parsed"]
-        raw_message = response["raw"]
-        if not isinstance(parsed, schema):
-            raise LLMClientError(
+            parsed = response["parsed"] if isinstance(response, dict) else None
+            raw_message = response["raw"] if isinstance(response, dict) else None
+            if isinstance(parsed, schema) and isinstance(raw_message, AIMessage):
+                return LLMInvocationResult(
+                    content=parsed,
+                    model_version=self._extract_model_version(
+                        raw_message, requested_model=model_name
+                    ),
+                    prompt_version=prompt_version,
+                )
+            last_error = LLMClientError(
                 "Provider did not return a valid structured response",
                 model_name,
                 prompt_version,
                 self._settings.openai_base_url,
             )
 
-        return LLMInvocationResult(
-            content=parsed,
-            model_version=self._extract_model_version(raw_message, requested_model=model_name),
+        raise self._map_error(
+            last_error or RuntimeError("Structured output failed"),
+            model_name=model_name,
             prompt_version=prompt_version,
-        )
+        ) from last_error
 
     def _build_model(self, model_name: str) -> ChatOpenAI:
         return self._chat_model_factory(

@@ -1,12 +1,14 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 
-import { Vacancy, listVacancies } from "../api/client";
+import { Vacancy, deleteVacancy, listVacancies } from "../api/client";
 import { Breadcrumbs, EmptyState, PageHead, StatusPill } from "../layouts/Shell";
 
 export function VacanciesPage({ token }: { token: string }) {
   const [vacancies, setVacancies] = useState<Vacancy[] | null>(null);
   const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
+  const [busyId, setBusyId] = useState("");
 
   useEffect(() => {
     const controller = new AbortController();
@@ -19,6 +21,20 @@ export function VacanciesPage({ token }: { token: string }) {
       });
     return () => controller.abort();
   }, [token]);
+
+  async function remove(id: string) {
+    if (!window.confirm("Удалить вакансию и всех её кандидатов?")) return;
+    setBusyId(id);
+    setNotice("");
+    try {
+      await deleteVacancy(token, id);
+      setVacancies((rows) => (rows ?? []).filter((row) => row.id !== id));
+    } catch (reason) {
+      setNotice(reason instanceof Error ? reason.message : "Не удалось удалить вакансию.");
+    } finally {
+      setBusyId("");
+    }
+  }
 
   return (
     <main>
@@ -34,6 +50,7 @@ export function VacanciesPage({ token }: { token: string }) {
       />
 
       {error && <p role="alert">{error}</p>}
+      {notice && <p role="alert">{notice}</p>}
 
       {vacancies === null ? (
         <p role="status">Загружаем вакансии…</p>
@@ -77,6 +94,14 @@ export function VacanciesPage({ token }: { token: string }) {
                     <Link className="btn small ghost" to={`/staff/vacancies/${vacancy.id}/metrics`}>
                       Метрики
                     </Link>
+                    <button
+                      type="button"
+                      className="btn small ghost"
+                      disabled={busyId === vacancy.id}
+                      onClick={() => void remove(vacancy.id)}
+                    >
+                      Удалить
+                    </button>
                   </td>
                 </tr>
               ))}

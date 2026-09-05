@@ -16,6 +16,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.integrations.llm import LangChainLLMClient, get_llm_client
 from app.models.answer import Answer
+from app.models.candidate import Candidate
 from app.models.question import Question
 from app.models.topic import Topic
 from app.models.topic_assessment import (
@@ -244,3 +245,45 @@ async def change_topic_status(
 
     await assemble_interview_result(session, assessment.candidate_id)
     return assessment
+
+
+async def change_candidate_topic_status(
+    session: AsyncSession,
+    candidate_id: uuid.UUID,
+    topic_id: uuid.UUID,
+    *,
+    user: CurrentUser,
+    new_status: AssessmentStatus,
+    comment: str,
+) -> TopicAssessment | None:
+    """Меняет статус топика на карточке кандидата; оценку создаёт, если её ещё нет."""
+    candidate = await session.get(Candidate, candidate_id)
+    if candidate is None:
+        return None
+    topic = await session.get(Topic, topic_id)
+    if topic is None or topic.vacancy_id != candidate.vacancy_id:
+        return None
+    assessment = await session.scalar(
+        select(TopicAssessment).where(
+            TopicAssessment.candidate_id == candidate_id,
+            TopicAssessment.topic_id == topic_id,
+        )
+    )
+    if assessment is None:
+        assessment = TopicAssessment(
+            candidate_id=candidate_id,
+            topic_id=topic_id,
+            system_status=AssessmentStatus.NEEDS_CHECK,
+            current_status=AssessmentStatus.NEEDS_CHECK,
+            confidence=AssessmentConfidence.LOW,
+            reasoning_summary="Статус выставлен экспертом.",
+        )
+        session.add(assessment)
+        await session.flush()
+    return await change_topic_status(
+        session,
+        assessment.id,
+        user=user,
+        new_status=new_status,
+        comment=comment,
+    )

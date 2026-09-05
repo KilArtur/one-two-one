@@ -17,6 +17,7 @@ import uuid
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.models.candidate import Candidate
 from app.models.topic import Topic
 from app.models.vacancy import Vacancy, VacancyStatus
 from app.schemas.vacancy import TopicUpdate, TopicWrite, VacancyCreate, VacancyUpdate
@@ -184,6 +185,27 @@ async def update_topic(
     await session.commit()
     await session.refresh(topic)
     return topic
+
+
+async def delete_vacancy(session: AsyncSession, vacancy_id: uuid.UUID) -> bool:
+    """Удаляет логическую вакансию: все версии lineage и связанных кандидатов."""
+    vacancy = await session.get(Vacancy, vacancy_id)
+    if vacancy is None:
+        return False
+    versions = list(
+        await session.scalars(select(Vacancy).where(Vacancy.lineage_id == vacancy.lineage_id))
+    )
+    version_ids = [item.id for item in versions]
+    candidates = list(
+        await session.scalars(select(Candidate).where(Candidate.vacancy_id.in_(version_ids)))
+    )
+    for candidate in candidates:
+        await session.delete(candidate)
+    await session.flush()
+    for item in versions:
+        await session.delete(item)
+    await session.commit()
+    return True
 
 
 async def delete_topic(

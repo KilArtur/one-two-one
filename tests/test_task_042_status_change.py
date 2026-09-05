@@ -23,7 +23,7 @@ from app.models.topic_assessment import (
 from app.models.vacancy import Vacancy, VacancyGrade
 from app.schemas.assessment import TopicStatusChangeRequest
 from app.services.auth import AppRole, CurrentUser
-from app.services.topic_assessment import change_topic_status
+from app.services.topic_assessment import change_candidate_topic_status, change_topic_status
 
 
 def _user(role: AppRole) -> CurrentUser:
@@ -200,3 +200,33 @@ async def test_missing_assessment_returns_none(session: AsyncSession) -> None:
         comment="x",
     )
     assert result is None
+
+
+@pytest.mark.anyio
+async def test_card_status_creates_assessment_if_missing(session: AsyncSession) -> None:
+    vacancy = Vacancy(id=uuid.uuid4(), title="Backend", grade=VacancyGrade.MIDDLE)
+    vacancy.lineage_id = vacancy.id
+    topic = Topic(
+        vacancy_id=vacancy.id,
+        title="PostgreSQL",
+        skill_type=SkillType.HARD,
+        importance=TopicImportance.MANDATORY,
+        order=0,
+    )
+    vacancy.topics = [topic]
+    candidate = Candidate(vacancy_id=vacancy.id)
+    session.add_all([vacancy, candidate])
+    await session.commit()
+
+    updated = await change_candidate_topic_status(
+        session,
+        candidate.id,
+        topic.id,
+        user=_user(AppRole.TECH_SPECIALIST),
+        new_status=AssessmentStatus.CONFIRMED,
+        comment="Проверил по видео",
+    )
+
+    assert updated is not None
+    assert updated.system_status == AssessmentStatus.NEEDS_CHECK
+    assert updated.current_status == AssessmentStatus.CONFIRMED

@@ -66,6 +66,8 @@ async def client(fake: FakeLLMClient) -> AsyncIterator[httpx.AsyncClient]:
 def test_resume_text_keeps_sections_as_bullets() -> None:
     text = render_resume_text(RESUME)
 
+    assert "Иван Петров" in text
+    assert "Backend-разработчик" in text
     assert "Навыки:\n- Python" in text
     assert "Опыт:\n- Ozon" in text
     assert "Образование:\n- МФТИ" in text
@@ -85,6 +87,9 @@ async def test_resume_pdf_becomes_candidate_card(
     assert body["profile"]["skills"] == ["Python", "FastAPI", "Kafka"]
     assert body["profile"]["education"] == ["МФТИ, прикладная математика, 2020"]
     assert "- Ozon" in body["resume_text"]
+    assert "Иван Петров" in body["resume_text"]
+    assert "Python FastAPI Kafka" in body["source_text"]
+    assert body["parsed_by_model"] is True
     assert "Python FastAPI Kafka" in fake.prompts[0]
 
 
@@ -98,12 +103,17 @@ async def test_resume_scan_without_text_returns_422(client: httpx.AsyncClient) -
 
 
 @pytest.mark.anyio
-async def test_resume_model_failure_returns_503(
+async def test_resume_model_failure_returns_pdf_text(
     client: httpx.AsyncClient, fake: FakeLLMClient
 ) -> None:
     fake.fails = True
-    files = {"file": ("resume.pdf", _pdf("Python"), "application/pdf")}
+    files = {"file": ("resume.pdf", _pdf("Python FastAPI"), "application/pdf")}
 
     response = await client.post("/candidates/resume-draft", files=files)
 
-    assert response.status_code == 503
+    assert response.status_code == 200
+    body = response.json()
+    assert body["parsed_by_model"] is False
+    assert "Python FastAPI" in body["source_text"]
+    assert "Python FastAPI" in body["resume_text"]
+    assert body["profile"]["skills"] == []

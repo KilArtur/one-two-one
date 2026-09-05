@@ -105,6 +105,14 @@ async def update_vacancy(
     return VacancyRead.model_validate(vacancy)
 
 
+@router.delete("/{vacancy_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_vacancy(vacancy_id: uuid.UUID, session: SessionDep) -> None:
+    """Удаляет вакансию и все её версии вместе с кандидатами."""
+    deleted = await vacancy_service.delete_vacancy(session, vacancy_id)
+    if not deleted:
+        raise _NOT_FOUND
+
+
 @router.put("/{vacancy_id}/topics", response_model=VacancyRead)
 async def replace_topics(
     vacancy_id: uuid.UUID, data: TopicsReplace, session: SessionDep

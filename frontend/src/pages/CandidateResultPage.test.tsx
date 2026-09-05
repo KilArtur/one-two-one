@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { cleanup, render, screen, waitFor, within } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -40,7 +40,10 @@ beforeEach(() => {
     ],
   });
 });
-afterEach(() => cleanup());
+afterEach(() => {
+  sessionStorage.clear();
+  cleanup();
+});
 
 describe("CandidateResultPage", () => {
   it("показывает матрицу топиков первым блоком", async () => {
@@ -61,8 +64,31 @@ describe("CandidateResultPage", () => {
 
   it("разводит слой резюме и не показывает AI-score", async () => {
     renderPage();
-    await waitFor(() => screen.getByText("Заявлено в резюме"));
+    await waitFor(() => screen.getByText("Резюме"));
     expect(screen.getByText("10 лет Python")).toBeTruthy();
     expect(screen.queryByText(/AI-score|балл/i)).toBeNull();
+  });
+
+  it("позволяет техспециалисту сменить статус hard-топика", async () => {
+    sessionStorage.setItem("internal-role", "technical_specialist");
+    vi.mocked(client.changeTopicStatus).mockResolvedValue();
+    renderPage();
+    await waitFor(() => screen.getByLabelText("Статус топика Kafka"));
+    fireEvent.change(screen.getByLabelText("Статус топика Kafka"), {
+      target: { value: "confirmed" },
+    });
+    fireEvent.change(screen.getByLabelText("Комментарий к статусу Kafka"), {
+      target: { value: "Проверил видео" },
+    });
+    fireEvent.click(screen.getAllByRole("button", { name: "Сохранить" })[1]);
+    await waitFor(() =>
+      expect(client.changeTopicStatus).toHaveBeenCalledWith(
+        "t",
+        "c1",
+        "t2",
+        "confirmed",
+        "Проверил видео",
+      ),
+    );
   });
 });

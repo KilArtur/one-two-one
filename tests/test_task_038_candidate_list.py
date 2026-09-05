@@ -101,6 +101,8 @@ async def test_list_shows_candidates_with_status_and_triple(session: AsyncSessio
     ready = next(o for o in overviews if o.processing_status == "ready")
     assert (ready.confirmed_count, ready.needs_check_count, ready.not_confirmed_count) == (3, 1, 0)
     assert ready.recommendation == "fit"
+    assert ready.skill_coverage == 0.75
+    assert ready.mandatory_coverage is None
 
 
 @pytest.mark.anyio
