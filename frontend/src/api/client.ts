@@ -301,3 +301,11 @@ export interface ProductMetrics {
 }
 export const getProductMetrics = (token: string, vacancyId?: string, signal?: AbortSignal) =>
   internalRequest<ProductMetrics>(`/metrics/product${vacancyId ? `?vacancy_id=${encodeURIComponent(vacancyId)}` : ""}`, token, signal);
+
+export interface TranscriptAnswer {
+  answer_id: string; question_id: string; topic_id: string; question: string;
+  transcript: string | null; segments: { text: string; start: number; end: number }[];
+  quotes: string[]; processing_status: string; skipped: boolean; technically_lost: boolean;
+}
+export const getTranscripts = (token: string, candidateId: string, topicId?: string, signal?: AbortSignal) =>
+  internalRequest<TranscriptAnswer[]>(`/candidates/${candidateId}/transcript${topicId ? `?topic_id=${encodeURIComponent(topicId)}` : ""}`, token, signal);

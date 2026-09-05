@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 
 import { getResultCard, ResultCard } from "../api/client";
 
+import { TranscriptPanel } from "../components/TranscriptPanel";
 import { EvidencePanel } from "../components/EvidencePanel";
 
 const STATUS_LABEL: Record<string, string> = {
@@ -39,6 +40,7 @@ export function CandidateResultPage({
   candidateId: string;
 }) {
   const [card, setCard] = useState<ResultCard | null>(null);
+  const [showTranscript, setShowTranscript] = useState(false);
   const [topic, setTopic] = useState<string | null>(null);
   const [error, setError] = useState("");
 
@@ -104,6 +106,9 @@ export function CandidateResultPage({
         </p>
         <p>Правило Р5: {REASON_LABEL[card.recommendation_reason] ?? card.recommendation_reason}.</p>
       </section>
+
+      <button aria-expanded={showTranscript} onClick={() => setShowTranscript((v) => !v)}>{showTranscript ? "Скрыть транскрипт" : "Открыть полный транскрипт"}</button>
+      {showTranscript && <TranscriptPanel token={token} candidateId={candidateId} />}
 
       {/* Принцип 3: слои резюме и интервью разведены */}
       <section aria-label="Заявлено в резюме">

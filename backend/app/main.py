@@ -24,6 +24,7 @@ from app.api.evidence import router as evidence_router
 from app.api.metrics import router as metrics_router
 from app.api.review_queue import router as review_queue_router
 from app.api.topic_assessments import router as topic_assessments_router
+from app.api.transcripts import router as transcripts_router
 from app.config import Settings, get_settings
 from app.db import dispose_engine, get_db
 
@@ -95,6 +96,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(candidates_router)
     app.include_router(evidence_router)
     app.include_router(metrics_router)
+    app.include_router(transcripts_router)
 
     return app
 
