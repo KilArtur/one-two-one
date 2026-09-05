@@ -25,6 +25,7 @@ export function VacancyCreatePage({ token }: { token: string }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [parsing, setParsing] = useState(false);
+  const [draftNote, setDraftNote] = useState("");
 
   function updateTopic(index: number, patch: Partial<VacancyTopicWrite>) {
     setTopics((rows) => rows.map((row, i) => (i === index ? { ...row, ...patch } : row)));
@@ -32,7 +33,7 @@ export function VacancyCreatePage({ token }: { token: string }) {
 
   async function loadFromPdf(file: File) {
     setParsing(true);
-    setError("");
+    setDraftNote("");
     try {
       const draft = await draftVacancyFromPdf(token, file);
       setTitle(draft.title);
@@ -42,8 +43,9 @@ export function VacancyCreatePage({ token }: { token: string }) {
       if (draft.topics.length) {
         setTopics(draft.topics.map((topic, index) => ({ ...topic, order: index + 1 })));
       }
+      setDraftNote(`Форма заполнена из документа, топиков: ${draft.topics.length}. Проверьте и поправьте.`);
     } catch (reason) {
-      setError(reason instanceof Error ? reason.message : "Не удалось разобрать документ.");
+      setDraftNote(reason instanceof Error ? reason.message : "Не удалось разобрать документ.");
     } finally {
       setParsing(false);
     }
@@ -124,6 +126,7 @@ export function VacancyCreatePage({ token }: { token: string }) {
           }}
         />
         {parsing && <p role="status">Разбираем документ…</p>}
+        {!parsing && draftNote && <p role="status">{draftNote}</p>}
       </section>
 
       <form className="panel" onSubmit={(event) => void submit(event)}>
