@@ -18,6 +18,9 @@ class Settings(BaseSettings):
 
     app_env: str = "development"
     secret_key: str = "change-me"
+    jwt_secret_key: str = "change-me"
+    internal_auth_password: str = "change-me"
+    jwt_access_token_ttl_seconds: int = 3600
     database_url: str = (
         "postgresql+asyncpg://interviewer:interviewer@localhost:5433/interviewer"
     )

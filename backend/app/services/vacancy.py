@@ -21,7 +21,7 @@ from app.schemas.vacancy import (
 
 
 class TopicCountError(ValueError):
-    """Raised when a topic mutation would violate R8 (5–9 topics)."""
+    """Raised when a topic mutation would leave an invalid topic count."""
 
 
 def _topics_fingerprint(topics: list[TopicCreate]) -> list[tuple[object, ...]]:
@@ -82,6 +82,7 @@ async def create_vacancy(session: AsyncSession, data: VacancyCreate) -> Vacancy:
     vacancy_id = uuid.uuid4()
     vacancy = Vacancy(
         id=vacancy_id,
+        lineage_id=vacancy_id,
         title=data.title,
         grade=data.grade,
         tasks=data.tasks,
@@ -139,6 +140,7 @@ async def update_vacancy(
         new_id = uuid.uuid4()
         new_vacancy = Vacancy(
             id=new_id,
+            lineage_id=vacancy.lineage_id,
             title=payload.get("title", vacancy.title),
             grade=payload.get("grade", vacancy.grade),
             tasks=payload.get("tasks", vacancy.tasks),
@@ -213,7 +215,8 @@ async def _apply_matrix(
     if allow_partial:
         if len(topics) > MAX_TOPICS:
             raise TopicCountError(
-                f"Topic count must be {MIN_TOPICS}–{MAX_TOPICS} (R8), "
+                f"Topic count must be {MIN_TOPICS}–{MAX_TOPICS}, "
+
                 f"got {len(topics)}"
             )
     else:
@@ -223,6 +226,7 @@ async def _apply_matrix(
         new_id = uuid.uuid4()
         new_vacancy = Vacancy(
             id=new_id,
+            lineage_id=vacancy.lineage_id,
             title=vacancy.title,
             grade=vacancy.grade,
             tasks=vacancy.tasks,
@@ -260,12 +264,12 @@ async def create_topic(
     current = [_topic_to_create(t) for t in _sorted_topics(list(vacancy.topics))]
     if len(current) >= MAX_TOPICS:
         raise TopicCountError(
-            f"Topic count must be {MIN_TOPICS}–{MAX_TOPICS} (R8), "
+            f"Topic count must be {MIN_TOPICS}–{MAX_TOPICS} , "
             f"got {len(current) + 1}"
         )
     current.append(data)
 
-    # Draft may grow from 0 toward 5–9; active matrix must stay within R8.
+    # Draft may grow from 0 toward the allowed range; active matrix must stay in range.
     allow_partial = (
         vacancy.status != VacancyStatus.ACTIVE and len(current) < MIN_TOPICS
     )
@@ -365,7 +369,7 @@ async def delete_topic(
     vacancy_id: uuid.UUID,
     topic_id: uuid.UUID,
 ) -> Vacancy | None:
-    """Remove a topic; R8 rejects counts outside 5–9 (empty draft allowed)."""
+    """Remove a topic; rejects invalid topic counts (empty draft allowed)."""
     vacancy = await get_vacancy(session, vacancy_id)
     if vacancy is None:
         return None
@@ -383,7 +387,7 @@ async def delete_topic(
     if not remaining:
         if vacancy.status == VacancyStatus.ACTIVE:
             raise TopicCountError(
-                f"Topic count must be {MIN_TOPICS}–{MAX_TOPICS} (R8), got 0"
+                f"Topic count must be {MIN_TOPICS}–{MAX_TOPICS} , got 0"
             )
         vacancy.topics.clear()
         await session.flush()

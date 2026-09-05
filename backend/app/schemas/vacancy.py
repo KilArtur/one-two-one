@@ -8,16 +8,21 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from app.models.enums import Importance, SkillType, VacancyGrade, VacancyStatus
 
-MIN_TOPICS = 5
+
+def _empty_if_none(value: str | None) -> str:
+    return "" if value is None else value
+
+
+MIN_TOPICS = 1
 MAX_TOPICS = 9
 
 
 def validate_topic_count(count: int, *, allow_empty: bool = False) -> None:
-    """Enforce R8: interview matrix has 5–9 topics."""
+    """Validate topic matrix size: at least 1 (up to 9). Empty allowed only when explicitly opted in."""
     if allow_empty and count == 0:
         return
     if not MIN_TOPICS <= count <= MAX_TOPICS:
-        msg = f"Topic count must be {MIN_TOPICS}–{MAX_TOPICS} (R8), got {count}"
+        msg = f"Topic count must be {MIN_TOPICS}–{MAX_TOPICS}, got {count}"
         raise ValueError(msg)
 
 
@@ -31,6 +36,11 @@ class TopicCreate(BaseModel):
     depth_expectations: str = ""
     verifiable_by_interview: bool = True
     order: int = 0
+
+    @field_validator("requirement_description", "depth_expectations", mode="before")
+    @classmethod
+    def coerce_optional_text(cls, value: object) -> object:
+        return _empty_if_none(value if isinstance(value, str) or value is None else str(value))
 
 
 class TopicUpdate(BaseModel):
@@ -65,6 +75,11 @@ class VacancyCreate(BaseModel):
     status: VacancyStatus = VacancyStatus.DRAFT
     topics: list[TopicCreate] = Field(default_factory=list)
 
+    @field_validator("tasks", "specialist_profile", mode="before")
+    @classmethod
+    def coerce_optional_text(cls, value: object) -> object:
+        return _empty_if_none(value if isinstance(value, str) or value is None else str(value))
+
     @field_validator("topics")
     @classmethod
     def topics_r8(cls, value: list[TopicCreate]) -> list[TopicCreate]:
@@ -97,11 +112,17 @@ class VacancyRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: uuid.UUID
+    lineage_id: uuid.UUID
     title: str
     grade: VacancyGrade
-    tasks: str
+    tasks: str = ""
     stop_factors: list[str]
-    specialist_profile: str
+    specialist_profile: str = ""
     version: int
     status: VacancyStatus
     topics: list[TopicRead] = Field(default_factory=list)
+
+    @field_validator("tasks", "specialist_profile", mode="before")
+    @classmethod
+    def coerce_optional_text(cls, value: object) -> object:
+        return _empty_if_none(value if isinstance(value, str) or value is None else str(value))

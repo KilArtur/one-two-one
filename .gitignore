@@ -48,8 +48,9 @@ npm-debug.log*
 # --- Frontend ---
 frontend/dist/
 frontend/.vite/
+frontend/node_modules/
 
-# --- Docker / local compose overrides ---
+# --- Docker: локальные оверрайды compose у каждого свои ---
 docker-compose.override.yml
 
 # --- Временное ---

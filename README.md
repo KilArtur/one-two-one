@@ -7,6 +7,7 @@
 
 - **Правила разработки:** [`CLAUDE.md`](CLAUDE.md) (Claude) / [`AGENTS.md`](AGENTS.md) (Codex) — держать в синхроне.
 - **Полный PRD:** [`data/PRD-AI-Interviewer-2026-09-04.md`](data/PRD-AI-Interviewer-2026-09-04.md)
+- **Ручная проверка и запуск интервью:** [`docs/manual-qa-guide.md`](docs/manual-qa-guide.md)
 - **План работ:** [`tasks.json`](tasks.json) · журнал прогресса: [`progress.md`](progress.md)
 
 ## Стек

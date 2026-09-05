@@ -26,6 +26,12 @@ class Vacancy(Base):
         primary_key=True,
         default=uuid.uuid4,
     )
+    lineage_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        nullable=False,
+        index=True,
+        default=uuid.uuid4,
+    )
     title: Mapped[str] = mapped_column(String(512), nullable=False)
     grade: Mapped[VacancyGrade] = mapped_column(
         Enum(
@@ -43,6 +49,12 @@ class Vacancy(Base):
         server_default="{}",
     )
     specialist_profile: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    asr_terms: Mapped[list[str]] = mapped_column(
+        ARRAY(Text),
+        nullable=False,
+        default=list,
+        server_default="{}",
+    )
     version: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
     status: Mapped[VacancyStatus] = mapped_column(
         Enum(

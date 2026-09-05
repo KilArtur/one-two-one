@@ -36,7 +36,7 @@ class Topic(Base):
     skill_type: Mapped[SkillType] = mapped_column(
         Enum(
             SkillType,
-            name="skill_type",
+            name="topic_skill_type",
             values_callable=lambda enum_cls: [item.value for item in enum_cls],
         ),
         nullable=False,
@@ -44,17 +44,13 @@ class Topic(Base):
     importance: Mapped[Importance] = mapped_column(
         Enum(
             Importance,
-            name="importance",
+            name="topic_importance",
             values_callable=lambda enum_cls: [item.value for item in enum_cls],
         ),
         nullable=False,
     )
-    requirement_description: Mapped[str] = mapped_column(
-        Text,
-        nullable=False,
-        default="",
-    )
-    depth_expectations: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    requirement_description: Mapped[str | None] = mapped_column(Text, nullable=True, default="")
+    depth_expectations: Mapped[str | None] = mapped_column(Text, nullable=True, default="")
     verifiable_by_interview: Mapped[bool] = mapped_column(
         Boolean,
         nullable=False,
