@@ -63,3 +63,5 @@ scratch/
 
 /.agents/
 /.codex/
+/.codex-home/
+/tools/codex/

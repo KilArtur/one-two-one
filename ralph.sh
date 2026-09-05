@@ -26,6 +26,10 @@ LIMIT=0                       # 0 = без лимита
 AGENT="${RALPH_AGENT:-}"      # пусто = автоопределение
 WORKER="${RALPH_WORKER:-${USER:-worker}}"
 LOCK_DIR=".ralph.lock"
+CODEX_EXEC_MODE="${RALPH_CODEX_EXEC_MODE:-unsafe}"
+RALPH_ROOT="$(cd "$(dirname "$0")" && pwd)"
+CODEX_BIN="${RALPH_CODEX_BIN:-}"
+CODEX_HOME_DIR="${RALPH_CODEX_HOME:-$RALPH_ROOT/.codex-home}"
 
 print_usage() {
     sed -n '6,22p' "$0" | sed 's/^# \{0,1\}//'
@@ -64,7 +68,7 @@ resolve_agent() {
     if [[ -z "$a" ]]; then
         if command -v claude >/dev/null 2>&1; then
             a="claude"
-        elif command -v codex >/dev/null 2>&1; then
+        elif resolve_codex_bin >/dev/null 2>&1; then
             a="codex"
         else
             echo "Не найден ни 'claude', ни 'codex'. Установите один из них или задайте --agent." >&2
@@ -75,11 +79,80 @@ resolve_agent() {
         claude|codex) ;;
         *) echo "Неподдерживаемый агент: '$a'. Допустимо: claude | codex." >&2; return 1 ;;
     esac
-    if ! command -v "$a" >/dev/null 2>&1; then
+    if [[ "$a" == "codex" ]]; then
+        if ! resolve_codex_bin >/dev/null 2>&1; then
+            echo "Агент 'codex' выбран, но бинарь не найден. Установите его или задайте RALPH_CODEX_BIN." >&2
+            return 1
+        fi
+    elif ! command -v "$a" >/dev/null 2>&1; then
         echo "Агент '$a' выбран, но команда не найдена в PATH. Установите его." >&2
         return 1
     fi
     echo "$a"
+}
+
+resolve_codex_bin() {
+    if [[ -n "$CODEX_BIN" && -x "$CODEX_BIN" ]]; then
+        echo "$CODEX_BIN"
+        return 0
+    fi
+
+    local candidates=(
+        "$RALPH_ROOT/tools/codex/bin/codex"
+        "$RALPH_ROOT/.tools/codex/bin/codex"
+        "${SNAP_REAL_HOME:-$HOME}/.local/bin/codex"
+    )
+    local candidate
+    for candidate in "${candidates[@]}"; do
+        if [[ -x "$candidate" ]]; then
+            CODEX_BIN="$candidate"
+            echo "$CODEX_BIN"
+            return 0
+        fi
+    done
+
+    if command -v codex >/dev/null 2>&1; then
+        CODEX_BIN="$(command -v codex)"
+        echo "$CODEX_BIN"
+        return 0
+    fi
+
+    return 1
+}
+
+prepare_codex_home() {
+    mkdir -p "$CODEX_HOME_DIR"
+
+    local real_home="${SNAP_REAL_HOME:-$HOME}"
+    local auth_candidates=(
+        "$CODEX_HOME_DIR/auth.json"
+        "$real_home/.codex/auth.json"
+        "$HOME/auth.json"
+    )
+    local config_candidates=(
+        "$CODEX_HOME_DIR/config.toml"
+        "$real_home/.codex/config.toml"
+        "$HOME/config.toml"
+    )
+    local candidate
+
+    if [[ ! -f "$CODEX_HOME_DIR/auth.json" ]]; then
+        for candidate in "${auth_candidates[@]}"; do
+            if [[ -f "$candidate" && "$candidate" != "$CODEX_HOME_DIR/auth.json" ]]; then
+                cp "$candidate" "$CODEX_HOME_DIR/auth.json"
+                break
+            fi
+        done
+    fi
+
+    if [[ ! -f "$CODEX_HOME_DIR/config.toml" ]]; then
+        for candidate in "${config_candidates[@]}"; do
+            if [[ -f "$candidate" && "$candidate" != "$CODEX_HOME_DIR/config.toml" ]]; then
+                cp "$candidate" "$CODEX_HOME_DIR/config.toml"
+                break
+            fi
+        done
+    fi
 }
 
 run_agent() {
@@ -92,9 +165,32 @@ run_agent() {
             ;;
         codex)
             local output_file
+            local codex_cmd
+            local real_home
             output_file="$(mktemp -t ralph_codex.XXXXXX)"
+            codex_cmd="$(resolve_codex_bin)" || return 1
+            prepare_codex_home
+            real_home="${SNAP_REAL_HOME:-$HOME}"
+            local codex_mode_flag="--full-auto"
+            case "$CODEX_EXEC_MODE" in
+                full-auto)
+                    codex_mode_flag="--full-auto"
+                    ;;
+                unsafe)
+                    codex_mode_flag="--dangerously-bypass-approvals-and-sandbox"
+                    ;;
+                *)
+                    echo "Unsupported RALPH_CODEX_EXEC_MODE: '$CODEX_EXEC_MODE'. Use: full-auto | unsafe." >&2
+                    rm -f "$output_file"
+                    return 1
+                    ;;
+            esac
             # Non-interactive Codex exec, забираем только последнее сообщение.
-            codex exec --full-auto --color never -C "$PWD" --output-last-message "$output_file" "$prompt" >/dev/null
+            env \
+                HOME="$real_home" \
+                CODEX_HOME="$CODEX_HOME_DIR" \
+                XDG_CACHE_HOME="$CODEX_HOME_DIR/.cache" \
+                "$codex_cmd" exec "$codex_mode_flag" --color never -C "$PWD" --output-last-message "$output_file" "$prompt" >/dev/null
             cat "$output_file"
             rm -f "$output_file"
             ;;

@@ -92,13 +92,17 @@ async def put_chunk(
     """Принимает следующий чанк или идентичный повтор ранее подтверждённого."""
     if await session.get(Answer, upload.id) is not None:
         raise HTTPException(409, "Answer is already saved")
+    lane = upload.manifest[kind]
+    parts = lane["parts"]
     mime = content_type.split(";", 1)[0].strip().lower()
+    # Финальный чанк MediaRecorder может прийти без типа (octet-stream): если тип дорожки
+    # уже установлен предыдущими чанками — трактуем как его.
+    if mime not in MEDIA_TYPES[kind] and lane["type"] and mime in {"", "application/octet-stream"}:
+        mime = lane["type"]
     if mime not in MEDIA_TYPES[kind]:
         raise HTTPException(415, "Unsupported track format")
     if not data or len(data) > MAX_CHUNK_BYTES:
         raise HTTPException(413, "Invalid chunk size")
-    lane = upload.manifest[kind]
-    parts = lane["parts"]
     digest = hashlib.sha256(data).hexdigest()
     if index < len(parts):
         if parts[index]["sha256"] != digest or lane["type"] != mime:
