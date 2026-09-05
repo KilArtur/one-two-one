@@ -67,3 +67,13 @@ class ReviewQueueItem(BaseModel):
     confidence: AssessmentConfidence
     current_status: AssessmentStatus
     reasoning_summary: str | None
+
+
+class FollowupDecisionLLM(BaseModel):
+    """Структурированное решение быстрого LLM об уточняющем вопросе (M4/Р12)."""
+
+    answer_sufficient: bool = Field(description="Статус топика уже определяется уверенно")
+    explicit_no_experience: bool = Field(description="Кандидат явно сказал об отсутствии опыта")
+    adds_new_information: bool = Field(description="Последний ответ добавил новую информацию")
+    needs_clarification: bool = Field(description="Ответ общий / нет примера / неясен вклад")
+    followup_question: str = Field(description="Уточняющий вопрос в рамках топика (или пусто)")

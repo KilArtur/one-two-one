@@ -83,6 +83,10 @@ append-only запись в `StatusChangeLog`. Очередь ревью по р
 (hard→техспец, soft→НМ; только `needs_check`, самое неопределённое сверху). Ретенция 6
 месяцев (Р18): Celery-beat `app.purge_expired_data` (`services.retention`) удаляет ПДн
 старше срока и хранит обезличенный `InterviewResult`; досрочно — `POST /candidates/{id}/purge`.
+Адаптивные уточнения (M4/Р12) на LangGraph: `POST /candidate-interview/topics/{id}/followup`
+(`services.followup` — быстрый LLM, до 2 уточнений). Восстановление сессии (Р11):
+`GET /candidate-interview/session` (продолжение с текущего вопроса, TTL ссылки),
+`POST .../session/interrupt` (technically_lost → needs_check).
 
 ## Запуск frontend
 

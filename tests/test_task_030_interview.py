@@ -55,7 +55,13 @@ async def test_only_own_core_questions_are_visible(api: ApiFixture) -> None:
     own, foreign = await prepare(api)
     response = await client.get("/candidate-interview/questions")
     assert response.status_code == 200
-    assert response.json() == [{"id": str(own), "type": "core", "text": "Расскажите о Python"}]
+    payload = response.json()
+    assert len(payload) == 1
+    item = payload[0]
+    assert item["id"] == str(own)
+    assert item["type"] == "core"
+    assert item["text"] == "Расскажите о Python"
+    assert "topic_id" in item
     assert (await client.get(f"/candidate-interview/questions/{foreign}/audio")).status_code == 404
     async with sessions() as session:
         question = await session.get(Question, own)

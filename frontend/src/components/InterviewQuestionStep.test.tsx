@@ -52,7 +52,7 @@ beforeEach(() => {
 afterEach(() => { cleanup(); vi.useRealTimers(); vi.restoreAllMocks(); vi.unstubAllGlobals(); });
 
 async function open(type: InterviewQuestion["type"] = "core") {
-  render(<InterviewQuestionStep token="session" question={{ id: "question", text: "Вопрос?", type }} onSaved={vi.fn()} />);
+  render(<InterviewQuestionStep token="session" question={{ id: "question", topic_id: "topic", text: "Вопрос?", type }} onSaved={vi.fn()} />);
   await waitFor(() => expect(getQuestionAudio).toHaveBeenCalled());
   return screen.getByLabelText("Озвучка вопроса");
 }

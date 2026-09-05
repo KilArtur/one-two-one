@@ -51,8 +51,57 @@ export const candidateApi = {
 
 export interface InterviewQuestion {
   id: string;
+  topic_id: string;
   type: "core" | "personal" | "follow_up";
   text: string;
+}
+
+export interface FollowupDecision {
+  ask: boolean;
+  reason: string;
+  question: InterviewQuestion | null;
+}
+
+export interface InterviewSessionState {
+  current_question: InterviewQuestion | null;
+  answered_count: number;
+  total: number;
+  finished: boolean;
+}
+
+export async function getInterviewSession(
+  token: string,
+  signal?: AbortSignal,
+): Promise<InterviewSessionState> {
+  const response = await fetch(`${API_BASE_URL}/candidate-interview/session`, {
+    headers: { Authorization: `Bearer ${token}` }, signal,
+  });
+  if (!response.ok) throw new Error("Сессия недоступна. Проверьте приглашение.");
+  return response.json() as Promise<InterviewSessionState>;
+}
+
+export async function interruptInterviewSession(
+  token: string,
+  signal?: AbortSignal,
+): Promise<InterviewSessionState> {
+  const response = await fetch(`${API_BASE_URL}/candidate-interview/session/interrupt`, {
+    method: "POST", headers: { Authorization: `Bearer ${token}` }, signal,
+  });
+  if (!response.ok) throw new Error("Не удалось обновить состояние сессии.");
+  return response.json() as Promise<InterviewSessionState>;
+}
+
+export async function requestFollowup(
+  token: string,
+  topicId: string,
+  signal?: AbortSignal,
+): Promise<FollowupDecision> {
+  const response = await fetch(
+    `${API_BASE_URL}/candidate-interview/topics/${topicId}/followup`,
+    { method: "POST", headers: { Authorization: `Bearer ${token}` }, signal },
+  );
+  if (!response.ok) throw new Error("Не удалось получить уточняющий вопрос.");
+  return response.json() as Promise<FollowupDecision>;
 }
 
 export async function getInterviewQuestions(token: string, signal?: AbortSignal): Promise<InterviewQuestion[]> {
