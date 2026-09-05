@@ -207,6 +207,59 @@ class S3StorageClient:
             UploadId=upload.upload_id,
         )
 
+    async def compose_objects(self, keys: list[str], target: str, content_type: str) -> S3Object:
+        """Собирает малые чанки в multipart-части S3 размером минимум 5 MiB."""
+        return await asyncio.to_thread(self._compose_objects, keys, target, content_type)
+
+    def _compose_objects(self, keys: list[str], target: str, content_type: str) -> S3Object:
+        bucket = self._settings.s3_bucket
+        client = self._build_client()
+        upload_id = None
+        try:
+            upload_id = client.create_multipart_upload(
+                Bucket=bucket, Key=target, ContentType=content_type
+            )["UploadId"]
+            parts: list[dict[str, Any]] = []
+            buffer = bytearray()
+
+            def send() -> None:
+                response = client.upload_part(
+                    Bucket=bucket,
+                    Key=target,
+                    UploadId=upload_id,
+                    PartNumber=len(parts) + 1,
+                    Body=bytes(buffer),
+                )
+                parts.append({"PartNumber": len(parts) + 1, "ETag": response["ETag"]})
+                buffer.clear()
+
+            for key in keys:
+                body = client.get_object(Bucket=bucket, Key=key)["Body"]
+                try:
+                    while data := body.read(1024 * 1024):
+                        buffer.extend(data)
+                        if len(buffer) >= 5 * 1024 * 1024:
+                            send()
+                finally:
+                    body.close()
+            if buffer:
+                send()
+            if not parts:
+                raise S3StorageError("Cannot assemble empty recording", bucket, target)
+            response = client.complete_multipart_upload(
+                Bucket=bucket, Key=target, UploadId=upload_id, MultipartUpload={"Parts": parts}
+            )
+            return S3Object(bucket, target, response.get("ETag"))
+        except Exception as exc:
+            if upload_id:
+                try:
+                    client.abort_multipart_upload(Bucket=bucket, Key=target, UploadId=upload_id)
+                except (ClientError, BotoCoreError):
+                    pass
+            raise S3StorageError("Recording assembly failed", bucket, target) from exc
+        finally:
+            client.close()
+
     def _build_client(self) -> Any:
         session = self._session_factory()
         return session.client(

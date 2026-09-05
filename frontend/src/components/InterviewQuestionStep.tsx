@@ -1,12 +1,14 @@
 import { useEffect, useRef, useState } from "react";
 
-import { getQuestionAudio, InterviewQuestion } from "../api/client";
+import { getQuestionAudio, InterviewQuestion, SavedAnswer } from "../api/client";
+import { useChunkUpload } from "../hooks/useChunkUpload";
+import { useRecorder } from "../hooks/useRecorder";
 import { attachQuestionAudio } from "../hooks/questionAudio";
 
 type Phase = "preparing" | "speaking" | "recording" | "stopping" | "recorded" | "error";
 
-export function InterviewQuestionStep({ question, token, onRecorded }: {
-  question: InterviewQuestion; token: string; onRecorded: (blob: Blob) => void;
+export function InterviewQuestionStep({ question, token, onSaved }: {
+  question: InterviewQuestion; token: string; onSaved: (answer: SavedAnswer) => void;
 }) {
   const limit = question.type === "follow_up" ? 60 : 120;
   const [remaining, setRemaining] = useState(limit);
@@ -18,14 +20,16 @@ export function InterviewQuestionStep({ question, token, onRecorded }: {
   const player = useRef<HTMLAudioElement>(null);
   const camera = useRef<HTMLVideoElement>(null);
   const stop = useRef<() => void>(() => undefined);
-  const recorded = useRef(onRecorded);
-  recorded.current = onRecorded;
+  const saved = useRef(onSaved);
+  saved.current = onSaved;
+  const upload = useChunkUpload(token, question.id);
+  const capture = useRecorder();
+  useEffect(() => { if (upload.answer) saved.current(upload.answer); }, [upload.answer]);
 
   useEffect(() => {
     const controller = new AbortController();
     let active = true;
     let media: MediaStream | null = null;
-    let recorder: MediaRecorder | null = null;
     let audioUrl: string | null = null;
     let interval: ReturnType<typeof setInterval> | undefined;
     let timeout: ReturnType<typeof setTimeout> | undefined;
@@ -33,7 +37,6 @@ export function InterviewQuestionStep({ question, token, onRecorded }: {
     let failed = false;
     let playAttempted = false;
     const audio = player.current!;
-    const chunks: Blob[] = [];
     setPhase("preparing");
     setRemaining(limit);
     setError("");
@@ -47,7 +50,7 @@ export function InterviewQuestionStep({ question, token, onRecorded }: {
       clearTimers();
       controller.abort();
       audio.pause();
-      if (recorder && recorder.state !== "inactive") recorder.stop();
+      capture.dispose();
       media?.getTracks().forEach((track) => track.stop());
       setCanRetry(!started);
       setNeedsPlay(false);
@@ -55,11 +58,13 @@ export function InterviewQuestionStep({ question, token, onRecorded }: {
       setPhase("error");
     }
     function lostDevice() { fail("Камера или микрофон отключены. Запись ответа прервана."); }
+    let stopping = false;
     stop.current = () => {
-      if (recorder?.state === "recording") {
+      if (started && !stopping) {
+        stopping = true;
         clearTimers();
         setPhase("stopping");
-        recorder.stop();
+        capture.stop();
       }
     };
     audio.oncanplay = () => {
@@ -72,32 +77,30 @@ export function InterviewQuestionStep({ question, token, onRecorded }: {
     audio.onended = () => {
       if (!active || failed || started || !media) return;
       try {
-        recorder = new MediaRecorder(media);
-        recorder.ondataavailable = (event) => { if (event.data.size) chunks.push(event.data); };
-        recorder.onstart = () => {
-          if (!active || failed) return;
-          const deadline = Date.now() + limit * 1000;
-          setPhase("recording");
-          setCanRetry(false);
-          const tick = () => {
-            const seconds = Math.max(0, Math.ceil((deadline - Date.now()) / 1000));
-            setRemaining(seconds);
-            if (seconds === 0) stop.current();
-          };
-          interval = setInterval(tick, 250);
-          timeout = setTimeout(tick, limit * 1000);
-        };
-        recorder.onerror = () => fail("Ошибка записи ответа. Обратитесь к рекрутеру.");
-        recorder.onstop = () => {
-          clearTimers();
-          if (!active || failed) return;
-          const blob = new Blob(chunks, { type: recorder?.mimeType || "video/webm" });
-          if (!blob.size) { fail("Запись ответа пуста. Обратитесь к рекрутеру."); return; }
-          media?.getTracks().forEach((track) => track.stop());
-          setPhase("recorded");
-          recorded.current(blob);
-        };
-        recorder.start();
+        capture.start(media, {
+          onChunk: (kind, chunk) => upload.queue.enqueue(kind, chunk),
+          onStart: () => {
+            if (!active || failed) return;
+            const deadline = Date.now() + limit * 1000;
+            setPhase("recording");
+            setCanRetry(false);
+            const tick = () => {
+              const seconds = Math.max(0, Math.ceil((deadline - Date.now()) / 1000));
+              setRemaining(seconds);
+              if (seconds === 0) stop.current();
+            };
+            interval = setInterval(tick, 250);
+            timeout = setTimeout(tick, limit * 1000);
+          },
+          onError: () => fail("Ошибка записи ответа. Обратитесь к рекрутеру."),
+          onComplete: (duration) => {
+            clearTimers();
+            if (!active || failed) return;
+            media?.getTracks().forEach((track) => track.stop());
+            setPhase("recorded");
+            void upload.queue.finish(Math.min(limit, duration));
+          },
+        });
         started = true;
       } catch { fail("Не удалось начать запись ответа. Проверьте устройства и повторите озвучку."); }
     };
@@ -117,6 +120,8 @@ export function InterviewQuestionStep({ question, token, onRecorded }: {
           track.addEventListener("mute", lostDevice);
         });
         if (camera.current) camera.current.srcObject = media;
+        await upload.queue.begin();
+        if (!active) return;
         const response = await getQuestionAudio(token, question.id, controller.signal);
         await attachQuestionAudio(audio, response, controller.signal, (url) => { audioUrl = url; });
       } catch (reason) {
@@ -132,7 +137,7 @@ export function InterviewQuestionStep({ question, token, onRecorded }: {
       audio.pause();
       audio.removeAttribute("src");
       audio.load();
-      if (recorder && recorder.state !== "inactive") recorder.stop();
+      capture.dispose();
       media?.getTracks().forEach((track) => {
         track.removeEventListener("ended", lostDevice);
         track.removeEventListener("mute", lostDevice);
@@ -154,8 +159,13 @@ export function InterviewQuestionStep({ question, token, onRecorded }: {
     <p role="timer" aria-label="Осталось времени" style={{ fontSize: 32, fontVariantNumeric: "tabular-nums", margin: "12px 0" }}>{Math.floor(remaining / 60)}:{String(remaining % 60).padStart(2, "0")}</p>
     <p role="status" style={{ color: phase === "recording" ? "#b91c1c" : "inherit", fontWeight: 600 }}>{phase === "recording" ? "● REC — идёт запись ответа" : phase === "speaking"
       ? "Звучит вопрос — таймер ещё не запущен" : phase === "preparing" ? "Подготавливаем озвучку и устройства…"
-      : phase === "recorded" ? "Ответ записан в этой вкладке" : phase === "stopping" ? "Завершаем запись…" : "Запись остановлена"}</p>
+      : phase === "recorded" ? (upload.status === "saved" ? "Ответ сохранён" : "Сохраняем ответ…") : phase === "stopping" ? "Завершаем запись…" : "Запись остановлена"}</p>
     {phase === "recording" && <button onClick={() => stop.current()}>Закончить ответ</button>}
+    {upload.status === "error" && <div>
+      <p role="alert">{upload.error} Не закрывайте вкладку.</p>
+      <button onClick={() => void upload.queue.retry()}>Повторить загрузку</button>
+    </div>}
+    {phase === "recording" && upload.status !== "error" && <p>Части ответа загружаются по ходу записи.</p>}
     {error && <p role="alert">{error}</p>}
     {phase === "error" && canRetry && <button onClick={() => setAttempt(attempt + 1)}>Повторить озвучку</button>}
   </section>;

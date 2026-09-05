@@ -70,3 +70,53 @@ export async function getQuestionAudio(token: string, questionId: string, signal
   if (!response.ok) throw new Error("Озвучка недоступна. Попробуйте ещё раз.");
   return response;
 }
+
+export interface UploadSession {
+  id: string;
+  video_chunks: number;
+  audio_chunks: number;
+  saved: boolean;
+}
+export interface SavedAnswer {
+  id: string;
+  question_id: string;
+  duration_sec: number;
+  processing_status: string;
+}
+export type TrackKind = "video" | "audio";
+
+export class UploadRequestError extends Error {
+  constructor(message: string, public retryable: boolean) { super(message); }
+}
+
+async function uploadRequest<T>(path: string, token: string, signal: AbortSignal, body: FormData | object): Promise<T> {
+  let response: Response;
+  const isFile = body instanceof FormData;
+  try {
+    response = await fetch(`${API_BASE_URL}/candidate-interview/${path}`, {
+      method: isFile ? "PUT" : "POST", signal,
+      headers: { Authorization: `Bearer ${token}`, ...(isFile ? {} : { "Content-Type": "application/json" }) },
+      body: isFile ? body : JSON.stringify(body),
+    });
+  } catch (error) {
+    if (signal.aborted) throw error;
+    throw new UploadRequestError("Нет связи с сервером. Запись пока не сохранена.", true);
+  }
+  if (!response.ok) throw new UploadRequestError(
+    "Не удалось сохранить ответ. Проверьте соединение и приглашение.", response.status >= 500 || response.status === 429,
+  );
+  return response.json() as Promise<T>;
+}
+
+export const answerUploadApi = {
+  start: (token: string, questionId: string, signal: AbortSignal, uploadId: string) =>
+    uploadRequest<UploadSession>(`questions/${questionId}/uploads`, token, signal, { upload_id: uploadId }),
+  chunk: (token: string, id: string, kind: TrackKind, index: number, blob: Blob, signal: AbortSignal) => {
+    const form = new FormData(); form.append("file", blob, "chunk");
+    return uploadRequest<{ index: number }>(`uploads/${id}/${kind}/${index}`, token, signal, form);
+  },
+  complete: (token: string, id: string, videoChunks: number, audioChunks: number, duration: number, signal: AbortSignal) =>
+    uploadRequest<SavedAnswer>(`uploads/${id}/complete`, token, signal, {
+      video_chunks: videoChunks, audio_chunks: audioChunks, duration_sec: duration,
+    }),
+};

@@ -6,7 +6,7 @@ import uuid
 from enum import StrEnum
 from typing import TYPE_CHECKING, Any
 
-from sqlalchemy import Boolean, ForeignKey, Integer, String, Text, Uuid, text
+from sqlalchemy import Boolean, ForeignKey, Integer, String, Text, UniqueConstraint, Uuid, text
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.types import JSON
@@ -31,6 +31,11 @@ class Answer(Base, TimestampMixin):
     """Ответ кандидата: медиа, транскрипт, таймкоды и статус обработки."""
 
     __tablename__ = "answer"
+    __table_args__ = (UniqueConstraint("candidate_id", "question_id"),)
+
+    candidate_id: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid, ForeignKey("candidate.id", ondelete="CASCADE"), index=True
+    )
 
     id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
     question_id: Mapped[uuid.UUID] = mapped_column(

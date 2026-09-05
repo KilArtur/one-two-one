@@ -31,7 +31,10 @@ class Recorder {
 }
 let mic: Track;
 let camera: Track;
-const completed = vi.fn();
+const { completed } = vi.hoisted(() => ({ completed: vi.fn() }));
+vi.mock("../hooks/useChunkUpload", () => ({ useChunkUpload: () => ({
+  status: "uploading", queue: { begin: vi.fn().mockResolvedValue(undefined), enqueue: vi.fn(), finish: completed },
+}) }));
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -40,6 +43,7 @@ beforeEach(() => {
     getTracks: () => [mic, camera], getAudioTracks: () => [mic], getVideoTracks: () => [camera],
   }) } });
   vi.stubGlobal("MediaRecorder", Recorder);
+  vi.stubGlobal("MediaStream", class { constructor(public tracks: Track[]) {} });
   vi.spyOn(HTMLMediaElement.prototype, "play").mockResolvedValue();
   vi.spyOn(HTMLMediaElement.prototype, "pause").mockImplementation(() => undefined);
   vi.spyOn(HTMLMediaElement.prototype, "load").mockImplementation(() => undefined);
@@ -48,7 +52,7 @@ beforeEach(() => {
 afterEach(() => { cleanup(); vi.useRealTimers(); vi.restoreAllMocks(); vi.unstubAllGlobals(); });
 
 async function open(type: InterviewQuestion["type"] = "core") {
-  render(<InterviewQuestionStep token="session" question={{ id: "question", text: "Вопрос?", type }} onRecorded={completed} />);
+  render(<InterviewQuestionStep token="session" question={{ id: "question", text: "Вопрос?", type }} onSaved={vi.fn()} />);
   await waitFor(() => expect(getQuestionAudio).toHaveBeenCalled());
   return screen.getByLabelText("Озвучка вопроса");
 }
@@ -61,10 +65,10 @@ it.each([["core", 120], ["personal", 120], ["follow_up", 60]] as const)("starts 
   expect(Recorder.instances).toHaveLength(0);
   expect(screen.getByRole("timer").textContent).toBe(seconds === 120 ? "2:00" : "1:00");
   fireEvent.ended(player);
-  expect(Recorder.instances).toHaveLength(1);
+  expect(Recorder.instances).toHaveLength(2);
   expect(screen.getByRole("status").textContent).toContain("REC");
   fireEvent.ended(player);
-  expect(Recorder.instances).toHaveLength(1);
+  expect(Recorder.instances).toHaveLength(2);
   act(() => { vi.advanceTimersByTime((seconds - 1) * 1000); });
   expect(screen.getByRole("timer").textContent).toBe("0:01");
   expect(completed).not.toHaveBeenCalled();
@@ -111,7 +115,7 @@ it("finishes early without permitting a second recording", async () => {
   fireEvent.click(screen.getByRole("button", { name: "Закончить ответ" }));
   expect(completed).toHaveBeenCalledTimes(1);
   fireEvent.ended(player);
-  expect(Recorder.instances).toHaveLength(1);
+  expect(Recorder.instances).toHaveLength(2);
 });
 
 it("uses a deadline instead of counting timer ticks", async () => {
