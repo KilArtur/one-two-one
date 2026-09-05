@@ -196,6 +196,36 @@ async def test_llm_failure_closes_topic(session: AsyncSession) -> None:
 
 
 @pytest.mark.anyio
+async def test_followup_continues_the_personalized_question(session: AsyncSession) -> None:
+    candidate_id, topic_id, core_id = await _seed(session)
+    personal = Question(
+        candidate_id=candidate_id,
+        topic_id=topic_id,
+        type=QuestionType.PERSONAL,
+        pattern=QuestionPattern.EXPERIENCE,
+        text="Личный вопрос по резюме",
+        parent_question_id=core_id,
+    )
+    session.add(personal)
+    await session.flush()
+    session.add(
+        Answer(
+            candidate_id=candidate_id,
+            question_id=personal.id,
+            transcript="Отвечал про свой проект",
+            processing_status=AnswerProcessingStatus.READY,
+        )
+    )
+    await session.commit()
+
+    result = await decide_followup(session, candidate_id, topic_id, llm_client=FakeLLM(_verdict()))
+
+    assert result.ask is True
+    assert result.question.type == QuestionType.FOLLOW_UP
+    assert result.question.parent_question_id == personal.id
+
+
+@pytest.mark.anyio
 async def test_followups_are_candidate_scoped_and_retry_is_idempotent(
     session: AsyncSession,
 ) -> None:

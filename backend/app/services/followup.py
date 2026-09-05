@@ -154,10 +154,20 @@ async def decide_followup(
     if topic is None:
         return FollowupResult(ask=False, reason="topic_not_found")
 
-    core_question = await session.scalar(
-        select(Question).where(Question.topic_id == topic_id, Question.type == QuestionType.CORE)
+    asked_question = await session.scalar(
+        select(Question).where(
+            Question.topic_id == topic_id,
+            Question.type == QuestionType.PERSONAL,
+            Question.candidate_id == candidate_id,
+        )
     )
-    if core_question is None:
+    if asked_question is None:
+        asked_question = await session.scalar(
+            select(Question).where(
+                Question.topic_id == topic_id, Question.type == QuestionType.CORE
+            )
+        )
+    if asked_question is None:
         return FollowupResult(ask=False, reason="core_question_missing")
 
     latest_answer = await session.scalar(
@@ -189,7 +199,7 @@ async def decide_followup(
                 Question.topic_id == topic_id,
                 Question.type == QuestionType.FOLLOW_UP,
                 Question.candidate_id == candidate_id,
-                Question.parent_question_id == core_question.id,
+                Question.parent_question_id == asked_question.id,
             )
         )
     ) or 0
@@ -199,7 +209,7 @@ async def decide_followup(
         {
             "topic_title": topic.title,
             "requirement_description": topic.requirement_description or "",
-            "core_question": core_question.text,
+            "core_question": asked_question.text,
             "answers_text": await _topic_answers_text(session, candidate_id, topic_id),
             "followups_count": followups_count,
         }
@@ -214,7 +224,7 @@ async def decide_followup(
         type=QuestionType.FOLLOW_UP,
         pattern=QuestionPattern.REASONING,
         text=state["followup_question"],
-        parent_question_id=core_question.id,
+        parent_question_id=asked_question.id,
     )
     session.add(question)
     await session.commit()

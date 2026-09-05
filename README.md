@@ -51,15 +51,23 @@ CRUD вакансий с версионированием матрицы (M1): `
 `PUT /vacancies/{id}/topics` (замена состава активной вакансии создаёт новую версию-снимок;
 валидация 5–9 топиков, Р8). CRUD топиков черновика: `POST /vacancies/{id}/topics`,
 `PATCH`/`DELETE /vacancies/{id}/topics/{topic_id}`. ASR-словарь на вакансию с авто-подсказкой
-из матрицы: `GET`/`PUT /vacancies/{id}/asr-dictionary`. Генерация ядра вопросов (M2)
-через LLM: `POST /vacancies/{id}/core-questions` (1 core-вопрос на топик, кеш, повтор без дублей).
-Промпты — в `prompts/*.md` (загрузчик `app.prompts.load_prompt`).
+из матрицы: `GET`/`PUT /vacancies/{id}/asr-dictionary`. Черновик вакансии из PDF-описания:
+`POST /vacancies/draft` (текст через `pypdf`, разбор на топики нативным structured output;
+ничего не сохраняется — результат заполняет форму). Генерация ядра вопросов (M2)
+через LLM: `POST /vacancies/{id}/core-questions` (1 core-вопрос на топик, кеш, повтор без дублей);
+примеры вопросов техспециалиста (`question_examples`) уходят в промпт как ориентир.
+Ревью ядра техспециалистом: `GET /vacancies/{id}/questions`,
+`PATCH /vacancies/{id}/questions/{question_id}` (правка снимает подтверждение),
+`POST /vacancies/{id}/questions/approve`. Без подтверждения не выпускается приглашение
+и ссылка интервью. При выпуске приглашения подтверждённые вопросы раскрываются под резюме
+кандидата (`services.question_personalization`) — персональный вопрос вытесняет ядро своего
+топика. Промпты — в `prompts/*.md` (загрузчик `app.prompts.load_prompt`).
 
 Оценка (сервисы, вызываются пайплайном): статус топика — детерминированное правило Р13
 (`services.topic_status.resolve_topic_status`); LLM-оценка топика из транскрипта с evidence
-и изоляцией Р16 (`services.topic_assessment.assess_topic`, `system_status` не перезаписывается);
-стоп-факторы Р6 (`services.stop_factor` — авто «не подходит» только при явном ответе с high
-confidence, флаг в отдельной таблице `stop_factor_flag`). Итоговая рекомендация Р5 —
+и изоляцией Р16 (`services.topic_assessment.assess_topic`, `system_status` не перезаписывается).
+Единственное основание для авто «не подходит» — неподтверждённый обязательный топик.
+Итоговая рекомендация Р5 —
 детерминированная чистая функция (`services.recommendation.compute_recommendation`);
 Coverage Р4 — тройка чисел + доли `mandatory_coverage`/`desired_coverage`
 (`services.coverage.compute_coverage`), без единого балла/AI-score. Сборка результата —
