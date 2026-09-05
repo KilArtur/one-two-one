@@ -146,11 +146,31 @@ async def test_specialist_edits_question_and_approval_resets(client: httpx.Async
 
 
 @pytest.mark.anyio
+async def test_specialist_approves_single_question_without_editing(
+    client: httpx.AsyncClient,
+) -> None:
+    vacancy_id, questions = await _vacancy_with_questions(client)
+
+    approved = await client.post(
+        f"/vacancies/{vacancy_id}/questions/{questions[0]['id']}/approve",
+        headers=_headers(AppRole.TECH_SPECIALIST),
+    )
+
+    assert approved.status_code == 200
+    assert approved.json()["reviewed_by_expert"] is True
+    assert approved.json()["text"] == questions[0]["text"]
+
+
+@pytest.mark.anyio
 async def test_only_technical_specialist_reviews_questions(client: httpx.AsyncClient) -> None:
     vacancy_id, questions = await _vacancy_with_questions(client)
 
     approve = await client.post(
         f"/vacancies/{vacancy_id}/questions/approve", headers=_headers(AppRole.RECRUITER)
+    )
+    approve_one = await client.post(
+        f"/vacancies/{vacancy_id}/questions/{questions[0]['id']}/approve",
+        headers=_headers(AppRole.RECRUITER),
     )
     edit = await client.patch(
         f"/vacancies/{vacancy_id}/questions/{questions[0]['id']}",
@@ -159,6 +179,7 @@ async def test_only_technical_specialist_reviews_questions(client: httpx.AsyncCl
     )
 
     assert approve.status_code == 403
+    assert approve_one.status_code == 403
     assert edit.status_code == 403
 
 
@@ -193,13 +214,9 @@ async def test_personal_question_replaces_core_for_candidate(client: httpx.Async
     ).json()
     exchanged = await client.post("/candidate-auth/exchange", json={"token": link["token"]})
     candidate_headers = {"Authorization": f"Bearer {exchanged.json()['access_token']}"}
-    await client.post(
-        "/candidate-auth/consent", json={"accepted": True}, headers=candidate_headers
-    )
+    await client.post("/candidate-auth/consent", json={"accepted": True}, headers=candidate_headers)
 
-    visible = (
-        await client.get("/candidate-interview/questions", headers=candidate_headers)
-    ).json()
+    visible = (await client.get("/candidate-interview/questions", headers=candidate_headers)).json()
 
     assert len(visible) == 1
     assert visible[0]["type"] == "personal"
@@ -222,13 +239,9 @@ async def test_candidate_without_resume_keeps_core_questions(client: httpx.Async
     ).json()
     exchanged = await client.post("/candidate-auth/exchange", json={"token": link["token"]})
     candidate_headers = {"Authorization": f"Bearer {exchanged.json()['access_token']}"}
-    await client.post(
-        "/candidate-auth/consent", json={"accepted": True}, headers=candidate_headers
-    )
+    await client.post("/candidate-auth/consent", json={"accepted": True}, headers=candidate_headers)
 
-    visible = (
-        await client.get("/candidate-interview/questions", headers=candidate_headers)
-    ).json()
+    visible = (await client.get("/candidate-interview/questions", headers=candidate_headers)).json()
 
     assert [item["id"] for item in visible] == [questions[0]["id"]]
 

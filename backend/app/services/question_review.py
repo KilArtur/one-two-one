@@ -53,6 +53,27 @@ async def update_question_text(
     return question
 
 
+async def approve_question(
+    session: AsyncSession, vacancy_id: uuid.UUID, question_id: uuid.UUID
+) -> Question | None:
+    """Подтверждает один core-вопрос без изменения формулировки."""
+    question = await session.scalar(
+        select(Question)
+        .join(Topic, Question.topic_id == Topic.id)
+        .where(
+            Question.id == question_id,
+            Topic.vacancy_id == vacancy_id,
+            Question.type == QuestionType.CORE,
+        )
+    )
+    if question is None:
+        return None
+    question.reviewed_by_expert = True
+    await session.commit()
+    await session.refresh(question)
+    return question
+
+
 async def approve_core_questions(
     session: AsyncSession, vacancy_id: uuid.UUID
 ) -> list[Question] | None:

@@ -209,6 +209,21 @@ async def edit_core_question(
     return QuestionRead.model_validate(question)
 
 
+@router.post("/{vacancy_id}/questions/{question_id}/approve", response_model=QuestionRead)
+async def approve_core_question(
+    vacancy_id: uuid.UUID,
+    question_id: uuid.UUID,
+    session: SessionDep,
+    current_user: CurrentUserDep,
+) -> QuestionRead:
+    """Подтверждает один core-вопрос как есть, без правки формулировки."""
+    ensure_question_review_allowed(current_user)
+    question = await question_review.approve_question(session, vacancy_id, question_id)
+    if question is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Question not found")
+    return QuestionRead.model_validate(question)
+
+
 @router.post("/{vacancy_id}/questions/approve", response_model=list[QuestionRead])
 async def approve_core_questions(
     vacancy_id: uuid.UUID, session: SessionDep, current_user: CurrentUserDep

@@ -489,6 +489,22 @@ export async function updateVacancyQuestion(
   return response.json() as Promise<VacancyQuestion>;
 }
 
+export async function approveVacancyQuestion(
+  token: string,
+  vacancyId: string,
+  questionId: string,
+): Promise<VacancyQuestion> {
+  const response = await fetch(
+    `${API_BASE_URL}/vacancies/${vacancyId}/questions/${questionId}/approve`,
+    { method: "POST", headers: { Authorization: `Bearer ${token}` } },
+  );
+  if (!response.ok) {
+    const body = await response.json().catch(() => null);
+    throw new Error(body?.detail ?? "Не удалось подтвердить вопрос.");
+  }
+  return response.json() as Promise<VacancyQuestion>;
+}
+
 export async function approveVacancyQuestions(
   token: string,
   vacancyId: string,

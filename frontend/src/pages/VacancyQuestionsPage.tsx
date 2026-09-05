@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 
 import {
   VacancyQuestion,
+  approveVacancyQuestion,
   approveVacancyQuestions,
   generateCoreQuestions,
   listVacancyQuestions,
@@ -48,14 +49,19 @@ export function VacancyQuestionsPage({ token, vacancyId }: { token: string; vaca
     }
   }
 
-  async function save(question: VacancyQuestion) {
+  async function confirm(question: VacancyQuestion) {
+    const draft = drafts[question.id] ?? question.text;
     setBusy(true);
     setNotice("");
     try {
-      const updated = await updateVacancyQuestion(token, vacancyId, question.id, drafts[question.id]);
+      if (draft !== question.text) {
+        await updateVacancyQuestion(token, vacancyId, question.id, draft);
+      }
+      const updated = await approveVacancyQuestion(token, vacancyId, question.id);
       setQuestions((rows) => rows?.map((row) => (row.id === updated.id ? updated : row)) ?? rows);
+      setDrafts((rows) => ({ ...rows, [updated.id]: updated.text }));
     } catch (reason) {
-      setNotice(reason instanceof Error ? reason.message : "Не удалось сохранить вопрос.");
+      setNotice(reason instanceof Error ? reason.message : "Не удалось подтвердить вопрос.");
     } finally {
       setBusy(false);
     }
@@ -65,7 +71,15 @@ export function VacancyQuestionsPage({ token, vacancyId }: { token: string; vaca
     setBusy(true);
     setNotice("");
     try {
-      setQuestions(await approveVacancyQuestions(token, vacancyId));
+      for (const question of questions ?? []) {
+        const draft = drafts[question.id] ?? question.text;
+        if (draft !== question.text) {
+          await updateVacancyQuestion(token, vacancyId, question.id, draft);
+        }
+      }
+      const rows = await approveVacancyQuestions(token, vacancyId);
+      setQuestions(rows);
+      setDrafts(Object.fromEntries(rows.map((row) => [row.id, row.text])));
       setNotice("Список вопросов подтверждён — интервью можно запускать.");
     } catch (reason) {
       setNotice(reason instanceof Error ? reason.message : "Не удалось подтвердить вопросы.");
@@ -134,10 +148,10 @@ export function VacancyQuestionsPage({ token, vacancyId }: { token: string; vaca
                 <button
                   type="button"
                   className="btn small ghost"
-                  disabled={busy || drafts[question.id] === question.text}
-                  onClick={() => void save(question)}
+                  disabled={busy || (question.reviewed_by_expert && drafts[question.id] === question.text)}
+                  onClick={() => void confirm(question)}
                 >
-                  Сохранить формулировку
+                  {drafts[question.id] !== question.text ? "Сохранить и подтвердить" : "Подтвердить"}
                 </button>
               )}
             </section>
@@ -151,7 +165,7 @@ export function VacancyQuestionsPage({ token, vacancyId }: { token: string; vaca
         </button>
         {specialist && (
           <button type="button" className="btn primary" disabled={busy || approved} onClick={() => void approve()}>
-            Подтвердить список
+            Подтвердить все
           </button>
         )}
       </div>
