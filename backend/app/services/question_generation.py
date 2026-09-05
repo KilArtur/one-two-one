@@ -29,6 +29,7 @@ def _format_prompt(vacancy: Vacancy, topic: Topic) -> str:
     return template.format(
         vacancy_title=vacancy.title,
         grade=vacancy.grade.value,
+        question_examples=vacancy.question_examples or "—",
         topic_title=topic.title,
         skill_type=topic.skill_type.value,
         requirement_description=topic.requirement_description or "—",

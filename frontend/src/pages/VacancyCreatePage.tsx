@@ -20,6 +20,7 @@ export function VacancyCreatePage({ token }: { token: string }) {
   const [title, setTitle] = useState("");
   const [grade, setGrade] = useState("middle");
   const [tasks, setTasks] = useState("");
+  const [questionExamples, setQuestionExamples] = useState("");
   const [topics, setTopics] = useState<VacancyTopicWrite[]>([{ ...EMPTY_TOPIC(), order: 1 }]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -59,6 +60,7 @@ export function VacancyCreatePage({ token }: { token: string }) {
         title,
         grade,
         tasks: tasks || "",
+        question_examples: questionExamples || "",
         topics: topics.map((topic, order) => ({
           ...topic,
           order: order + 1,
@@ -103,6 +105,15 @@ export function VacancyCreatePage({ token }: { token: string }) {
           <div className="form-group full">
             <label htmlFor="tasks">Задачи</label>
             <textarea id="tasks" value={tasks} onChange={(e) => setTasks(e.target.value)} />
+          </div>
+          <div className="form-group full">
+            <label htmlFor="question-examples">Примеры вопросов</label>
+            <textarea
+              id="question-examples"
+              placeholder="Что примерно спросил бы техспециалист — по одному вопросу в строке. Мы раскроем их под топики."
+              value={questionExamples}
+              onChange={(e) => setQuestionExamples(e.target.value)}
+            />
           </div>
         </div>
 

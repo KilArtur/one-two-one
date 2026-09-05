@@ -23,6 +23,7 @@ class FakeLLMClient:
     def __init__(self, fail_on: str | None = None) -> None:
         self.calls = 0
         self.fail_on = fail_on
+        self.prompts: list[str] = []
 
     async def generate_structured(
         self,
@@ -32,6 +33,7 @@ class FakeLLMClient:
         prompt_version: str,
         use_fast_model: bool = False,
     ) -> LLMInvocationResult[GeneratedCoreQuestion]:
+        self.prompts.append(str(prompt))
         if self.fail_on is not None and self.fail_on in str(prompt):
             raise LLMClientError(
                 message="boom",
@@ -110,6 +112,23 @@ async def test_generate_one_core_question_per_topic(client: httpx.AsyncClient) -
     assert len(questions) == 3
     assert all(q["type"] == "core" for q in questions)
     assert all(q["source_reason"] for q in questions)
+
+
+@pytest.mark.anyio
+async def test_question_examples_reach_the_prompt(
+    client: httpx.AsyncClient, fake: FakeLLMClient
+) -> None:
+    payload = {
+        "title": "Backend",
+        "grade": "middle",
+        "question_examples": "Расскажите про самый тяжёлый инцидент в проде",
+        "topics": [_topic("Топик 0", 0)],
+    }
+    vacancy = (await client.post("/vacancies", json=payload)).json()
+
+    await client.post(f"/vacancies/{vacancy['id']}/core-questions")
+
+    assert "самый тяжёлый инцидент" in fake.prompts[0]
 
 
 @pytest.mark.anyio

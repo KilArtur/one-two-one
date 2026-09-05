@@ -48,6 +48,7 @@ class Vacancy(Base, TimestampMixin):
     )
     tasks: Mapped[str | None] = mapped_column(Text)
     specialist_profile: Mapped[str | None] = mapped_column(Text)
+    question_examples: Mapped[str | None] = mapped_column(Text)
     asr_terms: Mapped[list[str]] = mapped_column(
         ARRAY(Text).with_variant(JSON, "sqlite"),
         nullable=False,

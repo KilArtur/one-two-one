@@ -53,6 +53,7 @@ class VacancyCreate(BaseModel):
     grade: VacancyGrade
     tasks: str | None = None
     specialist_profile: str | None = None
+    question_examples: str | None = None
     topics: list[TopicWrite] = Field(default_factory=list)
 
 
@@ -63,6 +64,7 @@ class VacancyUpdate(BaseModel):
     grade: VacancyGrade | None = None
     tasks: str | None = None
     specialist_profile: str | None = None
+    question_examples: str | None = None
     status: VacancyStatus | None = None
 
 
@@ -96,6 +98,7 @@ class VacancyRead(BaseModel):
     grade: VacancyGrade
     tasks: str | None
     specialist_profile: str | None
+    question_examples: str | None
     version: int
     status: VacancyStatus
     topics: list[TopicRead]
