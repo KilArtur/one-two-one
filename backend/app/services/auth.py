@@ -234,6 +234,12 @@ def ensure_topic_status_change_allowed(user: CurrentUser, skill_type: SkillType)
         raise _forbidden("Only hiring manager can change soft-topic status")
 
 
+def ensure_question_review_allowed(user: CurrentUser) -> None:
+    """Править и подтверждать ядро вопросов может только техспециалист."""
+    if user.role != AppRole.TECH_SPECIALIST:
+        raise _forbidden("Only technical specialist can review interview questions")
+
+
 def ensure_interview_link_issue_allowed(user: CurrentUser) -> None:
     """Проверяет право выпуска ссылки интервью."""
     if user.role != AppRole.RECRUITER:

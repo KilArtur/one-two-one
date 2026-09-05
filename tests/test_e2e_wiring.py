@@ -119,6 +119,7 @@ async def test_invite_record_submit_process_review(monkeypatch):
                 text="Опыт?",
                 type=QuestionType.CORE,
                 pattern=QuestionPattern.EXPERIENCE,
+                reviewed_by_expert=True,
             )
             session.add(question)
             await session.commit()

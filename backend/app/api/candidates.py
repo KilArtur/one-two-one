@@ -7,17 +7,17 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, ConfigDict, Field
-from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db import get_db
+from app.integrations.llm import LangChainLLMClient, get_llm_client
 from app.integrations.storage import S3StorageClient, get_s3_storage_client
 from app.models.candidate import Candidate
-from app.models.question import Question, QuestionType
-from app.models.topic import Topic
 from app.models.vacancy import Vacancy
 from app.services.auth import CurrentUser, ensure_interview_link_issue_allowed, get_current_user
 from app.services.candidate_overview import list_vacancy_candidates
+from app.services.question_personalization import personalize_questions
+from app.services.question_review import QUESTIONS_NOT_APPROVED, questions_approved
 from app.services.result_card import build_result_card
 from app.services.result_links import get_result_user
 from app.services.retention import purge_candidate
@@ -27,6 +27,7 @@ router = APIRouter(prefix="/candidates", tags=["candidates"])
 SessionDep = Annotated[AsyncSession, Depends(get_db)]
 CurrentUserDep = Annotated[CurrentUser, Depends(get_current_user)]
 StorageDep = Annotated[S3StorageClient, Depends(get_s3_storage_client)]
+LLMDep = Annotated[LangChainLLMClient, Depends(get_llm_client)]
 
 
 class CandidateCreate(BaseModel):
@@ -45,24 +46,20 @@ class CandidateRead(BaseModel):
 
 @router.post("", response_model=CandidateRead, status_code=201)
 async def create_candidate(
-    data: CandidateCreate, current_user: CurrentUserDep, session: SessionDep
+    data: CandidateCreate, current_user: CurrentUserDep, session: SessionDep, llm: LLMDep
 ) -> Candidate:
     """Allow a recruiter to create a candidate from the staff interface."""
     ensure_interview_link_issue_allowed(current_user)
     vacancy = await session.get(Vacancy, data.vacancy_id)
     if vacancy is None:
         raise HTTPException(404, "Vacancy not found")
-    questions_count = await session.scalar(
-        select(func.count(func.distinct(Question.topic_id)))
-        .join(Topic)
-        .where(Topic.vacancy_id == vacancy.id, Question.type == QuestionType.CORE)
-    )
-    if not vacancy.topics or questions_count != len(vacancy.topics):
-        raise HTTPException(409, "Сначала сгенерируйте core-вопросы для всех топиков вакансии.")
+    if not await questions_approved(session, vacancy.id):
+        raise HTTPException(409, QUESTIONS_NOT_APPROVED)
     candidate = Candidate(vacancy_id=data.vacancy_id, resume_text=data.resume_text)
     session.add(candidate)
     await session.commit()
     await session.refresh(candidate)
+    await personalize_questions(session, candidate.id, llm_client=llm)
     return candidate
 
 

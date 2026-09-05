@@ -8,7 +8,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, ConfigDict
-from sqlalchemy import or_, select
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db import get_db
@@ -19,6 +19,7 @@ from app.models.answer import Answer, AnswerProcessingStatus
 from app.models.candidate import Candidate
 from app.models.question import Question, QuestionType
 from app.models.topic import Topic
+from app.services.candidate_questions import candidate_questions_stmt
 from app.services.consent import require_candidate_consent
 from app.services.followup import decide_followup
 from app.services.interview_session import mark_current_technically_lost, session_state
@@ -41,15 +42,9 @@ class CandidateQuestionRead(BaseModel):
 
 @router.get("/questions", response_model=list[CandidateQuestionRead])
 async def list_questions(candidate: CandidateDep, session: SessionDep) -> list[Question]:
-    """Возвращает ядро закреплённой за кандидатом версии вакансии."""
+    """Возвращает вопросы закреплённой за кандидатом версии вакансии."""
     questions = await session.scalars(
-        select(Question)
-        .join(Topic, Question.topic_id == Topic.id)
-        .where(
-            Topic.vacancy_id == candidate.vacancy_id,
-            or_(Question.type == QuestionType.CORE, Question.candidate_id == candidate.id),
-        )
-        .order_by(Topic.order, Question.created_at, Question.id)
+        candidate_questions_stmt(candidate.id, candidate.vacancy_id)
     )
     return list(questions)
 
@@ -63,12 +58,8 @@ async def question_audio(
 ) -> StreamingResponse:
     """Отдаёт MP3; проверяет доступ до обращения к TTS/S3."""
     question = await session.scalar(
-        select(Question)
-        .join(Topic, Question.topic_id == Topic.id)
-        .where(
-            Question.id == question_id,
-            Topic.vacancy_id == candidate.vacancy_id,
-            or_(Question.type == QuestionType.CORE, Question.candidate_id == candidate.id),
+        candidate_questions_stmt(candidate.id, candidate.vacancy_id).where(
+            Question.id == question_id
         )
     )
     if question is None:
@@ -172,12 +163,8 @@ async def skip_question(
 ) -> SkipResult:
     """Помечает вопрос пропущенным (Р10); пропуск ведёт к «не подтверждено» при оценке."""
     question = await session.scalar(
-        select(Question)
-        .join(Topic, Question.topic_id == Topic.id)
-        .where(
-            Question.id == question_id,
-            Topic.vacancy_id == candidate.vacancy_id,
-            or_(Question.type == QuestionType.CORE, Question.candidate_id == candidate.id),
+        candidate_questions_stmt(candidate.id, candidate.vacancy_id).where(
+            Question.id == question_id
         )
     )
     if question is None:

@@ -6,6 +6,7 @@ import { HealthPage } from "./pages/HealthPage";
 import { OverviewPage } from "./pages/OverviewPage";
 import { VacanciesPage } from "./pages/VacanciesPage";
 import { VacancyCreatePage } from "./pages/VacancyCreatePage";
+import { VacancyQuestionsPage } from "./pages/VacancyQuestionsPage";
 import { StaffCandidatesPage } from "./pages/StaffCandidatesPage";
 import { CandidateResultPage } from "./pages/CandidateResultPage";
 import { ReviewQueuePage } from "./pages/ReviewQueuePage";
@@ -31,6 +32,15 @@ function MetricsRoute() {
   );
 }
 
+function QuestionsRoute() {
+  const { vacancyId } = useParams();
+  return (
+    <InternalSession>
+      {(token) => <VacancyQuestionsPage token={token} vacancyId={vacancyId!} />}
+    </InternalSession>
+  );
+}
+
 function Staff({ children }: { children: (token: string) => ReactNode }) {
   return <InternalSession>{children}</InternalSession>;
 }
@@ -50,6 +60,7 @@ export default function App() {
       <Route path="/staff/review" element={<Staff>{(token) => <ReviewQueuePage token={token} />}</Staff>} />
       <Route path="/staff/metrics" element={<MetricsRoute />} />
       <Route path="/staff/vacancies/:vacancyId/metrics" element={<MetricsRoute />} />
+      <Route path="/staff/vacancies/:vacancyId/questions" element={<QuestionsRoute />} />
       <Route
         path="*"
         element={

@@ -9,6 +9,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db import get_db
+from app.models.candidate import Candidate
 from app.schemas.interview_link import InterviewLinkRead
 from app.services.auth import (
     CurrentUser,
@@ -20,6 +21,7 @@ from app.services.interview_link import (
     issue_interview_link,
     revoke_interview_link,
 )
+from app.services.question_review import QUESTIONS_NOT_APPROVED, questions_approved
 
 router = APIRouter(tags=["interview-links"])
 
@@ -48,6 +50,11 @@ async def create_interview_link(
 ) -> InterviewLinkRead:
     """Выпускает новую ссылку интервью кандидату на 7 дней."""
     ensure_interview_link_issue_allowed(current_user)
+    candidate = await session.get(Candidate, candidate_id)
+    if candidate is None:
+        raise _CANDIDATE_NOT_FOUND
+    if not await questions_approved(session, candidate.vacancy_id):
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=QUESTIONS_NOT_APPROVED)
     link = await issue_interview_link(session, candidate_id)
     if link is None:
         raise _CANDIDATE_NOT_FOUND

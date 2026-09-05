@@ -4,6 +4,7 @@ import uuid
 from collections.abc import AsyncGenerator
 
 import pytest
+from sqlalchemy import select
 from test_task_026_interview_link_api import ApiFixture, api
 
 from app.models.candidate import Candidate
@@ -15,38 +16,42 @@ __all__ = ["api"]
 
 
 async def prepare(api: ApiFixture) -> tuple[uuid.UUID, uuid.UUID]:
+    """Возвращает id своего вопроса кандидата и вопроса чужой вакансии."""
     client, sessions, candidate_id = api
     async with sessions() as session:
         candidate = await session.get(Candidate, candidate_id)
+        own = await session.scalar(
+            select(Question.id)
+            .join(Topic, Question.topic_id == Topic.id)
+            .where(Topic.vacancy_id == candidate.vacancy_id)
+        )
         other = Vacancy(title="Other", grade=VacancyGrade.MIDDLE)
         session.add(other)
         await session.flush()
-        ids = []
-        for vacancy_id in (candidate.vacancy_id, other.id):
-            topic = Topic(
-                vacancy_id=vacancy_id,
-                title="Python",
-                skill_type=SkillType.HARD,
-                importance=TopicImportance.MANDATORY,
-                order=0,
-            )
-            session.add(topic)
-            await session.flush()
-            question = Question(
-                topic_id=topic.id,
-                text="Расскажите о Python",
-                type=QuestionType.CORE,
-                pattern=QuestionPattern.EXPERIENCE,
-                source_reason="internal reason",
-            )
-            session.add(question)
-            await session.flush()
-            ids.append(question.id)
+        topic = Topic(
+            vacancy_id=other.id,
+            title="Python",
+            skill_type=SkillType.HARD,
+            importance=TopicImportance.MANDATORY,
+            order=0,
+        )
+        session.add(topic)
+        await session.flush()
+        foreign = Question(
+            topic_id=topic.id,
+            text="Расскажите о Python",
+            type=QuestionType.CORE,
+            pattern=QuestionPattern.EXPERIENCE,
+            source_reason="internal reason",
+            reviewed_by_expert=True,
+        )
+        session.add(foreign)
         await session.commit()
+        foreign_id = foreign.id
     link = (await client.post(f"/candidates/{candidate_id}/interview-link")).json()
     exchanged = await client.post("/candidate-auth/exchange", json={"token": link["token"]})
     client.headers["Authorization"] = f"Bearer {exchanged.json()['access_token']}"
-    return ids[0], ids[1]
+    return own, foreign_id
 
 
 @pytest.mark.anyio

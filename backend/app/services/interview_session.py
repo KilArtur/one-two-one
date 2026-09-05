@@ -13,14 +13,14 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 
 from fastapi import HTTPException, status
-from sqlalchemy import or_, select
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.answer import Answer, AnswerProcessingStatus
 from app.models.candidate import Candidate
 from app.models.interview_link import InterviewLink
-from app.models.question import Question, QuestionType
-from app.models.topic import Topic
+from app.models.question import Question
+from app.services.candidate_questions import candidate_questions_stmt
 from app.services.transcription import _ensure_needs_check
 
 
@@ -52,20 +52,10 @@ async def _ensure_link_active(session: AsyncSession, candidate_id: uuid.UUID) ->
         )
 
 
-async def _core_questions(
-    session: AsyncSession, vacancy_id: uuid.UUID, candidate_id: uuid.UUID | None = None
+async def _candidate_questions(
+    session: AsyncSession, vacancy_id: uuid.UUID, candidate_id: uuid.UUID
 ) -> list[Question]:
-    rows = await session.scalars(
-        select(Question)
-        .join(Topic, Question.topic_id == Topic.id)
-        .where(
-            Topic.vacancy_id == vacancy_id,
-            or_(Question.type == QuestionType.CORE, Question.candidate_id == candidate_id)
-            if candidate_id
-            else Question.type == QuestionType.CORE,
-        )
-        .order_by(Topic.order, Question.created_at, Question.id)
-    )
+    rows = await session.scalars(candidate_questions_stmt(candidate_id, vacancy_id))
     return list(rows)
 
 
@@ -79,7 +69,7 @@ async def _answered_question_ids(session: AsyncSession, candidate_id: uuid.UUID)
 async def session_state(session: AsyncSession, candidate: Candidate) -> SessionState:
     """Возвращает текущий вопрос для продолжения (первый неотвеченный)."""
     await _ensure_link_active(session, candidate.id)
-    questions = await _core_questions(session, candidate.vacancy_id, candidate.id)
+    questions = await _candidate_questions(session, candidate.vacancy_id, candidate.id)
     answered = await _answered_question_ids(session, candidate.id)
     current = next((q for q in questions if q.id not in answered), None)
     return SessionState(
@@ -95,7 +85,7 @@ async def mark_current_technically_lost(
 ) -> Answer | None:
     """Помечает текущий неотвеченный вопрос как technically_lost, топик → needs_check (Р11)."""
     await _ensure_link_active(session, candidate.id)
-    questions = await _core_questions(session, candidate.vacancy_id, candidate.id)
+    questions = await _candidate_questions(session, candidate.vacancy_id, candidate.id)
     answered = await _answered_question_ids(session, candidate.id)
     current = next((q for q in questions if q.id not in answered), None)
     if current is None:

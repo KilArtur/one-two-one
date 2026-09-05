@@ -453,6 +453,57 @@ export async function createVacancy(
   return response.json() as Promise<Vacancy>;
 }
 
+export interface VacancyQuestion {
+  id: string;
+  topic_id: string;
+  type: string;
+  pattern: string;
+  text: string;
+  source_reason: string | null;
+  reviewed_by_expert: boolean;
+}
+
+export async function listVacancyQuestions(
+  token: string,
+  vacancyId: string,
+  signal?: AbortSignal,
+): Promise<VacancyQuestion[]> {
+  return internalRequest<VacancyQuestion[]>(`/vacancies/${vacancyId}/questions`, token, signal);
+}
+
+export async function updateVacancyQuestion(
+  token: string,
+  vacancyId: string,
+  questionId: string,
+  text: string,
+): Promise<VacancyQuestion> {
+  const response = await fetch(`${API_BASE_URL}/vacancies/${vacancyId}/questions/${questionId}`, {
+    method: "PATCH",
+    headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ text }),
+  });
+  if (!response.ok) {
+    const body = await response.json().catch(() => null);
+    throw new Error(body?.detail ?? "Не удалось сохранить вопрос.");
+  }
+  return response.json() as Promise<VacancyQuestion>;
+}
+
+export async function approveVacancyQuestions(
+  token: string,
+  vacancyId: string,
+): Promise<VacancyQuestion[]> {
+  const response = await fetch(`${API_BASE_URL}/vacancies/${vacancyId}/questions/approve`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!response.ok) {
+    const body = await response.json().catch(() => null);
+    throw new Error(body?.detail ?? "Не удалось подтвердить вопросы.");
+  }
+  return response.json() as Promise<VacancyQuestion[]>;
+}
+
 export async function generateCoreQuestions(token: string, vacancyId: string): Promise<{id: string; text: string}[]> {
   const response = await fetch(`${API_BASE_URL}/vacancies/${vacancyId}/core-questions`, {
     method: "POST",

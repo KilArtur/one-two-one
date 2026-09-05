@@ -14,6 +14,8 @@ from app.db import Base, get_db
 from app.main import create_app
 from app.models.candidate import Candidate, CandidateStatus
 from app.models.interview_link import InterviewLink
+from app.models.question import Question, QuestionPattern, QuestionType
+from app.models.topic import SkillType, Topic, TopicImportance
 from app.models.vacancy import Vacancy, VacancyGrade
 from app.services.auth import AppRole, create_access_token, create_candidate_access_token
 from app.services.interview_link import submit_candidate_interview
@@ -38,6 +40,25 @@ async def api() -> AsyncIterator[ApiFixture]:
         vacancy = Vacancy(title="Backend", grade=VacancyGrade.MIDDLE)
         session.add(vacancy)
         await session.flush()
+        topic = Topic(
+            vacancy_id=vacancy.id,
+            title="Python",
+            skill_type=SkillType.HARD,
+            importance=TopicImportance.MANDATORY,
+            order=0,
+        )
+        session.add(topic)
+        await session.flush()
+        session.add(
+            Question(
+                topic_id=topic.id,
+                text="Расскажите о Python",
+                type=QuestionType.CORE,
+                pattern=QuestionPattern.EXPERIENCE,
+                source_reason="internal reason",
+                reviewed_by_expert=True,
+            )
+        )
         candidate = Candidate(vacancy_id=vacancy.id, consent_given_at=datetime.now(UTC))
         session.add(candidate)
         await session.commit()

@@ -10,7 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db import get_db
 from app.integrations.llm import LangChainLLMClient, LLMClientError, get_llm_client
-from app.schemas.question import QuestionRead
+from app.schemas.question import QuestionRead, QuestionTextUpdate
 from app.schemas.vacancy import (
     AsrDictionaryRead,
     AsrDictionaryUpdate,
@@ -23,8 +23,10 @@ from app.schemas.vacancy import (
     VacancyRead,
     VacancyUpdate,
 )
-from app.services import question_generation
+from app.services import question_generation, question_review
 from app.services import vacancy as vacancy_service
+from app.services.auth import CurrentUser, ensure_question_review_allowed, get_current_user
+from app.services.question_review import QuestionsIncompleteError
 from app.services.vacancy import TopicCountError, VacancyNotDraftError
 from app.services.vacancy_draft import (
     MAX_DOCUMENT_BYTES,
@@ -37,6 +39,7 @@ router = APIRouter(prefix="/vacancies", tags=["vacancies"])
 
 SessionDep = Annotated[AsyncSession, Depends(get_db)]
 LLMDep = Annotated[LangChainLLMClient, Depends(get_llm_client)]
+CurrentUserDep = Annotated[CurrentUser, Depends(get_current_user)]
 
 _NOT_FOUND = HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Vacancy not found")
 _TOPIC_COUNT = HTTPException(
@@ -176,6 +179,49 @@ async def generate_core_questions(
     questions = await question_generation.generate_core_questions(
         session, vacancy_id, llm_client=llm
     )
+    if questions is None:
+        raise _NOT_FOUND
+    return [QuestionRead.model_validate(question) for question in questions]
+
+
+@router.get("/{vacancy_id}/questions", response_model=list[QuestionRead])
+async def read_core_questions(vacancy_id: uuid.UUID, session: SessionDep) -> list[QuestionRead]:
+    """Отдаёт ядро вопросов вакансии для ревью техспециалистом."""
+    questions = await question_review.list_core_questions(session, vacancy_id)
+    return [QuestionRead.model_validate(question) for question in questions]
+
+
+@router.patch("/{vacancy_id}/questions/{question_id}", response_model=QuestionRead)
+async def edit_core_question(
+    vacancy_id: uuid.UUID,
+    question_id: uuid.UUID,
+    data: QuestionTextUpdate,
+    session: SessionDep,
+    current_user: CurrentUserDep,
+) -> QuestionRead:
+    """Меняет формулировку core-вопроса; подтверждение ядра при этом сбрасывается."""
+    ensure_question_review_allowed(current_user)
+    question = await question_review.update_question_text(
+        session, vacancy_id, question_id, data.text
+    )
+    if question is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Question not found")
+    return QuestionRead.model_validate(question)
+
+
+@router.post("/{vacancy_id}/questions/approve", response_model=list[QuestionRead])
+async def approve_core_questions(
+    vacancy_id: uuid.UUID, session: SessionDep, current_user: CurrentUserDep
+) -> list[QuestionRead]:
+    """Подтверждает ядро вопросов — без этого интервью не запускается."""
+    ensure_question_review_allowed(current_user)
+    try:
+        questions = await question_review.approve_core_questions(session, vacancy_id)
+    except QuestionsIncompleteError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Сначала сгенерируйте вопросы на все топики вакансии",
+        ) from exc
     if questions is None:
         raise _NOT_FOUND
     return [QuestionRead.model_validate(question) for question in questions]

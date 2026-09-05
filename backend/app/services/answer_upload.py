@@ -5,15 +5,15 @@ import uuid
 from typing import Literal
 
 from fastapi import HTTPException
-from sqlalchemy import or_, select
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.integrations.storage import S3StorageClient
 from app.models.answer import Answer, AnswerProcessingStatus
 from app.models.answer_upload import AnswerUpload
 from app.models.candidate import Candidate, CandidateStatus
-from app.models.question import Question, QuestionType
-from app.models.topic import Topic
+from app.models.question import Question
+from app.services.candidate_questions import candidate_questions_stmt
 
 TrackKind = Literal["video", "audio"]
 MAX_CHUNK_BYTES = 8 * 1024 * 1024
@@ -30,12 +30,8 @@ async def start_upload(
     """Выделяет одну загрузку на пару кандидат/вопрос без разрешения перезаписи."""
     await session.scalar(select(Candidate).where(Candidate.id == candidate.id).with_for_update())
     question = await session.scalar(
-        select(Question)
-        .join(Topic)
-        .where(
-            Question.id == question_id,
-            Topic.vacancy_id == candidate.vacancy_id,
-            or_(Question.type == QuestionType.CORE, Question.candidate_id == candidate.id),
+        candidate_questions_stmt(candidate.id, candidate.vacancy_id).where(
+            Question.id == question_id
         )
     )
     if question is None:
