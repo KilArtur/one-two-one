@@ -25,7 +25,6 @@ from app.models.vacancy import Vacancy
 from app.services.coverage import compute_coverage
 from app.services.matrix import TopicOutcome
 from app.services.recommendation import compute_recommendation
-from app.services.stop_factor import candidate_stop_factor_triggered
 from app.services.topic_assessment import TOPIC_ASSESSMENT_PROMPT_VERSION
 
 
@@ -64,8 +63,7 @@ async def assemble_interview_result(
     ]
 
     coverage = compute_coverage(outcomes)
-    stop_triggered = await candidate_stop_factor_triggered(session, candidate_id)
-    recommendation = compute_recommendation(outcomes, stop_factor_triggered=stop_triggered)
+    recommendation = compute_recommendation(outcomes)
     resolved_model_version = model_version or get_settings().llm_model
 
     result = await session.get(InterviewResult, candidate_id)

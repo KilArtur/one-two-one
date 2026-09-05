@@ -8,12 +8,10 @@ from sqlalchemy import select
 
 from app.db import dispose_engine
 from app.db.session import get_sessionmaker
-from app.integrations.llm import LLMClientError
 from app.models.answer import Answer, AnswerProcessingStatus
 from app.models.candidate import Candidate, CandidateStatus
 from app.services.interview_result import assemble_interview_result
 from app.services.pipeline import process_answer
-from app.services.stop_factor import evaluate_stop_factor
 from app.services.transcription import transcribe_answer
 
 logger = logging.getLogger(__name__)
@@ -61,16 +59,6 @@ async def process_pending() -> dict[str, int]:
                     )
                     for answer in answers:
                         await process_answer(session, answer.id)
-                    candidate = await session.get(Candidate, candidate_id)
-                    for stop_factor in candidate.vacancy.stop_factors:
-                        for answer in answers:
-                            if answer.transcript:
-                                try:
-                                    await evaluate_stop_factor(
-                                        session, candidate_id, answer.id, stop_factor
-                                    )
-                                except LLMClientError:
-                                    logger.warning("Stop-factor analysis unavailable")
                     await assemble_interview_result(session, candidate_id)
                     candidate = await session.get(Candidate, candidate_id)
                     candidate.status = CandidateStatus.PROCESSED

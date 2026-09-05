@@ -55,7 +55,6 @@ class VacancyCreate(BaseModel):
     title: str = Field(min_length=1, max_length=255)
     grade: VacancyGrade
     tasks: str | None = None
-    stop_factors: list[str] = Field(default_factory=list)
     specialist_profile: str | None = None
     topics: list[TopicWrite] = Field(default_factory=list)
 
@@ -66,7 +65,6 @@ class VacancyUpdate(BaseModel):
     title: str | None = Field(default=None, min_length=1, max_length=255)
     grade: VacancyGrade | None = None
     tasks: str | None = None
-    stop_factors: list[str] | None = None
     specialist_profile: str | None = None
     status: VacancyStatus | None = None
 
@@ -100,7 +98,6 @@ class VacancyRead(BaseModel):
     title: str
     grade: VacancyGrade
     tasks: str | None
-    stop_factors: list[str]
     specialist_profile: str | None
     version: int
     status: VacancyStatus

@@ -1,4 +1,4 @@
-"""Схемы структурированных ответов LLM для оценки топика и стоп-факторов."""
+"""Схемы структурированных ответов LLM для оценки топика и решений по интервью."""
 
 from __future__ import annotations
 
@@ -18,17 +18,6 @@ class TopicAssessmentLLM(BaseModel):
     confidence: AssessmentConfidence = Field(description="Категориальная уверенность оценки")
     explicit_no_experience: bool = Field(description="Кандидат явно сказал об отсутствии опыта")
     technical_error: bool = Field(description="Существенная техническая ошибка по сути требования")
-    evidence_quote: str = Field(description="Точная цитата из транскрипта (или пустая строка)")
-    reasoning_summary: str = Field(description="Краткое обоснование вывода")
-
-
-class StopFactorLLM(BaseModel):
-    """Структурированный вывод LLM при проверке одного стоп-фактора (Р6)."""
-
-    triggered_explicitly: bool = Field(
-        description="Кандидат явно и однозначно подтвердил срабатывание стоп-фактора"
-    )
-    confidence: AssessmentConfidence = Field(description="Категориальная уверенность вывода")
     evidence_quote: str = Field(description="Точная цитата из транскрипта (или пустая строка)")
     reasoning_summary: str = Field(description="Краткое обоснование вывода")
 

@@ -34,7 +34,7 @@ class VacancyStatus(StrEnum):
 
 
 class Vacancy(Base, TimestampMixin):
-    """Вакансия: грейд, задачи, стоп-факторы и версия матрицы требований."""
+    """Вакансия: грейд, задачи и версия матрицы требований."""
 
     __tablename__ = "vacancy"
 
@@ -47,12 +47,6 @@ class Vacancy(Base, TimestampMixin):
         enum_column(VacancyGrade, "vacancy_grade"), nullable=False
     )
     tasks: Mapped[str | None] = mapped_column(Text)
-    stop_factors: Mapped[list[str]] = mapped_column(
-        ARRAY(Text).with_variant(JSON, "sqlite"),
-        nullable=False,
-        default=list,
-        server_default=text("'{}'"),
-    )
     specialist_profile: Mapped[str | None] = mapped_column(Text)
     asr_terms: Mapped[list[str]] = mapped_column(
         ARRAY(Text).with_variant(JSON, "sqlite"),

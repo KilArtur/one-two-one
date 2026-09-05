@@ -374,7 +374,6 @@ export interface Vacancy {
   title: string;
   grade: string;
   tasks: string | null;
-  stop_factors: string[];
   specialist_profile: string | null;
   version: number;
   status: string;
@@ -405,7 +404,6 @@ export async function createVacancy(
     title: string;
     grade: string;
     tasks?: string | null;
-    stop_factors?: string[];
     specialist_profile?: string | null;
     topics: VacancyTopicWrite[];
   },

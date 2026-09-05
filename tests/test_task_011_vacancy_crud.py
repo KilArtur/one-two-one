@@ -41,7 +41,6 @@ def _payload(title: str = "Backend инженер") -> dict:
         "title": title,
         "grade": "middle+",
         "tasks": "Разработка сервисов",
-        "stop_factors": ["Нет опыта с Python"],
         "specialist_profile": "Ищем сильного бэкендера",
         "topics": [
             {"title": "Python", "skill_type": "hard", "importance": "mandatory", "order": 0},

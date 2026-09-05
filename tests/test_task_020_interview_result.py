@@ -12,7 +12,6 @@ from sqlalchemy.pool import StaticPool
 from app.db import Base
 from app.models.candidate import Candidate
 from app.models.interview_result import InterviewRecommendation, InterviewResult
-from app.models.stop_factor import StopFactorFlag
 from app.models.topic import SkillType, Topic, TopicImportance
 from app.models.topic_assessment import (
     AssessmentConfidence,
@@ -46,7 +45,6 @@ async def _seed(
     matrix: list[tuple[TopicImportance, AssessmentStatus, AssessmentStatus]],
     *,
     version: int = 2,
-    stop_triggered: bool = False,
 ) -> uuid.UUID:
     """matrix: список (importance, system_status, current_status)."""
     vacancy = Vacancy(id=uuid.uuid4(), title="Backend", grade=VacancyGrade.MIDDLE, version=version)
@@ -75,16 +73,6 @@ async def _seed(
             )
         )
 
-    if stop_triggered:
-        session.add(
-            StopFactorFlag(
-                candidate_id=candidate.id,
-                stop_factor="Не готов к переезду",
-                triggered=True,
-                confidence=AssessmentConfidence.HIGH,
-                evidence={"quote": "не готов", "start_sec": 1.0, "end_sec": 2.0},
-            )
-        )
     await session.commit()
     return candidate.id
 
@@ -168,20 +156,6 @@ async def test_all_confirmed_fit_with_full_coverage(session: AsyncSession) -> No
     assert result is not None
     assert result.recommendation == InterviewRecommendation.FIT
     assert result.mandatory_coverage == Decimal("1.0000")
-
-
-@pytest.mark.anyio
-async def test_triggered_stop_factor_forces_not_fit(session: AsyncSession) -> None:
-    candidate_id = await _seed(
-        session,
-        [(M, *_same(AssessmentStatus.CONFIRMED))],
-        stop_triggered=True,
-    )
-
-    result = await assemble_interview_result(session, candidate_id)
-
-    assert result is not None
-    assert result.recommendation == InterviewRecommendation.NOT_FIT
 
 
 @pytest.mark.anyio

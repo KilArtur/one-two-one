@@ -20,7 +20,6 @@ from app.models.topic_assessment import StatusChangeLog, TopicAssessment
 from app.services.coverage import compute_coverage
 from app.services.matrix import TopicOutcome
 from app.services.recommendation import recommendation_with_reason
-from app.services.stop_factor import candidate_stop_factor_triggered
 
 
 @dataclass(slots=True, frozen=True)
@@ -125,10 +124,7 @@ async def build_result_card(session: AsyncSession, candidate_id: uuid.UUID) -> R
     order = {topic.id: topic.order for topic in candidate.vacancy.topics}
     topics.sort(key=lambda row: order[row.topic_id])
 
-    stop_triggered = await candidate_stop_factor_triggered(session, candidate_id)
-    recommendation, reason = recommendation_with_reason(
-        outcomes, stop_factor_triggered=stop_triggered
-    )
+    recommendation, reason = recommendation_with_reason(outcomes)
     coverage = compute_coverage(outcomes)
 
     return ResultCard(

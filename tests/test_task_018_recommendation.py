@@ -37,14 +37,6 @@ def test_all_mandatory_confirmed_gives_fit() -> None:
     assert compute_recommendation(outcomes) == InterviewRecommendation.FIT
 
 
-def test_stop_factor_forces_not_fit() -> None:
-    outcomes = [TopicOutcome(M, CONFIRMED), TopicOutcome(M, CONFIRMED)]
-    assert (
-        compute_recommendation(outcomes, stop_factor_triggered=True)
-        == InterviewRecommendation.NOT_FIT
-    )
-
-
 def test_not_confirmed_takes_priority_over_needs_check() -> None:
     outcomes = [TopicOutcome(M, NEEDS), TopicOutcome(M, NOT_CONF)]
     assert compute_recommendation(outcomes) == InterviewRecommendation.NOT_FIT

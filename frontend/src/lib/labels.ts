@@ -34,7 +34,6 @@ export const RECOMMENDATION_LABEL: Record<string, string> = {
 };
 
 export const REASON_LABEL: Record<string, string> = {
-  stop_factor: "сработал стоп-фактор",
   mandatory_not_confirmed: "есть обязательный топик со статусом «не подтверждено»",
   mandatory_needs_check: "есть обязательный топик со статусом «требует проверки»",
   all_mandatory_confirmed: "все обязательные топики подтверждены",

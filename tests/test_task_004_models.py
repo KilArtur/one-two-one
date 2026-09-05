@@ -30,7 +30,6 @@ def _seed_vacancy_with_topic() -> tuple[Vacancy, Topic]:
             title="Backend-разработчик",
             grade=VacancyGrade.MIDDLE_PLUS,
             tasks="Разработка сервисов на FastAPI",
-            stop_factors=["нет опыта с production-нагрузкой"],
             specialist_profile="Профиль от техлида",
         )
         topic = Topic(
@@ -65,7 +64,6 @@ def test_vacancy_has_all_prd_columns() -> None:
         "title",
         "grade",
         "tasks",
-        "stop_factors",
         "specialist_profile",
         "version",
         "status",
@@ -129,7 +127,6 @@ def test_vacancy_persists_with_defaults(seeded: tuple[Vacancy, Topic]) -> None:
     assert vacancy.grade == VacancyGrade.MIDDLE_PLUS
     assert vacancy.status == VacancyStatus.DRAFT
     assert vacancy.version == 1
-    assert vacancy.stop_factors == ["нет опыта с production-нагрузкой"]
 
 
 def test_topic_persists_and_links_to_vacancy(seeded: tuple[Vacancy, Topic]) -> None:
