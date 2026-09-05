@@ -143,7 +143,10 @@ async def test_pipeline_end_to_end_ready(session: AsyncSession) -> None:
 async def test_pipeline_status_visible_after_stages(session: AsyncSession) -> None:
     candidate_id, answer_id = await _seed(session)
     await process_answer(
-        session, answer_id, asr_client=FakeASR(), llm_client=FakeLLM(),
+        session,
+        answer_id,
+        asr_client=FakeASR(),
+        llm_client=FakeLLM(),
         storage=FakeStorage({AUDIO_KEY: b"x" * 4096}),
     )
     # Шаг 2: текущий статус обработки читается по кандидату

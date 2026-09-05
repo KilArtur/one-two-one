@@ -10,7 +10,7 @@ from app.config import Settings
 from app.integrations.llm import LLMClientError, LLMInvocationResult, get_llm_client
 from app.main import create_app
 from app.schemas.vacancy import TopicDraft, VacancyDraft
-from app.services.vacancy_draft import PdfExtractionError, extract_pdf_text
+from app.services.pdf_text import PdfExtractionError, extract_pdf_text
 
 DRAFT = VacancyDraft(
     title="Backend-разработчик",

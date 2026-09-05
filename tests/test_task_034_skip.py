@@ -35,8 +35,11 @@ async def _seed(session: AsyncSession) -> tuple[Candidate, uuid.UUID]:
     vacancy = Vacancy(id=uuid.uuid4(), title="Backend", grade=VacancyGrade.MIDDLE)
     vacancy.lineage_id = vacancy.id
     topic = Topic(
-        vacancy_id=vacancy.id, title="PostgreSQL", skill_type=SkillType.HARD,
-        importance=TopicImportance.MANDATORY, order=0,
+        vacancy_id=vacancy.id,
+        title="PostgreSQL",
+        skill_type=SkillType.HARD,
+        importance=TopicImportance.MANDATORY,
+        order=0,
     )
     vacancy.topics = [topic]
     candidate = Candidate(vacancy_id=vacancy.id)

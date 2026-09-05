@@ -30,9 +30,7 @@ class CoverageResult:
     desired_coverage: Decimal | None
 
 
-def _coverage_for(
-    in_scope: Sequence[TopicOutcome], importance: TopicImportance
-) -> Decimal | None:
+def _coverage_for(in_scope: Sequence[TopicOutcome], importance: TopicImportance) -> Decimal | None:
     """Доля подтверждённых в группе; None пока есть спорные или группа пуста."""
     group = [outcome for outcome in in_scope if outcome.importance == importance]
     if not group:
@@ -45,9 +43,7 @@ def _coverage_for(
 
 def compute_coverage(outcomes: Iterable[TopicOutcome]) -> CoverageResult:
     """Считает тройку чисел и доли покрытия по Р4."""
-    in_scope = [
-        outcome for outcome in outcomes if outcome.status != AssessmentStatus.OUT_OF_SCOPE
-    ]
+    in_scope = [outcome for outcome in outcomes if outcome.status != AssessmentStatus.OUT_OF_SCOPE]
     return CoverageResult(
         confirmed_count=sum(
             1 for outcome in in_scope if outcome.status == AssessmentStatus.CONFIRMED

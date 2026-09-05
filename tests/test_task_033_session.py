@@ -52,13 +52,18 @@ async def _seed(
     questions: list[Question] = []
     for i in range(3):
         topic = Topic(
-            vacancy_id=vacancy.id, title=f"T{i}", skill_type=SkillType.HARD,
-            importance=TopicImportance.MANDATORY, order=i,
+            vacancy_id=vacancy.id,
+            title=f"T{i}",
+            skill_type=SkillType.HARD,
+            importance=TopicImportance.MANDATORY,
+            order=i,
         )
         session.add(topic)
         await session.flush()
         q = Question(
-            topic_id=topic.id, type=QuestionType.CORE, pattern=QuestionPattern.EXPERIENCE,
+            topic_id=topic.id,
+            type=QuestionType.CORE,
+            pattern=QuestionPattern.EXPERIENCE,
             text=f"Q{i}",
         )
         session.add(q)
@@ -67,7 +72,9 @@ async def _seed(
     for q in questions[:answered]:
         session.add(
             Answer(
-                candidate_id=candidate.id, question_id=q.id, transcript="ответ",
+                candidate_id=candidate.id,
+                question_id=q.id,
+                transcript="ответ",
                 processing_status=AnswerProcessingStatus.READY,
             )
         )

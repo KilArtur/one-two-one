@@ -1,7 +1,14 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 
-import { CandidateOverview, createCandidate, issueInterviewLink, listCandidates } from "../api/client";
+import {
+  CandidateOverview,
+  ResumeCard,
+  createCandidate,
+  draftResumeCard,
+  issueInterviewLink,
+  listCandidates,
+} from "../api/client";
 import { Breadcrumbs, EmptyState, PageHead, StatusPill } from "../layouts/Shell";
 import { PROCESSING_LABEL, RECOMMENDATION_LABEL, STATUS_TONE, coverageText } from "../lib/labels";
 
@@ -13,6 +20,9 @@ export function CandidateListPage({ token, vacancyId }: { token: string; vacancy
   const [linkInfo, setLinkInfo] = useState("");
   const [revision, setRevision] = useState(0);
   const [resume, setResume] = useState("");
+  const [card, setCard] = useState<ResumeCard["profile"] | null>(null);
+  const [resumeNote, setResumeNote] = useState("");
+  const [parsing, setParsing] = useState(false);
   const [creating, setCreating] = useState(false);
   const recruiter = sessionStorage.getItem("internal-role") === "recruiter";
 
@@ -34,12 +44,32 @@ export function CandidateListPage({ token, vacancyId }: { token: string; vacancy
     return () => window.clearInterval(timer);
   }, []);
 
+  async function loadResume(file: File) {
+    setParsing(true);
+    setResumeNote("");
+    try {
+      const parsed = await draftResumeCard(token, file);
+      setCard(parsed.profile);
+      setResume(parsed.resume_text);
+      setResumeNote(
+        `Резюме разобрано: навыков ${parsed.profile.skills.length}, ` +
+          `мест работы ${parsed.profile.experience.length}.`,
+      );
+    } catch (reason) {
+      setResumeNote(reason instanceof Error ? reason.message : "Не удалось разобрать резюме.");
+    } finally {
+      setParsing(false);
+    }
+  }
+
   async function invite() {
     setCreating(true);
     try {
       const candidate = await createCandidate(token, vacancyId, resume);
       await copyLink(candidate.id);
       setResume("");
+      setCard(null);
+      setResumeNote("");
       setRevision((value) => value + 1);
     } catch (reason) {
       setLinkInfo(reason instanceof Error ? reason.message : "Не удалось создать кандидата.");
@@ -121,9 +151,61 @@ export function CandidateListPage({ token, vacancyId }: { token: string; vacancy
       </div>
 
       {recruiter && <section className="panel" style={{ marginTop: 20 }}>
+        <label htmlFor="candidate-resume-pdf">Резюме в PDF (необязательно)</label>
+        <input
+          id="candidate-resume-pdf"
+          type="file"
+          accept="application/pdf"
+          disabled={parsing}
+          onChange={(event) => {
+            const file = event.target.files?.[0];
+            event.target.value = "";
+            if (file) void loadResume(file);
+          }}
+        />
+        <p className="meta">
+          Из файла соберётся карточка кандидата — навыки, опыт и образование. Текст ниже можно
+          поправить перед приглашением.
+        </p>
+        {parsing && <p role="status">Разбираем резюме…</p>}
+        {!parsing && resumeNote && <p role="status">{resumeNote}</p>}
+        {card && (
+          <div className="matrix" style={{ marginBottom: 16 }}>
+            <section className="panel">
+              <div className="title-cell">{card.full_name || "Кандидат"}</div>
+              {card.headline && <p className="meta">{card.headline}</p>}
+              {card.skills.length > 0 && (
+                <>
+                  <p className="meta">Навыки</p>
+                  <p>{card.skills.join(" · ")}</p>
+                </>
+              )}
+              {card.experience.length > 0 && (
+                <>
+                  <p className="meta">Опыт</p>
+                  <ul>
+                    {card.experience.map((item) => (
+                      <li key={item}>{item}</li>
+                    ))}
+                  </ul>
+                </>
+              )}
+              {card.education.length > 0 && (
+                <>
+                  <p className="meta">Образование</p>
+                  <ul>
+                    {card.education.map((item) => (
+                      <li key={item}>{item}</li>
+                    ))}
+                  </ul>
+                </>
+              )}
+            </section>
+          </div>
+        )}
         <label htmlFor="candidate-resume">Резюме кандидата (необязательно)</label>
         <textarea id="candidate-resume" value={resume} onChange={(event) => setResume(event.target.value)} />
-        <button className="btn primary" disabled={creating} onClick={() => void invite()}>
+        <button className="btn primary" disabled={creating || parsing} onClick={() => void invite()}>
           {creating ? "Создаём приглашение…" : "Пригласить кандидата"}
         </button>
       </section>}

@@ -43,9 +43,7 @@ class CandidateQuestionRead(BaseModel):
 @router.get("/questions", response_model=list[CandidateQuestionRead])
 async def list_questions(candidate: CandidateDep, session: SessionDep) -> list[Question]:
     """Возвращает вопросы закреплённой за кандидатом версии вакансии."""
-    questions = await session.scalars(
-        candidate_questions_stmt(candidate.id, candidate.vacancy_id)
-    )
+    questions = await session.scalars(candidate_questions_stmt(candidate.id, candidate.vacancy_id))
     return list(questions)
 
 

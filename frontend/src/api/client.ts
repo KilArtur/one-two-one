@@ -489,6 +489,32 @@ export async function updateVacancyQuestion(
   return response.json() as Promise<VacancyQuestion>;
 }
 
+export interface ResumeCard {
+  profile: {
+    full_name: string;
+    headline: string;
+    skills: string[];
+    experience: string[];
+    education: string[];
+  };
+  resume_text: string;
+}
+
+export async function draftResumeCard(token: string, file: File): Promise<ResumeCard> {
+  const form = new FormData();
+  form.append("file", file);
+  const response = await fetch(`${API_BASE_URL}/candidates/resume-draft`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}` },
+    body: form,
+  });
+  if (!response.ok) {
+    const body = await response.json().catch(() => null);
+    throw new Error(body?.detail ?? "Не удалось разобрать резюме.");
+  }
+  return response.json() as Promise<ResumeCard>;
+}
+
 export async function approveVacancyQuestion(
   token: string,
   vacancyId: string,

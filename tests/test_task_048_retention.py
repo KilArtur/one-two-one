@@ -49,8 +49,11 @@ async def _seed(session: AsyncSession, *, created_at: datetime) -> uuid.UUID:
     )
     candidate.created_at = created_at
     topic = Topic(
-        vacancy_id=vacancy.id, title="PostgreSQL", skill_type=SkillType.HARD,
-        importance=TopicImportance.MANDATORY, order=0,
+        vacancy_id=vacancy.id,
+        title="PostgreSQL",
+        skill_type=SkillType.HARD,
+        importance=TopicImportance.MANDATORY,
+        order=0,
     )
     vacancy.topics = [topic]
     session.add_all([vacancy, candidate])
@@ -61,17 +64,23 @@ async def _seed(session: AsyncSession, *, created_at: datetime) -> uuid.UUID:
     session.add(question)
     await session.flush()
     answer = Answer(
-        id=uuid.uuid4(), candidate_id=candidate.id, question_id=question.id,
+        id=uuid.uuid4(),
+        candidate_id=candidate.id,
+        question_id=question.id,
         video_url="s3://interviewer-media/answers/c/u/video.webm",
         audio_url="s3://interviewer-media/answers/c/u/audio.webm",
         transcript="Я работал с PostgreSQL",
         transcript_segments=[{"text": "Я работал с PostgreSQL", "start": 0.0, "end": 3.0}],
-        duration_sec=5, processing_status=AnswerProcessingStatus.READY,
+        duration_sec=5,
+        processing_status=AnswerProcessingStatus.READY,
     )
     session.add(answer)
     result = InterviewResult(
-        candidate_id=candidate.id, recommendation=InterviewRecommendation.FIT,
-        vacancy_version=1, model_version="m", prompt_version="p",
+        candidate_id=candidate.id,
+        recommendation=InterviewRecommendation.FIT,
+        vacancy_version=1,
+        model_version="m",
+        prompt_version="p",
     )
     session.add(result)
     await session.commit()
@@ -99,9 +108,9 @@ async def test_expired_candidate_purged_aggregate_kept(session: AsyncSession) ->
     # факт удаления залогирован
     assert (
         await session.scalar(
-            select(func.count()).select_from(DataDeletionLog).where(
-                DataDeletionLog.candidate_id == candidate_id
-            )
+            select(func.count())
+            .select_from(DataDeletionLog)
+            .where(DataDeletionLog.candidate_id == candidate_id)
         )
         == 1
     )
@@ -133,9 +142,9 @@ async def test_retention_is_idempotent(session: AsyncSession) -> None:
     assert candidate_id in first
     assert candidate_id not in second  # больше нечего удалять — повторно не логируем
     total_logs = await session.scalar(
-        select(func.count()).select_from(DataDeletionLog).where(
-            DataDeletionLog.candidate_id == candidate_id
-        )
+        select(func.count())
+        .select_from(DataDeletionLog)
+        .where(DataDeletionLog.candidate_id == candidate_id)
     )
     assert total_logs == 1
 
@@ -146,9 +155,7 @@ async def test_on_request_purge_logs(session: AsyncSession) -> None:
     candidate_id = await _seed(session, created_at=datetime.now(UTC) - timedelta(days=5))
     storage = FakeStorage()
 
-    log = await purge_candidate(
-        session, storage, candidate_id, reason="on_request", force_log=True
-    )
+    log = await purge_candidate(session, storage, candidate_id, reason="on_request", force_log=True)
 
     assert log is not None and log.reason == "on_request"
     candidate = await session.get(Candidate, candidate_id)

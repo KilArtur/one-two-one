@@ -106,9 +106,9 @@ async def test_two_changes_append_two_log_entries(session: AsyncSession) -> None
 
     # Шаг 3: две смены — две append-only записи
     total = await session.scalar(
-        select(func.count()).select_from(StatusChangeLog).where(
-            StatusChangeLog.assessment_id == assessment_id
-        )
+        select(func.count())
+        .select_from(StatusChangeLog)
+        .where(StatusChangeLog.assessment_id == assessment_id)
     )
     assert total == 2
     logs = list(
@@ -148,22 +148,31 @@ async def test_hard_soft_rbac(session: AsyncSession) -> None:
 
     with pytest.raises(HTTPException) as exc:
         await change_topic_status(
-            session, hard_id, user=_user(AppRole.HIRING_MANAGER),
-            new_status=AssessmentStatus.CONFIRMED, comment="x",
+            session,
+            hard_id,
+            user=_user(AppRole.HIRING_MANAGER),
+            new_status=AssessmentStatus.CONFIRMED,
+            comment="x",
         )
     assert exc.value.status_code == 403
 
     with pytest.raises(HTTPException) as exc:
         await change_topic_status(
-            session, soft_id, user=_user(AppRole.TECH_SPECIALIST),
-            new_status=AssessmentStatus.CONFIRMED, comment="x",
+            session,
+            soft_id,
+            user=_user(AppRole.TECH_SPECIALIST),
+            new_status=AssessmentStatus.CONFIRMED,
+            comment="x",
         )
     assert exc.value.status_code == 403
 
     # НМ может менять soft
     updated = await change_topic_status(
-        session, soft_id, user=_user(AppRole.HIRING_MANAGER),
-        new_status=AssessmentStatus.CONFIRMED, comment="ок",
+        session,
+        soft_id,
+        user=_user(AppRole.HIRING_MANAGER),
+        new_status=AssessmentStatus.CONFIRMED,
+        comment="ок",
     )
     assert updated.current_status == AssessmentStatus.CONFIRMED
 
@@ -184,7 +193,10 @@ async def test_out_of_scope_rejected_by_endpoint(session: AsyncSession) -> None:
 @pytest.mark.anyio
 async def test_missing_assessment_returns_none(session: AsyncSession) -> None:
     result = await change_topic_status(
-        session, uuid.uuid4(), user=_user(AppRole.TECH_SPECIALIST),
-        new_status=AssessmentStatus.CONFIRMED, comment="x",
+        session,
+        uuid.uuid4(),
+        user=_user(AppRole.TECH_SPECIALIST),
+        new_status=AssessmentStatus.CONFIRMED,
+        comment="x",
     )
     assert result is None

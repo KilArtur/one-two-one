@@ -26,14 +26,10 @@ from app.schemas.vacancy import (
 from app.services import question_generation, question_review
 from app.services import vacancy as vacancy_service
 from app.services.auth import CurrentUser, ensure_question_review_allowed, get_current_user
+from app.services.pdf_text import MAX_DOCUMENT_BYTES, PdfExtractionError, extract_pdf_text
 from app.services.question_review import QuestionsIncompleteError
 from app.services.vacancy import TopicCountError, VacancyNotDraftError
-from app.services.vacancy_draft import (
-    MAX_DOCUMENT_BYTES,
-    PdfExtractionError,
-    build_vacancy_draft,
-    extract_pdf_text,
-)
+from app.services.vacancy_draft import build_vacancy_draft
 
 router = APIRouter(prefix="/vacancies", tags=["vacancies"])
 

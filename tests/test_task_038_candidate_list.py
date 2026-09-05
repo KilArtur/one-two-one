@@ -34,8 +34,11 @@ async def _seed(session: AsyncSession) -> uuid.UUID:
     vacancy = Vacancy(id=uuid.uuid4(), title="Backend", grade=VacancyGrade.MIDDLE)
     vacancy.lineage_id = vacancy.id
     topic = Topic(
-        vacancy_id=vacancy.id, title="PostgreSQL", skill_type=SkillType.HARD,
-        importance=TopicImportance.MANDATORY, order=0,
+        vacancy_id=vacancy.id,
+        title="PostgreSQL",
+        skill_type=SkillType.HARD,
+        importance=TopicImportance.MANDATORY,
+        order=0,
     )
     vacancy.topics = [topic]
     session.add(vacancy)
@@ -51,21 +54,34 @@ async def _seed(session: AsyncSession) -> uuid.UUID:
     session.add(ready)
     await session.flush()
     session.add(
-        Answer(candidate_id=ready.id, question_id=question.id,
-               processing_status=AnswerProcessingStatus.READY)
+        Answer(
+            candidate_id=ready.id,
+            question_id=question.id,
+            processing_status=AnswerProcessingStatus.READY,
+        )
     )
     session.add(
-        InterviewResult(candidate_id=ready.id, recommendation=InterviewRecommendation.FIT,
-                        confirmed_count=3, needs_check_count=1, not_confirmed_count=0,
-                        vacancy_version=1, model_version="m", prompt_version="p")
+        InterviewResult(
+            candidate_id=ready.id,
+            recommendation=InterviewRecommendation.FIT,
+            confirmed_count=3,
+            needs_check_count=1,
+            not_confirmed_count=0,
+            vacancy_version=1,
+            model_version="m",
+            prompt_version="p",
+        )
     )
     # error-кандидат
     errored = Candidate(vacancy_id=vacancy.id)
     session.add(errored)
     await session.flush()
     session.add(
-        Answer(candidate_id=errored.id, question_id=question.id,
-               processing_status=AnswerProcessingStatus.ERROR)
+        Answer(
+            candidate_id=errored.id,
+            question_id=question.id,
+            processing_status=AnswerProcessingStatus.ERROR,
+        )
     )
     # кандидат без ответов
     fresh = Candidate(vacancy_id=vacancy.id)

@@ -163,9 +163,7 @@ def decode_access_token(token: str, settings: Settings | None = None) -> Current
     return CurrentUser(username=username, role=role)
 
 
-def decode_candidate_access_token(
-    token: str, settings: Settings | None = None
-) -> CandidateSession:
+def decode_candidate_access_token(token: str, settings: Settings | None = None) -> CandidateSession:
     """Проверяет кандидатский JWT и восстанавливает candidate/link ids."""
     settings = settings or get_settings()
     parts = token.split(".")
@@ -255,9 +253,7 @@ async def exchange_interview_link_token(
 ) -> CandidateSession:
     """Обменивает валидную magic link на короткую JWT-сессию кандидата."""
     settings = settings or get_settings()
-    link = await session.scalar(
-        select(InterviewLink).where(InterviewLink.token == token)
-    )
+    link = await session.scalar(select(InterviewLink).where(InterviewLink.token == token))
     if link is None:
         raise _invalid_interview_link()
 

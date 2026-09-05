@@ -43,28 +43,44 @@ async def _seed(session: AsyncSession) -> uuid.UUID:
     await session.flush()
 
     specs = [
-        ("PostgreSQL", SkillType.HARD, TopicImportance.MANDATORY, AssessmentStatus.CONFIRMED,
-         AssessmentStatus.CONFIRMED, False),
-        ("Kafka", SkillType.HARD, TopicImportance.MANDATORY, AssessmentStatus.NEEDS_CHECK,
-         AssessmentStatus.CONFIRMED, True),  # правлено экспертом
+        (
+            "PostgreSQL",
+            SkillType.HARD,
+            TopicImportance.MANDATORY,
+            AssessmentStatus.CONFIRMED,
+            AssessmentStatus.CONFIRMED,
+            False,
+        ),
+        (
+            "Kafka",
+            SkillType.HARD,
+            TopicImportance.MANDATORY,
+            AssessmentStatus.NEEDS_CHECK,
+            AssessmentStatus.CONFIRMED,
+            True,
+        ),  # правлено экспертом
     ]
     for i, (title, skill, imp, sys_s, cur_s, edited) in enumerate(specs):
-        topic = Topic(
-            vacancy_id=vacancy.id, title=title, skill_type=skill, importance=imp, order=i
-        )
+        topic = Topic(vacancy_id=vacancy.id, title=title, skill_type=skill, importance=imp, order=i)
         session.add(topic)
         await session.flush()
         assessment = TopicAssessment(
-            candidate_id=candidate.id, topic_id=topic.id,
-            system_status=sys_s, current_status=cur_s, confidence=AssessmentConfidence.HIGH,
+            candidate_id=candidate.id,
+            topic_id=topic.id,
+            system_status=sys_s,
+            current_status=cur_s,
+            confidence=AssessmentConfidence.HIGH,
         )
         session.add(assessment)
         await session.flush()
         if edited:
             session.add(
                 StatusChangeLog(
-                    assessment_id=assessment.id, author_id=uuid.uuid4(),
-                    author_role=ReviewerRole.TECH_SPECIALIST, old_status=sys_s, new_status=cur_s,
+                    assessment_id=assessment.id,
+                    author_id=uuid.uuid4(),
+                    author_role=ReviewerRole.TECH_SPECIALIST,
+                    old_status=sys_s,
+                    new_status=cur_s,
                     comment="проверил",
                 )
             )

@@ -49,13 +49,9 @@ async def purge_candidate(
 
     removed_objects = 0
     answer_pii_cleared = 0
-    answers = list(
-        await session.scalars(select(Answer).where(Answer.candidate_id == candidate_id))
-    )
+    answers = list(await session.scalars(select(Answer).where(Answer.candidate_id == candidate_id)))
     for answer in answers:
-        if any(
-            (answer.video_url, answer.audio_url, answer.transcript, answer.transcript_segments)
-        ):
+        if any((answer.video_url, answer.audio_url, answer.transcript, answer.transcript_segments)):
             answer_pii_cleared += 1
         for url in (answer.video_url, answer.audio_url):
             if url:
@@ -66,9 +62,7 @@ async def purge_candidate(
         answer.transcript_segments = None
 
     uploads = list(
-        await session.scalars(
-            select(AnswerUpload).where(AnswerUpload.candidate_id == candidate_id)
-        )
+        await session.scalars(select(AnswerUpload).where(AnswerUpload.candidate_id == candidate_id))
     )
     for upload in uploads:
         for kind in ("video", "audio"):
@@ -115,9 +109,7 @@ async def purge_expired(
     now = now or datetime.now(UTC)
     cutoff = now - timedelta(days=retention_days)
 
-    candidates = list(
-        await session.scalars(select(Candidate).where(Candidate.created_at < cutoff))
-    )
+    candidates = list(await session.scalars(select(Candidate).where(Candidate.created_at < cutoff)))
     purged: list[uuid.UUID] = []
     for candidate in candidates:
         log = await purge_candidate(

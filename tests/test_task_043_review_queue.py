@@ -48,8 +48,11 @@ async def _seed(session: AsyncSession) -> dict:
 
     def add_topic(title, skill, status, confidence):
         topic = Topic(
-            vacancy_id=vacancy.id, title=title, skill_type=skill,
-            importance=TopicImportance.MANDATORY, order=0,
+            vacancy_id=vacancy.id,
+            title=title,
+            skill_type=skill,
+            importance=TopicImportance.MANDATORY,
+            order=0,
         )
         session.add(topic)
         return topic
@@ -65,8 +68,11 @@ async def _seed(session: AsyncSession) -> dict:
         topic = add_topic(title, skill, status_, conf)
         await session.flush()
         assessment = TopicAssessment(
-            candidate_id=candidate.id, topic_id=topic.id,
-            system_status=status_, current_status=status_, confidence=conf,
+            candidate_id=candidate.id,
+            topic_id=topic.id,
+            system_status=status_,
+            current_status=status_,
+            confidence=conf,
         )
         session.add(assessment)
         await session.flush()

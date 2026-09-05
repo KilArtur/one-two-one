@@ -147,9 +147,7 @@ async def replace_topics(
     return snapshot
 
 
-async def add_topic(
-    session: AsyncSession, vacancy_id: uuid.UUID, data: TopicWrite
-) -> Topic | None:
+async def add_topic(session: AsyncSession, vacancy_id: uuid.UUID, data: TopicWrite) -> Topic | None:
     """Добавляет один топик в черновик вакансии (верхняя граница Р8 — не больше 9)."""
     vacancy = await session.get(Vacancy, vacancy_id)
     if vacancy is None:

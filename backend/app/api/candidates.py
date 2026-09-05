@@ -5,21 +5,24 @@ from __future__ import annotations
 import uuid
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, status
 from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db import get_db
-from app.integrations.llm import LangChainLLMClient, get_llm_client
+from app.integrations.llm import LangChainLLMClient, LLMClientError, get_llm_client
 from app.integrations.storage import S3StorageClient, get_s3_storage_client
 from app.models.candidate import Candidate
 from app.models.vacancy import Vacancy
+from app.schemas.candidate import ResumeCard
 from app.services.auth import CurrentUser, ensure_interview_link_issue_allowed, get_current_user
 from app.services.candidate_overview import list_vacancy_candidates
+from app.services.pdf_text import MAX_DOCUMENT_BYTES, PdfExtractionError, extract_pdf_text
 from app.services.question_personalization import personalize_questions
 from app.services.question_review import QUESTIONS_NOT_APPROVED, questions_approved
 from app.services.result_card import build_result_card
 from app.services.result_links import get_result_user
+from app.services.resume_draft import build_resume_card
 from app.services.retention import purge_candidate
 
 router = APIRouter(prefix="/candidates", tags=["candidates"])
@@ -61,6 +64,27 @@ async def create_candidate(
     await session.refresh(candidate)
     await personalize_questions(session, candidate.id, llm_client=llm)
     return candidate
+
+
+@router.post("/resume-draft", response_model=ResumeCard)
+async def draft_resume_card(file: UploadFile, llm: LLMDep) -> ResumeCard:
+    """Разбирает PDF-резюме в карточку кандидата; ничего не сохраняет."""
+    try:
+        data = await file.read(MAX_DOCUMENT_BYTES + 1)
+    finally:
+        await file.close()
+    if len(data) > MAX_DOCUMENT_BYTES:
+        raise HTTPException(status.HTTP_413_CONTENT_TOO_LARGE, "Файл больше 10 МБ")
+    try:
+        text = extract_pdf_text(data)
+    except PdfExtractionError as exc:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(exc)) from exc
+    try:
+        return await build_resume_card(text, llm_client=llm)
+    except LLMClientError as exc:
+        raise HTTPException(
+            status.HTTP_503_SERVICE_UNAVAILABLE, "Модель недоступна, вставьте резюме текстом"
+        ) from exc
 
 
 class PurgeRequest(BaseModel):

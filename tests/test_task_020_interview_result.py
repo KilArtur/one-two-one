@@ -106,9 +106,7 @@ async def test_assemble_creates_result(session: AsyncSession) -> None:
 
 @pytest.mark.anyio
 async def test_version_fields_populated(session: AsyncSession) -> None:
-    candidate_id = await _seed(
-        session, [(M, *_same(AssessmentStatus.CONFIRMED))], version=3
-    )
+    candidate_id = await _seed(session, [(M, *_same(AssessmentStatus.CONFIRMED))], version=3)
 
     result = await assemble_interview_result(
         session, candidate_id, model_version="qwen-test", prompt_version="topic-assessment-v1"
