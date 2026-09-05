@@ -201,9 +201,10 @@ export async function getResultCard(
   token: string,
   candidateId: string,
   signal?: AbortSignal,
+  resultLink?: string,
 ): Promise<ResultCard> {
   const response = await fetch(`${API_BASE_URL}/candidates/${candidateId}/result`, {
-    headers: { Authorization: `Bearer ${token}` }, signal,
+    headers: { Authorization: `Bearer ${token}`, ...(resultLink ? { "X-Result-Link": resultLink } : {}) }, signal,
   });
   if (!response.ok) throw new Error("Не удалось загрузить карточку результата.");
   return response.json() as Promise<ResultCard>;
@@ -259,10 +260,10 @@ export const answerUploadApi = {
     }),
 };
 
-export async function internalRequest<T>(path: string, token: string, signal?: AbortSignal, body?: object): Promise<T> {
+export async function internalRequest<T>(path: string, token: string, signal?: AbortSignal, body?: object, resultLink?: string): Promise<T> {
   const response = await fetch(`${API_BASE_URL}${path}`, {
     method: body ? "POST" : "GET", signal,
-    headers: { Authorization: `Bearer ${token}`, ...(body ? { "Content-Type": "application/json" } : {}) },
+    headers: { Authorization: `Bearer ${token}`, ...(resultLink ? { "X-Result-Link": resultLink } : {}), ...(body ? { "Content-Type": "application/json" } : {}) },
     ...(body ? { body: JSON.stringify(body) } : {}),
   });
   if (!response.ok) throw new Error(response.status === 401 ? "Сессия истекла. Войдите снова." : "Не удалось загрузить данные. Повторите попытку.");
@@ -274,12 +275,12 @@ export interface EvidenceItem {
   start_sec: number | null; end_sec: number | null; video_available: boolean;
 }
 export interface AnswerMedia { video_url: string; audio_url: string | null }
-export const getEvidence = (token: string, candidate: string, topic: string, signal?: AbortSignal) =>
-  internalRequest<EvidenceItem[]>(`/candidates/${candidate}/topics/${topic}/evidence`, token, signal);
-export const getAnswerMedia = (token: string, candidate: string, answer: string, signal?: AbortSignal) =>
-  internalRequest<AnswerMedia>(`/candidates/${candidate}/answers/${answer}/media`, token, signal);
-export const recordVideoView = (token: string, candidate: string, answer: string, eventId: string, position: number) =>
-  internalRequest(`/candidates/${candidate}/answers/${answer}/views`, token, undefined, { event_id: eventId, position_sec: position });
+export const getEvidence = (token: string, candidate: string, topic: string, signal?: AbortSignal, resultLink?: string) =>
+  internalRequest<EvidenceItem[]>(`/candidates/${candidate}/topics/${topic}/evidence`, token, signal, undefined, resultLink);
+export const getAnswerMedia = (token: string, candidate: string, answer: string, signal?: AbortSignal, resultLink?: string) =>
+  internalRequest<AnswerMedia>(`/candidates/${candidate}/answers/${answer}/media`, token, signal, undefined, resultLink);
+export const recordVideoView = (token: string, candidate: string, answer: string, eventId: string, position: number, resultLink?: string) =>
+  internalRequest(`/candidates/${candidate}/answers/${answer}/views`, token, undefined, { event_id: eventId, position_sec: position }, resultLink);
 export async function internalLogin(username: string, password: string, role: string): Promise<string> {
   const response = await fetch(`${API_BASE_URL}/auth/token`, {
     method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ username, password, role }),
@@ -307,8 +308,8 @@ export interface TranscriptAnswer {
   transcript: string | null; segments: { text: string; start: number; end: number }[];
   quotes: string[]; processing_status: string; skipped: boolean; technically_lost: boolean;
 }
-export const getTranscripts = (token: string, candidateId: string, topicId?: string, signal?: AbortSignal) =>
-  internalRequest<TranscriptAnswer[]>(`/candidates/${candidateId}/transcript${topicId ? `?topic_id=${encodeURIComponent(topicId)}` : ""}`, token, signal);
+export const getTranscripts = (token: string, candidateId: string, topicId?: string, signal?: AbortSignal, resultLink?: string) =>
+  internalRequest<TranscriptAnswer[]>(`/candidates/${candidateId}/transcript${topicId ? `?topic_id=${encodeURIComponent(topicId)}` : ""}`, token, signal, undefined, resultLink);
 
 export interface InternalUser { username: string; role: "recruiter" | "technical_specialist" | "hiring_manager" }
 export interface ReviewItem {
@@ -325,3 +326,20 @@ export async function changeAssessmentStatus(token: string, assessmentId: string
   });
   if (!response.ok) throw new Error(response.status === 403 ? "Ваша роль не может изменить этот топик." : "Не удалось сохранить статус. Проверьте комментарий и повторите попытку.");
 }
+
+export interface ResultLinkInfo {
+  id: string; candidate_id: string; created_by: string; expires_at: string; revoked_at: string | null;
+}
+export interface VideoViewItem {
+  id: string; answer_id: string; viewer: string; role: string; position_sec: number; created_at: string;
+}
+export const createResultLink = (token: string, candidate: string) =>
+  internalRequest<ResultLinkInfo & { token: string }>(`/candidates/${candidate}/result-links`, token, undefined, {});
+export const listResultLinks = (token: string, candidate: string, signal?: AbortSignal) =>
+  internalRequest<ResultLinkInfo[]>(`/candidates/${candidate}/result-links`, token, signal);
+export const revokeResultLink = (token: string, id: string) =>
+  internalRequest<ResultLinkInfo>(`/result-links/${id}/revoke`, token, undefined, {});
+export const resolveResultLink = (token: string, link: string, signal?: AbortSignal) =>
+  internalRequest<ResultLinkInfo>("/result-links/resolve", token, signal, { token: link });
+export const getVideoViews = (token: string, candidate: string, signal?: AbortSignal) =>
+  internalRequest<VideoViewItem[]>(`/candidates/${candidate}/video-views`, token, signal);

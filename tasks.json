@@ -1070,7 +1070,9 @@
         "TASK-040",
         "TASK-024"
       ],
-      "status": "pending"
+      "status": "done",
+      "assignee": "artur",
+      "claimed_at": "2026-09-05T14:30:00.000000+00:00"
     },
     {
       "id": "TASK-048",

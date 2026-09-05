@@ -34,7 +34,7 @@ it("shows context, requires a nonblank comment and refreshes the result after sa
   expect(api.changeAssessmentStatus).toHaveBeenCalledWith("token", "assessment", "confirmed", "Проверил видео");
   expect(await screen.findByText("Нет топиков, требующих проверки.")).toBeTruthy();
   expect(await screen.findByText("✅ подтверждено")).toBeTruthy();
-  expect(api.getResultCard).toHaveBeenCalledWith("token", "candidate", expect.any(AbortSignal));
+  expect(api.getResultCard).toHaveBeenCalledWith("token", "candidate", expect.any(AbortSignal), undefined);
 });
 it("retains the form on failed save and does not refresh the card prematurely", async () => {
   vi.mocked(api.changeAssessmentStatus).mockRejectedValue(new Error("Ошибка сохранения"));

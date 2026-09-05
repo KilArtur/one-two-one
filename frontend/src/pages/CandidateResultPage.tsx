@@ -1,4 +1,6 @@
-import { useEffect, useState } from "react";
+import { ResultAccessPanel } from "../components/ResultAccessPanel";
+import { ResultLinkContext } from "../components/ResultLinkContext";
+import { useContext, useEffect, useState } from "react";
 
 import { getResultCard, ResultCard } from "../api/client";
 
@@ -35,10 +37,14 @@ const AUTHOR_LABEL: Record<string, string> = {
 export function CandidateResultPage({
   token,
   candidateId,
+  shared = false,
 }: {
   token: string;
   candidateId: string;
+  shared?: boolean;
 }) {
+  const resultLink = useContext(ResultLinkContext);
+  const [access, setAccess] = useState(false);
   const [card, setCard] = useState<ResultCard | null>(null);
   const [showTranscript, setShowTranscript] = useState(false);
   const [topic, setTopic] = useState<string | null>(null);
@@ -46,7 +52,7 @@ export function CandidateResultPage({
 
   useEffect(() => {
     const controller = new AbortController();
-    getResultCard(token, candidateId, controller.signal)
+    getResultCard(token, candidateId, controller.signal, resultLink)
       .then(setCard)
       .catch((reason) => {
         if (!controller.signal.aborted) {
@@ -54,7 +60,7 @@ export function CandidateResultPage({
         }
       });
     return () => controller.abort();
-  }, [token, candidateId]);
+  }, [token, candidateId, resultLink]);
 
   if (error) return <main><p role="alert">{error}</p></main>;
   if (!card) return <p role="status">Загружаем карточку…</p>;
@@ -109,6 +115,10 @@ export function CandidateResultPage({
 
       <button aria-expanded={showTranscript} onClick={() => setShowTranscript((v) => !v)}>{showTranscript ? "Скрыть транскрипт" : "Открыть полный транскрипт"}</button>
       {showTranscript && <TranscriptPanel token={token} candidateId={candidateId} />}
+
+      {!shared && <><button onClick={() => setAccess((v) => !v)}>Ссылки и журнал просмотров</button>
+        {access && <ResultAccessPanel token={token} candidateId={candidateId} />}
+      </>}
 
       {/* Принцип 3: слои резюме и интервью разведены */}
       <section aria-label="Заявлено в резюме">

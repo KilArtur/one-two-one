@@ -1,7 +1,9 @@
-import { useEffect, useRef, useState } from "react";
+import { ResultLinkContext } from "./ResultLinkContext";
+import { useContext, useEffect, useRef, useState } from "react";
 import { AnswerMedia, EvidenceItem, getAnswerMedia, getEvidence, recordVideoView } from "../api/client";
 
 function EvidencePlayer({ token, candidateId, item }: { token: string; candidateId: string; item: EvidenceItem }) {
+  const resultLink = useContext(ResultLinkContext);
   const [media, setMedia] = useState<AnswerMedia | null>(null);
   const [error, setError] = useState("");
   const video = useRef<HTMLVideoElement>(null);
@@ -11,11 +13,11 @@ function EvidencePlayer({ token, candidateId, item }: { token: string; candidate
   const logging = useRef(false);
   useEffect(() => {
     const controller = new AbortController();
-    getAnswerMedia(token, candidateId, item.answer_id, controller.signal).then(setMedia).catch((reason) => {
+    getAnswerMedia(token, candidateId, item.answer_id, controller.signal, resultLink).then(setMedia).catch((reason) => {
       if (!controller.signal.aborted) setError(reason instanceof Error ? reason.message : "Запись недоступна.");
     });
     return () => controller.abort();
-  }, [token, candidateId, item.answer_id]);
+  }, [token, candidateId, item.answer_id, resultLink]);
   const sync = () => {
     if (audio.current && video.current) {
       audio.current.currentTime = video.current.currentTime;
@@ -31,7 +33,7 @@ function EvidencePlayer({ token, candidateId, item }: { token: string; candidate
     if (logged.current || logging.current) return;
     logging.current = true;
     try {
-      await recordVideoView(token, candidateId, item.answer_id, eventId.current, video.current.currentTime);
+      await recordVideoView(token, candidateId, item.answer_id, eventId.current, video.current.currentTime, resultLink);
       logged.current = true; setError("");
     } catch {
       video.current?.pause(); audio.current?.pause();
@@ -47,6 +49,7 @@ function EvidencePlayer({ token, candidateId, item }: { token: string; candidate
       <video ref={video} src={media.video_url} controls preload="auto"
         aria-label="Видео ответа" style={{ width: "100%" }}
         onLoadedMetadata={() => { if (video.current) video.current.currentTime = item.start_sec ?? 0; }}
+        onPlay={() => { if (logged.current) { eventId.current = crypto.randomUUID(); logged.current = false; } }}
         onPlaying={() => void playing()} onPause={() => audio.current?.pause()}
         onWaiting={() => audio.current?.pause()} onEnded={() => audio.current?.pause()}
         onSeeked={sync} onRateChange={sync}
@@ -63,17 +66,18 @@ function EvidencePlayer({ token, candidateId, item }: { token: string; candidate
 }
 
 export function EvidencePanel({ token, candidateId, topicId }: { token: string; candidateId: string; topicId: string }) {
+  const resultLink = useContext(ResultLinkContext);
   const [items, setItems] = useState<EvidenceItem[] | null>(null);
   const [selected, setSelected] = useState(0);
   const [selection, setSelection] = useState(0);
   const [error, setError] = useState("");
   useEffect(() => {
     const controller = new AbortController();
-    getEvidence(token, candidateId, topicId, controller.signal).then(setItems).catch((reason) => {
+    getEvidence(token, candidateId, topicId, controller.signal, resultLink).then(setItems).catch((reason) => {
       if (!controller.signal.aborted) setError(reason instanceof Error ? reason.message : "Evidence недоступно.");
     });
     return () => controller.abort();
-  }, [token, candidateId, topicId]);
+  }, [token, candidateId, topicId, resultLink]);
   return <section aria-label="Evidence топика">
     <h2>Основание статуса — ответ кандидата</h2>
     {error && <p role="alert">{error}</p>}

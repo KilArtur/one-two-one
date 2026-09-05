@@ -14,6 +14,7 @@ from app.integrations.storage import S3StorageClient, get_s3_storage_client
 from app.services.auth import CurrentUser, get_current_user
 from app.services.candidate_overview import list_vacancy_candidates
 from app.services.result_card import build_result_card
+from app.services.result_links import get_result_user
 from app.services.retention import purge_candidate
 
 router = APIRouter(prefix="/candidates", tags=["candidates"])
@@ -42,9 +43,7 @@ async def purge_candidate_data(
     storage: StorageDep,
 ) -> PurgeResult:
     """Досрочно удаляет ПДн кандидата и логирует факт удаления."""
-    log = await purge_candidate(
-        session, storage, candidate_id, reason=data.reason, force_log=True
-    )
+    log = await purge_candidate(session, storage, candidate_id, reason=data.reason, force_log=True)
     if log is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Candidate not found")
     return PurgeResult(candidate_id=candidate_id, reason=log.reason, details=log.details)
@@ -111,7 +110,9 @@ class ResultCardRead(BaseModel):
 
 @router.get("/{candidate_id}/result", response_model=ResultCardRead)
 async def read_result_card(
-    candidate_id: uuid.UUID, current_user: CurrentUserDep, session: SessionDep
+    candidate_id: uuid.UUID,
+    current_user: Annotated[CurrentUser, Depends(get_result_user)],
+    session: SessionDep,
 ) -> ResultCardRead:
     """Карточка результата кандидата (матрица топиков, рекомендация Р5, coverage)."""
     card = await build_result_card(session, candidate_id)

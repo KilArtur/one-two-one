@@ -18,11 +18,12 @@ from app.models.candidate import Candidate
 from app.models.question import Question
 from app.models.topic_assessment import TopicAssessment
 from app.models.video_view import VideoViewLog
-from app.services.auth import CurrentUser, get_current_user
+from app.services.auth import CurrentUser
+from app.services.result_links import get_result_user
 
 router = APIRouter(prefix="/candidates", tags=["evidence"])
 SessionDep = Annotated[AsyncSession, Depends(get_db)]
-UserDep = Annotated[CurrentUser, Depends(get_current_user)]
+UserDep = Annotated[CurrentUser, Depends(get_result_user)]
 StorageDep = Annotated[S3StorageClient, Depends(get_s3_storage_client)]
 
 
@@ -157,6 +158,7 @@ async def record_view(
         raise HTTPException(404, "Media unavailable")
     if answer.duration_sec is not None and data.position_sec > answer.duration_sec:
         raise HTTPException(422, "Position exceeds recording duration")
+    await session.execute(select(Answer.id).where(Answer.id == answer_id).with_for_update())
     existing = await session.get(VideoViewLog, data.event_id)
     if existing:
         if (existing.answer_id, existing.viewer, existing.role) != (

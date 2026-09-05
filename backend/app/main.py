@@ -22,6 +22,7 @@ from app.api.candidate_interview import router as candidate_interview_router
 from app.api.candidates import router as candidates_router
 from app.api.evidence import router as evidence_router
 from app.api.metrics import router as metrics_router
+from app.api.result_links import router as result_links_router
 from app.api.review_queue import router as review_queue_router
 from app.api.topic_assessments import router as topic_assessments_router
 from app.api.transcripts import router as transcripts_router
@@ -97,6 +98,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(evidence_router)
     app.include_router(metrics_router)
     app.include_router(transcripts_router)
+    app.include_router(result_links_router)
 
     return app
 

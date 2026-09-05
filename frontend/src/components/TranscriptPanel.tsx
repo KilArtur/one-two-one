@@ -1,4 +1,5 @@
-import { useEffect, useState } from "react";
+import { ResultLinkContext } from "./ResultLinkContext";
+import { useContext, useEffect, useState } from "react";
 import { getTranscripts, TranscriptAnswer } from "../api/client";
 
 type Range = { start: number; end: number };
@@ -69,18 +70,19 @@ export function TranscriptContent({ answers }: { answers: TranscriptAnswer[] }) 
   })}</>;
 }
 export function TranscriptPanel({ token, candidateId, topicId }: { token: string; candidateId: string; topicId?: string }) {
+  const resultLink = useContext(ResultLinkContext);
   const [answers, setAnswers] = useState<TranscriptAnswer[] | null>(null);
   const [error, setError] = useState("");
   const [attempt, setAttempt] = useState(0);
   useEffect(() => {
     const controller = new AbortController(); setAnswers(null); setError("");
-    getTranscripts(token, candidateId, topicId, controller.signal).then((data) => {
+    getTranscripts(token, candidateId, topicId, controller.signal, resultLink).then((data) => {
       if (!controller.signal.aborted) setAnswers(data);
     }).catch((reason) => {
       if (!controller.signal.aborted) setError(reason instanceof Error ? reason.message : "Транскрипт недоступен.");
     });
     return () => controller.abort();
-  }, [token, candidateId, topicId, attempt]);
+  }, [token, candidateId, topicId, attempt, resultLink]);
   return <section aria-label="Транскрипт интервью"><h2>Транскрипт интервью</h2>
     <p>Выделены цитаты, использованные в оценке соответствующего топика.</p>
     {error ? <><p role="alert">{error}</p><button onClick={() => setAttempt((v) => v + 1)}>Повторить загрузку транскрипта</button></>

@@ -24,9 +24,12 @@ it("highlights the quote, seeks on metadata and logs only actual playback", asyn
   expect(api.recordVideoView).not.toHaveBeenCalled();
   fireEvent.playing(video);
   await waitFor(() => expect(api.recordVideoView).toHaveBeenCalledTimes(1));
-  expect(api.recordVideoView).toHaveBeenCalledWith("token", "candidate", "answer", expect.any(String), 12);
+  expect(api.recordVideoView).toHaveBeenCalledWith("token", "candidate", "answer", expect.any(String), 12, undefined);
   fireEvent.playing(video);
   expect(api.recordVideoView).toHaveBeenCalledTimes(1);
+  fireEvent.play(video); fireEvent.playing(video);
+  await waitFor(() => expect(api.recordVideoView).toHaveBeenCalledTimes(2));
+  expect(vi.mocked(api.recordVideoView).mock.calls[0][3]).not.toBe(vi.mocked(api.recordVideoView).mock.calls[1][3]);
   const audio = document.querySelector("audio")!;
   expect(audio.currentTime).toBe(12);
   video.currentTime = 15; fireEvent.seeked(video);
