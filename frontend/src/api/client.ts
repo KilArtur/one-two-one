@@ -309,3 +309,19 @@ export interface TranscriptAnswer {
 }
 export const getTranscripts = (token: string, candidateId: string, topicId?: string, signal?: AbortSignal) =>
   internalRequest<TranscriptAnswer[]>(`/candidates/${candidateId}/transcript${topicId ? `?topic_id=${encodeURIComponent(topicId)}` : ""}`, token, signal);
+
+export interface InternalUser { username: string; role: "recruiter" | "technical_specialist" | "hiring_manager" }
+export interface ReviewItem {
+  assessment_id: string; candidate_id: string; topic_id: string; topic_title: string;
+  skill_type: "hard" | "soft"; confidence: "low" | "medium" | "high";
+  current_status: string; reasoning_summary: string | null;
+}
+export const getInternalUser = (token: string, signal?: AbortSignal) => internalRequest<InternalUser>("/auth/me", token, signal);
+export const getReviewQueue = (token: string, signal?: AbortSignal) => internalRequest<ReviewItem[]>("/review-queue", token, signal);
+export async function changeAssessmentStatus(token: string, assessmentId: string, status: string, comment: string): Promise<void> {
+  const response = await fetch(`${API_BASE_URL}/topic-assessments/${assessmentId}/status`, {
+    method: "PATCH", headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ new_status: status, comment: comment.trim() }),
+  });
+  if (!response.ok) throw new Error(response.status === 403 ? "Ваша роль не может изменить этот топик." : "Не удалось сохранить статус. Проверьте комментарий и повторите попытку.");
+}

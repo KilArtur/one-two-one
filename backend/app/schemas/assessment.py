@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import uuid
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from app.models.topic_assessment import AssessmentConfidence, AssessmentStatus
 
@@ -38,6 +38,13 @@ class TopicStatusChangeRequest(BaseModel):
 
     new_status: AssessmentStatus
     comment: str = Field(min_length=1, max_length=2000)
+
+    @field_validator("comment")
+    @classmethod
+    def nonblank_comment(cls, value: str) -> str:
+        if not value.strip():
+            raise ValueError("Comment must not be blank")
+        return value.strip()
 
 
 class TopicAssessmentRead(BaseModel):

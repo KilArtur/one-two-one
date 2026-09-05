@@ -5,6 +5,7 @@ import { HealthPage } from "./pages/HealthPage";
 import { HomePage } from "./pages/HomePage";
 
 import { InternalSession } from "./components/InternalSession";
+import { ReviewQueuePage } from "./pages/ReviewQueuePage";
 import { ProductMetricsPage } from "./pages/ProductMetricsPage";
 import { CandidateResultPage } from "./pages/CandidateResultPage";
 
@@ -25,8 +26,10 @@ export default function App() {
         <Link to="/">Главная</Link>
         <Link to="/health">Статус системы</Link>
         <Link to="/staff/metrics">Метрики</Link>
+        <Link to="/staff/review">Ревью</Link>
       </nav>
       <Routes>
+        <Route path="/staff/review" element={<InternalSession>{(token) => <ReviewQueuePage token={token} />}</InternalSession>} />
         <Route path="/staff/metrics" element={<MetricsRoute />} />
         <Route path="/staff/vacancies/:vacancyId/metrics" element={<MetricsRoute />} />
         <Route path="/staff/candidates/:candidateId" element={<ResultRoute />} />
