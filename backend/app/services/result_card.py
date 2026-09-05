@@ -1,0 +1,121 @@
+"""Карточка результата кандидата (M7, принцип 1): матрица топиков как главный объект.
+
+Матрица топиков (статус системы и текущий, автор правки), детерминированная рекомендация
+Р5 с кодом причины, тройка чисел и доли покрытия Р4, а также разведённые слои «заявлено
+в резюме» и «подтверждено в интервью». AI-score не выводится.
+"""
+
+from __future__ import annotations
+
+import uuid
+from dataclasses import dataclass
+from decimal import Decimal
+
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
+
+from app.models.candidate import Candidate
+from app.models.topic_assessment import StatusChangeLog, TopicAssessment
+from app.services.coverage import compute_coverage
+from app.services.matrix import TopicOutcome
+from app.services.recommendation import recommendation_with_reason
+from app.services.stop_factor import candidate_stop_factor_triggered
+
+
+@dataclass(slots=True, frozen=True)
+class ResultTopicRow:
+    """Строка матрицы топиков в карточке результата."""
+
+    topic_id: uuid.UUID
+    topic_title: str
+    skill_type: str
+    importance: str
+    system_status: str
+    current_status: str
+    author: str
+    reasoning_summary: str | None
+
+
+@dataclass(slots=True, frozen=True)
+class ResultCard:
+    """Карточка результата кандидата."""
+
+    candidate_id: uuid.UUID
+    recommendation: str
+    recommendation_reason: str
+    confirmed_count: int
+    needs_check_count: int
+    not_confirmed_count: int
+    mandatory_coverage: Decimal | None
+    desired_coverage: Decimal | None
+    resume_text: str | None
+    topics: list[ResultTopicRow]
+
+
+async def _last_author(session: AsyncSession, assessment_id: uuid.UUID) -> str:
+    """Роль последнего изменившего статус эксперта или 'system'."""
+    log = await session.scalar(
+        select(StatusChangeLog)
+        .where(StatusChangeLog.assessment_id == assessment_id)
+        .order_by(StatusChangeLog.created_at.desc())
+    )
+    return log.author_role.value if log is not None else "system"
+
+
+async def build_result_card(
+    session: AsyncSession, candidate_id: uuid.UUID
+) -> ResultCard | None:
+    """Собирает карточку результата кандидата (матрица + рекомендация + coverage)."""
+    candidate = await session.get(Candidate, candidate_id)
+    if candidate is None:
+        return None
+
+    assessments = list(
+        await session.scalars(
+            select(TopicAssessment)
+            .where(TopicAssessment.candidate_id == candidate_id)
+            .options(selectinload(TopicAssessment.topic))
+        )
+    )
+    assessments.sort(key=lambda item: item.topic.order)
+
+    topics: list[ResultTopicRow] = []
+    outcomes: list[TopicOutcome] = []
+    for assessment in assessments:
+        topics.append(
+            ResultTopicRow(
+                topic_id=assessment.topic_id,
+                topic_title=assessment.topic.title,
+                skill_type=assessment.topic.skill_type.value,
+                importance=assessment.topic.importance.value,
+                system_status=assessment.system_status.value,
+                current_status=assessment.current_status.value,
+                author=await _last_author(session, assessment.id),
+                reasoning_summary=assessment.reasoning_summary,
+            )
+        )
+        outcomes.append(
+            TopicOutcome(
+                importance=assessment.topic.importance, status=assessment.current_status
+            )
+        )
+
+    stop_triggered = await candidate_stop_factor_triggered(session, candidate_id)
+    recommendation, reason = recommendation_with_reason(
+        outcomes, stop_factor_triggered=stop_triggered
+    )
+    coverage = compute_coverage(outcomes)
+
+    return ResultCard(
+        candidate_id=candidate_id,
+        recommendation=recommendation.value,
+        recommendation_reason=reason,
+        confirmed_count=coverage.confirmed_count,
+        needs_check_count=coverage.needs_check_count,
+        not_confirmed_count=coverage.not_confirmed_count,
+        mandatory_coverage=coverage.mandatory_coverage,
+        desired_coverage=coverage.desired_coverage,
+        resume_text=candidate.resume_text,
+        topics=topics,
+    )

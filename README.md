@@ -89,7 +89,9 @@ append-only запись в `StatusChangeLog`. Очередь ревью по р
 `POST .../session/interrupt` (technically_lost → needs_check). Пропуск вопроса (Р10):
 `POST /candidate-interview/questions/{id}/skip`; отправка с гашением ссылки — `POST
 /candidate-auth/submit`. Список кандидатов вакансии (рекрутер): `GET /candidates?vacancy_id=`
-— статус обработки + тройка чисел (без AI-score), фильтр по статусу.
+— статус обработки + тройка чисел (без AI-score), фильтр по статусу. Карточка результата
+(M7): `GET /candidates/{id}/result` — матрица топиков (system/current статус, автор),
+рекомендация Р5 с кодом причины, доли покрытия, слой резюме; AI-score не выводится.
 
 ## Запуск frontend
 

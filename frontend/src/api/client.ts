@@ -172,6 +172,42 @@ export async function listCandidates(
   return response.json() as Promise<CandidateOverview[]>;
 }
 
+export interface ResultTopicRow {
+  topic_id: string;
+  topic_title: string;
+  skill_type: "hard" | "soft";
+  importance: "mandatory" | "desired";
+  system_status: string;
+  current_status: string;
+  author: string;
+  reasoning_summary: string | null;
+}
+
+export interface ResultCard {
+  candidate_id: string;
+  recommendation: string;
+  recommendation_reason: string;
+  confirmed_count: number;
+  needs_check_count: number;
+  not_confirmed_count: number;
+  mandatory_coverage: number | null;
+  desired_coverage: number | null;
+  resume_text: string | null;
+  topics: ResultTopicRow[];
+}
+
+export async function getResultCard(
+  token: string,
+  candidateId: string,
+  signal?: AbortSignal,
+): Promise<ResultCard> {
+  const response = await fetch(`${API_BASE_URL}/candidates/${candidateId}/result`, {
+    headers: { Authorization: `Bearer ${token}` }, signal,
+  });
+  if (!response.ok) throw new Error("Не удалось загрузить карточку результата.");
+  return response.json() as Promise<ResultCard>;
+}
+
 export interface UploadSession {
   id: string;
   video_chunks: number;

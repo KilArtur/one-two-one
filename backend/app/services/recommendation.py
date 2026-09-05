@@ -15,12 +15,12 @@ from app.models.topic_assessment import AssessmentStatus
 from app.services.matrix import TopicOutcome
 
 
-def compute_recommendation(
+def recommendation_with_reason(
     outcomes: Iterable[TopicOutcome],
     *,
     stop_factor_triggered: bool = False,
-) -> InterviewRecommendation:
-    """Возвращает рекомендацию по кандидату по правилу Р5 (M6)."""
+) -> tuple[InterviewRecommendation, str]:
+    """Возвращает рекомендацию Р5 и код причины (какая ветка правила сработала)."""
     mandatory = [
         outcome
         for outcome in outcomes
@@ -28,12 +28,22 @@ def compute_recommendation(
         and outcome.status != AssessmentStatus.OUT_OF_SCOPE
     ]
 
-    if stop_factor_triggered or any(
-        outcome.status == AssessmentStatus.NOT_CONFIRMED for outcome in mandatory
-    ):
-        return InterviewRecommendation.NOT_FIT
-
+    if stop_factor_triggered:
+        return InterviewRecommendation.NOT_FIT, "stop_factor"
+    if any(outcome.status == AssessmentStatus.NOT_CONFIRMED for outcome in mandatory):
+        return InterviewRecommendation.NOT_FIT, "mandatory_not_confirmed"
     if any(outcome.status == AssessmentStatus.NEEDS_CHECK for outcome in mandatory):
-        return InterviewRecommendation.ADDITIONAL_CHECK
+        return InterviewRecommendation.ADDITIONAL_CHECK, "mandatory_needs_check"
+    return InterviewRecommendation.FIT, "all_mandatory_confirmed"
 
-    return InterviewRecommendation.FIT
+
+def compute_recommendation(
+    outcomes: Iterable[TopicOutcome],
+    *,
+    stop_factor_triggered: bool = False,
+) -> InterviewRecommendation:
+    """Возвращает рекомендацию по кандидату по правилу Р5 (M6)."""
+    recommendation, _ = recommendation_with_reason(
+        outcomes, stop_factor_triggered=stop_factor_triggered
+    )
+    return recommendation
