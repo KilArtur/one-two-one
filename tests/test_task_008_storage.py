@@ -203,3 +203,24 @@ def test_missing_object_preserves_s3_error_code() -> None:
     with pytest.raises(S3StorageError) as error:
         asyncio.run(client.get_object_bytes("tts/missing.mp3"))
     assert error.value.code == "NoSuchKey"
+    assert error.value.__cause__ is not None
+
+
+def test_storage_error_can_be_chained_and_caught() -> None:
+    import pytest
+
+    from app.integrations.storage import S3StorageError
+
+    with pytest.raises(S3StorageError) as error:
+        try:
+            raise ClientError({"Error": {"Code": "XMinioStorageFull"}}, "PutObject")
+        except ClientError as exc:
+            raise S3StorageError(
+                message="S3 operation 'put_object' failed",
+                bucket="interviewer-media",
+                key="tts/core.mp3",
+                code="XMinioStorageFull",
+            ) from exc
+
+    assert error.value.code == "XMinioStorageFull"
+    assert isinstance(error.value.__cause__, ClientError)

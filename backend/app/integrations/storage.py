@@ -40,14 +40,21 @@ class S3Object:
     etag: str | None = None
 
 
-@dataclass(slots=True, frozen=True)
 class S3StorageError(Exception):
     """Typed storage-layer error for S3-compatible providers."""
 
-    message: str
-    bucket: str
-    key: str | None = None
-    code: str | None = None
+    def __init__(
+        self,
+        message: str,
+        bucket: str,
+        key: str | None = None,
+        code: str | None = None,
+    ) -> None:
+        super().__init__(message)
+        self.message = message
+        self.bucket = bucket
+        self.key = key
+        self.code = code
 
     def __str__(self) -> str:
         return self.message

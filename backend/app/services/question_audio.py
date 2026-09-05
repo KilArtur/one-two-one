@@ -64,7 +64,7 @@ class QuestionAudioService:
         if key:
             try:
                 await self._storage.put_object(key, b"".join(chunks), content_type="audio/mpeg")
-            except S3StorageError:
+            except Exception:
                 pass
 
 
