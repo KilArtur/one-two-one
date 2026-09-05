@@ -124,6 +124,22 @@ async def test_storage_failure_does_not_create_answer_and_is_retryable(
 
 
 @pytest.mark.anyio
+async def test_new_session_picks_up_empty_upload_but_never_started_one(
+    recording: tuple[Any, ...],
+) -> None:
+    client, _, _, own, _, upload, _ = recording
+    start = f"/candidate-interview/questions/{own}/uploads"
+
+    reused = await client.post(start, json={"upload_id": str(uuid.uuid4())})
+    assert reused.status_code == 200
+    assert reused.json()["id"] == upload
+
+    assert (await send(client, upload, "video", 0)).status_code == 200
+    blocked = await client.post(start, json={"upload_id": str(uuid.uuid4())})
+    assert blocked.status_code == 409
+
+
+@pytest.mark.anyio
 async def test_upload_is_scoped_to_candidate_and_consent(recording: tuple[Any, ...]) -> None:
     client, sessions, candidate_id, own, foreign, upload, _ = recording
     assert (
@@ -132,11 +148,6 @@ async def test_upload_is_scoped_to_candidate_and_consent(recording: tuple[Any, .
             json={"upload_id": str(uuid.uuid4())},
         )
     ).status_code == 404
-    assert (
-        await client.post(
-            f"/candidate-interview/questions/{own}/uploads", json={"upload_id": str(uuid.uuid4())}
-        )
-    ).status_code == 409
     assert (await send(client, str(uuid.uuid4()), "video", 0)).status_code == 404
     async with sessions() as session:
         row = await session.get(AnswerUpload, uuid.UUID(upload))

@@ -27,7 +27,7 @@ MEDIA_TYPES = {
 async def start_upload(
     session: AsyncSession, candidate: Candidate, question_id: uuid.UUID, upload_id: uuid.UUID
 ) -> AnswerUpload:
-    """Выделяет одну загрузку на пару кандидат/вопрос без разрешения перезаписи."""
+    """Выделяет одну загрузку на пару кандидат/вопрос; переснять уже записанное нельзя."""
     await session.scalar(select(Candidate).where(Candidate.id == candidate.id).with_for_update())
     question = await session.scalar(
         candidate_questions_stmt(candidate.id, candidate.vacancy_id).where(
@@ -42,7 +42,10 @@ async def start_upload(
         )
     )
     if upload is not None and upload.id != upload_id:
-        raise HTTPException(409, "Recording already started in another session")
+        started = any(upload.manifest[kind]["parts"] for kind in ("video", "audio"))
+        if started or await session.get(Answer, upload.id) is not None:
+            raise HTTPException(409, "Recording already started in another session")
+        return upload
     if upload is None:
         if await session.get(AnswerUpload, upload_id) is not None:
             raise HTTPException(409, "Upload identifier is already used")
