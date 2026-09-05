@@ -6,7 +6,7 @@ import uuid
 from enum import StrEnum
 from typing import TYPE_CHECKING
 
-from sqlalchemy import Boolean, ForeignKey, Integer, String, Text, Uuid, text
+from sqlalchemy import ForeignKey, Integer, String, Text, Uuid, text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base, TimestampMixin, enum_column
@@ -48,9 +48,6 @@ class Topic(Base, TimestampMixin):
     )
     requirement_description: Mapped[str | None] = mapped_column(Text)
     depth_expectations: Mapped[str | None] = mapped_column(Text)
-    verifiable_by_interview: Mapped[bool] = mapped_column(
-        Boolean, nullable=False, default=True, server_default=text("true")
-    )
     order: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default=text("0"))
 
     vacancy: Mapped[Vacancy] = relationship(back_populates="topics")

@@ -86,24 +86,6 @@ async def test_add_beyond_nine_returns_422(client: httpx.AsyncClient) -> None:
 
 
 @pytest.mark.anyio
-async def test_unset_verifiable_by_interview_persists(client: httpx.AsyncClient) -> None:
-    vacancy = await _create_vacancy(client, [_topic("Дизайн", 0)])
-    vid = vacancy["id"]
-    topic_id = vacancy["topics"][0]["id"]
-    assert vacancy["topics"][0]["verifiable_by_interview"] is True
-
-    resp = await client.patch(
-        f"/vacancies/{vid}/topics/{topic_id}",
-        json={"verifiable_by_interview": False},
-    )
-    assert resp.status_code == 200
-    assert resp.json()["verifiable_by_interview"] is False
-
-    read = await client.get(f"/vacancies/{vid}")
-    assert read.json()["topics"][0]["verifiable_by_interview"] is False
-
-
-@pytest.mark.anyio
 async def test_edit_and_delete_topic(client: httpx.AsyncClient) -> None:
     vacancy = await _create_vacancy(client, [_topic("Old", 0)])
     vid = vacancy["id"]

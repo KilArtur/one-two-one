@@ -81,7 +81,6 @@ def test_topic_has_all_prd_columns() -> None:
         "importance",
         "requirement_description",
         "depth_expectations",
-        "verifiable_by_interview",
         "order",
     } <= columns
 
@@ -108,13 +107,6 @@ def test_topic_has_foreign_key_to_vacancy() -> None:
     assert foreign_key.ondelete == "CASCADE"
 
 
-def test_verifiable_by_interview_defaults_to_true() -> None:
-    column = inspect(Topic).columns["verifiable_by_interview"]
-
-    assert column.default.arg is True
-    assert "true" in str(column.server_default.arg).lower()
-
-
 def test_vacancy_version_starts_at_one() -> None:
     column = inspect(Vacancy).columns["version"]
 
@@ -135,7 +127,6 @@ def test_topic_persists_and_links_to_vacancy(seeded: tuple[Vacancy, Topic]) -> N
     assert topic.vacancy_id == vacancy.id
     assert topic.skill_type == SkillType.HARD
     assert topic.importance == TopicImportance.MANDATORY
-    assert topic.verifiable_by_interview is True
     assert [linked.id for linked in vacancy.topics] == [topic.id]
 
 

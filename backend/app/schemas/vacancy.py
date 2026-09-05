@@ -18,7 +18,6 @@ class TopicWrite(BaseModel):
     importance: TopicImportance
     requirement_description: str | None = None
     depth_expectations: str | None = None
-    verifiable_by_interview: bool = True
     order: int = 0
 
 
@@ -33,19 +32,17 @@ class TopicRead(BaseModel):
     importance: TopicImportance
     requirement_description: str | None
     depth_expectations: str | None
-    verifiable_by_interview: bool
     order: int
 
 
 class TopicUpdate(BaseModel):
-    """Частичное редактирование топика (включая пометку «вне зоны интервью», Р15)."""
+    """Частичное редактирование топика."""
 
     title: str | None = Field(default=None, min_length=1, max_length=255)
     skill_type: SkillType | None = None
     importance: TopicImportance | None = None
     requirement_description: str | None = None
     depth_expectations: str | None = None
-    verifiable_by_interview: bool | None = None
     order: int | None = None
 
 

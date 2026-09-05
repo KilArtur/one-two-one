@@ -117,7 +117,7 @@ async def update_topic(
     data: TopicUpdate,
     session: SessionDep,
 ) -> TopicRead:
-    """Редактирует топик черновика (в т.ч. снятие verifiable_by_interview, Р15)."""
+    """Редактирует топик черновика."""
     try:
         topic = await vacancy_service.update_topic(session, vacancy_id, topic_id, data)
     except VacancyNotDraftError as exc:

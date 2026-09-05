@@ -364,7 +364,6 @@ export interface VacancyTopic {
   importance: "mandatory" | "desired";
   requirement_description: string | null;
   depth_expectations: string | null;
-  verifiable_by_interview: boolean;
   order: number;
 }
 
@@ -386,7 +385,6 @@ export interface VacancyTopicWrite {
   importance: "mandatory" | "desired";
   requirement_description?: string | null;
   depth_expectations?: string | null;
-  verifiable_by_interview?: boolean;
   order?: number;
 }
 

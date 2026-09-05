@@ -44,7 +44,6 @@ def _build_topics(topics: list[TopicWrite]) -> list[Topic]:
             importance=item.importance,
             requirement_description=item.requirement_description,
             depth_expectations=item.depth_expectations,
-            verifiable_by_interview=item.verifiable_by_interview,
             order=item.order,
         )
         for item in topics
