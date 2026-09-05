@@ -102,6 +102,17 @@ async def test_streams_before_completion_and_never_caches_partial_audio() -> Non
 
 
 @pytest.mark.anyio
+async def test_audio_survives_failed_cache_write() -> None:
+    class FullStorage(MemoryStorage):
+        async def put_object(self, key: str, data: bytes, *, content_type: str = "") -> S3Object:
+            raise S3StorageError("Storage full", "test", key, code="XMinioStorageFull")
+
+    storage = FullStorage()
+    assert await audio(QuestionAudioService(FakeTTS(), storage), question()) == b"firstsecond"
+    assert not storage.objects
+
+
+@pytest.mark.anyio
 async def test_cache_error_is_not_treated_as_miss() -> None:
     class DeniedStorage(MemoryStorage):
         async def get_object_bytes(self, key: str) -> bytes:

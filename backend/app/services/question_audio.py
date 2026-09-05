@@ -37,7 +37,7 @@ class QuestionAudioService:
         return f"tts/core/v1/{digest}.mp3"
 
     async def stream_audio(self, question: Question) -> AsyncGenerator[bytes, None]:
-        """Кеширует только полностью полученное аудио core-вопросов."""
+        """Кеширует только полностью полученное аудио core-вопросов; кеш необязателен."""
         key = self.cache_key(question) if question.type == QuestionType.CORE else None
         if key:
             try:
@@ -62,7 +62,10 @@ class QuestionAudioService:
         if not received:
             raise TTSClientError("TTS returned empty audio")
         if key:
-            await self._storage.put_object(key, b"".join(chunks), content_type="audio/mpeg")
+            try:
+                await self._storage.put_object(key, b"".join(chunks), content_type="audio/mpeg")
+            except S3StorageError:
+                pass
 
 
 def get_question_audio_service() -> QuestionAudioService:
