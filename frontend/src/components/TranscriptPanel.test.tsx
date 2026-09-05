@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
+import { MemoryRouter } from "react-router-dom";
 import { afterEach, expect, it, vi } from "vitest";
 import * as api from "../api/client";
 import { TranscriptContent, quoteRanges } from "./TranscriptPanel";
@@ -30,7 +31,11 @@ it("merges repeated overlapping quotes and treats markup as text", () => {
 it("opens the transcript from the card and keeps the resume separate", async () => {
   vi.mocked(api.getResultCard).mockResolvedValue({ candidate_id: "c", topics: [], recommendation: "additional_check", recommendation_reason: "mandatory_needs_check", confirmed_count: 0, needs_check_count: 1, not_confirmed_count: 0, mandatory_coverage: null, desired_coverage: null, resume_text: "Заявлено: 10 лет Python" });
   vi.mocked(api.getTranscripts).mockResolvedValue([answer]);
-  render(<CandidateResultPage token="token" candidateId="c" />);
+  render(
+    <MemoryRouter>
+      <CandidateResultPage token="token" candidateId="c" />
+    </MemoryRouter>,
+  );
   fireEvent.click(await screen.findByRole("button", { name: "Открыть полный транскрипт" }));
   expect(await screen.findByRole("article", { name: "Ответ: Опыт Python?" })).toBeTruthy();
   const resume = screen.getByRole("region", { name: "Заявлено в резюме" });

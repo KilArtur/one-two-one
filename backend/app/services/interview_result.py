@@ -20,7 +20,7 @@ from sqlalchemy.orm import selectinload
 from app.config import get_settings
 from app.models.candidate import Candidate
 from app.models.interview_result import InterviewResult
-from app.models.topic_assessment import TopicAssessment
+from app.models.topic_assessment import AssessmentStatus, TopicAssessment
 from app.models.vacancy import Vacancy
 from app.services.coverage import compute_coverage
 from app.services.matrix import TopicOutcome
@@ -52,9 +52,15 @@ async def assemble_interview_result(
             .options(selectinload(TopicAssessment.topic))
         )
     )
+    by_topic = {item.topic_id: item for item in assessments}
     outcomes = [
-        TopicOutcome(importance=item.topic.importance, status=item.current_status)
-        for item in assessments
+        TopicOutcome(
+            importance=topic.importance,
+            status=by_topic[topic.id].current_status
+            if topic.id in by_topic
+            else AssessmentStatus.NEEDS_CHECK,
+        )
+        for topic in vacancy.topics
     ]
 
     coverage = compute_coverage(outcomes)

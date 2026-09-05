@@ -39,6 +39,9 @@ class Question(Base, TimestampMixin):
     __tablename__ = "question"
 
     id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    candidate_id: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid, ForeignKey("candidate.id", ondelete="CASCADE"), index=True
+    )
     topic_id: Mapped[uuid.UUID] = mapped_column(
         Uuid, ForeignKey("topic.id", ondelete="CASCADE"), nullable=False, index=True
     )

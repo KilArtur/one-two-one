@@ -82,6 +82,7 @@ async def _seed(
     session.add(question)
     await session.flush()
     answer = Answer(
+        candidate_id=candidate.id,
         question_id=question.id,
         transcript="; ".join(s["text"] for s in segments) if segments else None,
         transcript_segments=segments,

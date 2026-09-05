@@ -9,7 +9,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.answer import Answer, AnswerProcessingStatus
-from app.models.candidate import Candidate
+from app.models.candidate import Candidate, CandidateStatus
 from app.models.interview_result import InterviewResult
 
 
@@ -63,6 +63,8 @@ async def list_vacancy_candidates(
             )
         )
         derived = _derive_processing_status(answer_statuses)
+        if candidate.status == CandidateStatus.SUBMITTED and derived == "ready":
+            derived = "analyzing"
         result = await session.get(InterviewResult, candidate.id)
         overviews.append(
             CandidateOverview(

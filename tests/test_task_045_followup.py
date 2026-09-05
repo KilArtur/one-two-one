@@ -92,6 +92,7 @@ async def _seed(
     )
     for i in range(followups):
         fu = Question(
+            candidate_id=candidate.id,
             topic_id=topic.id,
             type=QuestionType.FOLLOW_UP,
             pattern=QuestionPattern.REASONING,
@@ -192,3 +193,23 @@ async def test_llm_failure_closes_topic(session: AsyncSession) -> None:
     assert result.ask is False
     assert result.reason == "llm_error"
     assert await _followup_count(session, topic_id) == 0
+
+
+@pytest.mark.anyio
+async def test_followups_are_candidate_scoped_and_retry_is_idempotent(
+    session: AsyncSession,
+) -> None:
+    candidate_id, topic_id, core_id = await _seed(session)
+    first = await decide_followup(session, candidate_id, topic_id, llm_client=FakeLLM(_verdict()))
+    retry = await decide_followup(session, candidate_id, topic_id, llm_client=FakeLLM(_verdict()))
+    assert first.question.id == retry.question.id
+    topic = await session.get(Topic, topic_id)
+    other = Candidate(vacancy_id=topic.vacancy_id)
+    session.add(other)
+    await session.flush()
+    session.add(Answer(candidate_id=other.id, question_id=core_id, transcript="Общий ответ"))
+    await session.commit()
+    second = await decide_followup(session, other.id, topic_id, llm_client=FakeLLM(_verdict()))
+    assert second.question.id != first.question.id
+    assert second.question.candidate_id == other.id
+    assert first.question.candidate_id == candidate_id

@@ -4,6 +4,7 @@ import { Navigate, useLocation, useNavigate } from "react-router-dom";
 import { EquipmentCheck } from "../components/EquipmentCheck";
 import { InterviewPage } from "./InterviewPage";
 import { candidateApi } from "../api/client";
+import { CandidateChrome } from "../layouts/Shell";
 
 const SESSION_KEY = "candidate-session";
 
@@ -45,11 +46,15 @@ export function CandidatePage() {
           setReady(true);
         }
       } catch (reason) {
-        if (active) setError(reason instanceof Error ? reason.message : "Не удалось открыть интервью.");
+        if (active) {
+          setError(reason instanceof Error ? reason.message : "Не удалось открыть интервью.");
+        }
       }
     }
     void load();
-    return () => { active = false; };
+    return () => {
+      active = false;
+    };
   }, [magicToken, token, location.pathname, navigate, attempt]);
 
   async function submit(event: FormEvent) {
@@ -69,17 +74,33 @@ export function CandidatePage() {
     }
   }
 
-  if (!ready) return (
-    <main>
-      <h1>Подготовка к интервью</h1>
-      {error ? <><p role="alert">{error}</p><button onClick={() => setAttempt(attempt + 1)}>Повторить</button></>
-        : <p role="status">Загружаем приглашение…</p>}
-    </main>
-  );
+  if (!ready) {
+    return (
+      <CandidateChrome step="consent">
+        <div className="consent">
+          <h1>Подготовка к интервью</h1>
+          {error ? (
+            <>
+              <p role="alert">{error}</p>
+              <button type="button" className="btn primary" onClick={() => setAttempt(attempt + 1)}>
+                Повторить
+              </button>
+            </>
+          ) : (
+            <p role="status">Загружаем приглашение…</p>
+          )}
+        </div>
+      </CandidateChrome>
+    );
+  }
 
   if (location.pathname === "/interview/equipment") {
     if (!consented) return <Navigate to="/interview/consent" replace />;
-    return <EquipmentCheck onContinue={() => navigate("/interview/session")} />;
+    return (
+      <CandidateChrome step="devices">
+        <EquipmentCheck onContinue={() => navigate("/interview/session")} />
+      </CandidateChrome>
+    );
   }
 
   if (location.pathname === "/interview/session") {
@@ -88,28 +109,47 @@ export function CandidatePage() {
   }
 
   return (
-    <main>
-      <p>Шаг 1 · Подготовка</p>
-      <h1>Согласие на запись и обработку данных</h1>
-      <p>Интервью займёт около 20–30 минут. До начала записи необходимо ваше согласие.</p>
-      <p>Во время интервью будут записаны видео и звук ваших ответов. Записи, расшифровки,
-        резюме и результаты интервью обрабатываются для оценки покрытия требований вакансии
-        и доступны уполномоченным участникам подбора. Финальное кадровое решение принимает человек.</p>
-      <p>Срок хранения материалов — 6 месяцев. Вы можете обратиться к рекрутеру с запросом
-        на досрочное удаление. Материалы не используются для обучения моделей без отдельного
-        письменного разрешения.</p>
-      <form onSubmit={submit}>
-        <label style={{ display: "flex", gap: 12, alignItems: "flex-start", margin: "24px 0" }}>
-          <input type="checkbox" checked={accepted} disabled={busy}
-            onChange={(event) => setAccepted(event.target.checked)} />
-          <span>Я согласен(на) на запись видео и звука и обработку моих персональных данных
-            для проведения и оценки интервью на описанных условиях.</span>
-        </label>
-        {error && <p role="alert">{error}</p>}
-        <button type="submit" disabled={!accepted || busy}>
-          {busy ? "Сохраняем согласие…" : "Принять и перейти к проверке оборудования"}
-        </button>
-      </form>
-    </main>
+    <CandidateChrome step="consent">
+      <div className="consent">
+        <p className="eyebrow">Шаг 1 · Подготовка</p>
+        <h1>Согласие на запись и обработку данных</h1>
+        <p>
+          Интервью займёт около 20–30 минут. До начала записи необходимо ваше согласие.
+        </p>
+        <div className="legal-section">
+          <p>
+            Во время интервью будут записаны видео и звук ваших ответов. Записи, расшифровки, резюме и
+            результаты интервью обрабатываются для оценки покрытия требований вакансии и доступны
+            уполномоченным участникам подбора. Финальное кадровое решение принимает человек.
+          </p>
+        </div>
+        <div className="legal-section">
+          <p>
+            Срок хранения материалов — 6 месяцев. Вы можете обратиться к рекрутеру с запросом на
+            досрочное удаление. Материалы не используются для обучения моделей без отдельного
+            письменного разрешения.
+          </p>
+        </div>
+        <form onSubmit={submit}>
+          <label className="checkline">
+            <input
+              type="checkbox"
+              checked={accepted}
+              disabled={busy}
+              onChange={(event) => setAccepted(event.target.checked)}
+            />
+            <span>
+              Я согласен(на) на запись видео и звука и обработку моих персональных данных для
+              проведения и оценки интервью на описанных условиях.
+            </span>
+          </label>
+          {error && <p role="alert">{error}</p>}
+          <button className="btn primary" type="submit" disabled={!accepted || busy}>
+            {busy ? "Сохраняем согласие…" : "Принять и перейти к проверке оборудования"}
+          </button>
+        </form>
+        <p className="support">Нужна помощь? Напишите рекрутеру, который прислал ссылку.</p>
+      </div>
+    </CandidateChrome>
   );
 }

@@ -8,7 +8,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, ConfigDict
-from sqlalchemy import select
+from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db import get_db
@@ -45,7 +45,10 @@ async def list_questions(candidate: CandidateDep, session: SessionDep) -> list[Q
     questions = await session.scalars(
         select(Question)
         .join(Topic, Question.topic_id == Topic.id)
-        .where(Topic.vacancy_id == candidate.vacancy_id, Question.type == QuestionType.CORE)
+        .where(
+            Topic.vacancy_id == candidate.vacancy_id,
+            or_(Question.type == QuestionType.CORE, Question.candidate_id == candidate.id),
+        )
         .order_by(Topic.order, Question.created_at, Question.id)
     )
     return list(questions)
@@ -65,7 +68,7 @@ async def question_audio(
         .where(
             Question.id == question_id,
             Topic.vacancy_id == candidate.vacancy_id,
-            Question.type == QuestionType.CORE,
+            or_(Question.type == QuestionType.CORE, Question.candidate_id == candidate.id),
         )
     )
     if question is None:
@@ -108,9 +111,7 @@ async def request_followup(
     if topic is None:
         raise HTTPException(status_code=404, detail="Topic not found")
     result = await decide_followup(session, candidate.id, topic_id, llm_client=llm)
-    question = (
-        CandidateQuestionRead.model_validate(result.question) if result.question else None
-    )
+    question = CandidateQuestionRead.model_validate(result.question) if result.question else None
     return FollowupRead(ask=result.ask, reason=result.reason, question=question)
 
 
@@ -173,14 +174,16 @@ async def skip_question(
     question = await session.scalar(
         select(Question)
         .join(Topic, Question.topic_id == Topic.id)
-        .where(Question.id == question_id, Topic.vacancy_id == candidate.vacancy_id)
+        .where(
+            Question.id == question_id,
+            Topic.vacancy_id == candidate.vacancy_id,
+            or_(Question.type == QuestionType.CORE, Question.candidate_id == candidate.id),
+        )
     )
     if question is None:
         raise HTTPException(status_code=404, detail="Question not found")
     existing = await session.scalar(
-        select(Answer).where(
-            Answer.candidate_id == candidate.id, Answer.question_id == question_id
-        )
+        select(Answer).where(Answer.candidate_id == candidate.id, Answer.question_id == question_id)
     )
     if existing is not None:
         raise HTTPException(status_code=409, detail="Answer already exists")

@@ -108,6 +108,13 @@ class LangChainLLMClient:
 
         parsed = response["parsed"]
         raw_message = response["raw"]
+        if not isinstance(parsed, schema):
+            raise LLMClientError(
+                "Provider did not return a valid structured response",
+                model_name,
+                prompt_version,
+                self._settings.openai_base_url,
+            )
 
         return LLMInvocationResult(
             content=parsed,

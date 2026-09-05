@@ -7,11 +7,16 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, ConfigDict, Field
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db import get_db
 from app.integrations.storage import S3StorageClient, get_s3_storage_client
-from app.services.auth import CurrentUser, get_current_user
+from app.models.candidate import Candidate
+from app.models.question import Question, QuestionType
+from app.models.topic import Topic
+from app.models.vacancy import Vacancy
+from app.services.auth import CurrentUser, ensure_interview_link_issue_allowed, get_current_user
 from app.services.candidate_overview import list_vacancy_candidates
 from app.services.result_card import build_result_card
 from app.services.result_links import get_result_user
@@ -22,6 +27,43 @@ router = APIRouter(prefix="/candidates", tags=["candidates"])
 SessionDep = Annotated[AsyncSession, Depends(get_db)]
 CurrentUserDep = Annotated[CurrentUser, Depends(get_current_user)]
 StorageDep = Annotated[S3StorageClient, Depends(get_s3_storage_client)]
+
+
+class CandidateCreate(BaseModel):
+    """Create an invitation for a vacancy without requiring a resume."""
+
+    vacancy_id: uuid.UUID
+    resume_text: str | None = Field(default=None, max_length=50000)
+
+
+class CandidateRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: uuid.UUID
+    vacancy_id: uuid.UUID
+    status: str
+
+
+@router.post("", response_model=CandidateRead, status_code=201)
+async def create_candidate(
+    data: CandidateCreate, current_user: CurrentUserDep, session: SessionDep
+) -> Candidate:
+    """Allow a recruiter to create a candidate from the staff interface."""
+    ensure_interview_link_issue_allowed(current_user)
+    vacancy = await session.get(Vacancy, data.vacancy_id)
+    if vacancy is None:
+        raise HTTPException(404, "Vacancy not found")
+    questions_count = await session.scalar(
+        select(func.count(func.distinct(Question.topic_id)))
+        .join(Topic)
+        .where(Topic.vacancy_id == vacancy.id, Question.type == QuestionType.CORE)
+    )
+    if not vacancy.topics or questions_count != len(vacancy.topics):
+        raise HTTPException(409, "Сначала сгенерируйте core-вопросы для всех топиков вакансии.")
+    candidate = Candidate(vacancy_id=data.vacancy_id, resume_text=data.resume_text)
+    session.add(candidate)
+    await session.commit()
+    await session.refresh(candidate)
+    return candidate
 
 
 class PurgeRequest(BaseModel):

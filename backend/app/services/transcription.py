@@ -76,6 +76,10 @@ async def transcribe_answer(
     answer = await session.get(Answer, answer_id)
     if answer is None:
         return None
+    if answer.transcript and answer.transcript_segments:
+        return answer
+    if answer.processing_status == AnswerProcessingStatus.ERROR:
+        return answer
     # Пропущенный ответ не транскрибируется; статус топика (not_confirmed) выставит анализ.
     if answer.skipped:
         answer.processing_status = AnswerProcessingStatus.READY

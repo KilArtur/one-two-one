@@ -141,26 +141,85 @@ export function EquipmentCheck({ onContinue }: { onContinue?: () => void }) {
 
   return (
     <main>
-      <p>Шаг 2 · Подготовка</p>
+      <p className="eyebrow">Шаг 2 · Подготовка</p>
       <h1>Проверка камеры и микрофона</h1>
-      <p>Разрешите доступ к обоим устройствам. Запишите короткую пробу: посмотрите в камеру
-        и произнесите несколько слов. Тестовая запись остаётся в этой вкладке.</p>
-      <video ref={liveVideo} aria-label="Изображение с камеры" autoPlay muted playsInline
-        style={{ width: "100%", maxHeight: 360, background: "#111", borderRadius: 8 }} />
-      {error && <p role="alert">{error}</p>}
-      <p role="status">{recording ? "Идёт тестовая запись — 3 секунды…" : ready
-        ? "Камера и микрофон подключены." : error ? "Проверка не пройдена." : "Ожидаем доступ к устройствам…"}</p>
-      <button onClick={record} disabled={!ready || recording}>
-        {preview ? "Записать пробу заново" : "Записать 3 секунды"}
-      </button>{" "}
-      <button onClick={() => setAttempt(attempt + 1)} disabled={recording}>Повторить проверку устройств</button>
-      {preview && <section>
-        <h2>Прослушайте и посмотрите запись</h2>
-        <video aria-label="Тестовая запись" src={preview} controls playsInline
-          style={{ width: "100%", maxHeight: 360 }} />
-        <p>Убедитесь, что вас видно и слышно. Если звука нет, проверьте микрофон и сделайте новую пробу.</p>
-        {onContinue && <button onClick={onContinue} disabled={!ready}>Меня видно и слышно — начать интервью</button>}
-      </section>}
+      <p>
+        Разрешите доступ к обоим устройствам. Запишите короткую пробу: посмотрите в камеру и
+        произнесите несколько слов. Тестовая запись остаётся в этой вкладке.
+      </p>
+      <div className="device-layout">
+        <div>
+          <div className="camera">
+            <video
+              ref={liveVideo}
+              aria-label="Изображение с камеры"
+              autoPlay
+              muted
+              playsInline
+              style={{ width: "100%", height: "100%", objectFit: "cover", position: "absolute", inset: 0 }}
+            />
+            <span className="camera-label">LIVE</span>
+          </div>
+        </div>
+        <div className="diag">
+          <div className="diag-row">
+            <div className="inline">
+              <strong>Камера и микрофон</strong>
+              <span className={`status ${ready ? "success" : error ? "risk" : "blue"}`}>
+                {ready ? "Готово" : error ? "Ошибка" : "Ожидание"}
+              </span>
+            </div>
+            <p role="status">
+              {recording
+                ? "Идёт тестовая запись — 3 секунды…"
+                : ready
+                  ? "Камера и микрофон подключены."
+                  : error
+                    ? "Проверка не пройдена."
+                    : "Ожидаем доступ к устройствам…"}
+            </p>
+            <div className="mic-meter" aria-hidden>
+              <i /><i /><i /><i /><i /><i /><i /><i />
+            </div>
+          </div>
+          <div className="diag-row">
+            {error && <p role="alert">{error}</p>}
+            <div className="inline" style={{ flexWrap: "wrap" }}>
+              <button type="button" className="btn primary" onClick={record} disabled={!ready || recording}>
+                {preview ? "Записать пробу заново" : "Записать 3 секунды"}
+              </button>
+              <button
+                type="button"
+                className="btn ghost"
+                onClick={() => setAttempt(attempt + 1)}
+                disabled={recording}
+              >
+                Повторить проверку устройств
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+      {preview && (
+        <section className="section">
+          <h2>Прослушайте и посмотрите запись</h2>
+          <video
+            aria-label="Тестовая запись"
+            src={preview}
+            controls
+            playsInline
+            style={{ width: "100%", maxHeight: 360, background: "#111" }}
+          />
+          <p>
+            Убедитесь, что вас видно и слышно. Если звука нет, проверьте микрофон и сделайте новую пробу.
+          </p>
+          {onContinue && (
+            <button type="button" className="btn primary" onClick={onContinue} disabled={!ready}>
+              Меня видно и слышно — начать интервью
+            </button>
+          )}
+        </section>
+      )}
     </main>
   );
 }

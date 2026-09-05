@@ -5,7 +5,7 @@ import uuid
 from typing import Literal
 
 from fastapi import HTTPException
-from sqlalchemy import select
+from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.integrations.storage import S3StorageClient
@@ -35,7 +35,7 @@ async def start_upload(
         .where(
             Question.id == question_id,
             Topic.vacancy_id == candidate.vacancy_id,
-            Question.type == QuestionType.CORE,
+            or_(Question.type == QuestionType.CORE, Question.candidate_id == candidate.id),
         )
     )
     if question is None:

@@ -8,6 +8,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import uuid
 from dataclasses import dataclass
 from typing import TypedDict
@@ -18,6 +19,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.integrations.llm import LangChainLLMClient, LLMClientError, get_llm_client
 from app.models.answer import Answer
+from app.models.candidate import Candidate
 from app.models.question import Question, QuestionPattern, QuestionType
 from app.models.topic import Topic
 from app.prompts import load_prompt
@@ -65,13 +67,14 @@ def build_followup_graph(llm_client: LangChainLLMClient):
             answers=state["answers_text"] or "—",
         )
         try:
-            result = await llm_client.generate_structured(
-                prompt,
-                schema=FollowupDecisionLLM,
-                prompt_version=FOLLOWUP_PROMPT_VERSION,
-                use_fast_model=True,
-            )
-        except LLMClientError:
+            async with asyncio.timeout(5):
+                result = await llm_client.generate_structured(
+                    prompt,
+                    schema=FollowupDecisionLLM,
+                    prompt_version=FOLLOWUP_PROMPT_VERSION,
+                    use_fast_model=True,
+                )
+        except (LLMClientError, TimeoutError):
             return {"ask": False, "reason": "llm_error", "followup_question": ""}
 
         verdict: FollowupDecisionLLM = result.content
@@ -144,17 +147,37 @@ async def decide_followup(
 ) -> FollowupResult:
     """Решает, задать ли уточнение по топику, и создаёт follow_up-вопрос при необходимости."""
     llm_client = llm_client or get_llm_client()
+    await session.scalar(select(Candidate).where(Candidate.id == candidate_id).with_for_update())
     topic = await session.get(Topic, topic_id)
     if topic is None:
         return FollowupResult(ask=False, reason="topic_not_found")
 
     core_question = await session.scalar(
-        select(Question).where(
-            Question.topic_id == topic_id, Question.type == QuestionType.CORE
-        )
+        select(Question).where(Question.topic_id == topic_id, Question.type == QuestionType.CORE)
     )
     if core_question is None:
         return FollowupResult(ask=False, reason="core_question_missing")
+
+    latest_answer = await session.scalar(
+        select(Answer)
+        .join(Question)
+        .where(Answer.candidate_id == candidate_id, Question.topic_id == topic_id)
+        .order_by(Answer.created_at.desc())
+    )
+    if latest_answer is None or latest_answer.skipped or latest_answer.technically_lost:
+        return FollowupResult(ask=False, reason="no_answer")
+    if not latest_answer.transcript:
+        return FollowupResult(ask=False, reason="transcription_pending")
+
+    unanswered = await session.scalar(
+        select(Question).where(
+            Question.candidate_id == candidate_id,
+            Question.topic_id == topic_id,
+            ~Question.id.in_(select(Answer.question_id).where(Answer.candidate_id == candidate_id)),
+        )
+    )
+    if unanswered is not None:
+        return FollowupResult(ask=True, reason="clarification_pending", question=unanswered)
 
     followups_count = (
         await session.scalar(
@@ -163,6 +186,7 @@ async def decide_followup(
             .where(
                 Question.topic_id == topic_id,
                 Question.type == QuestionType.FOLLOW_UP,
+                Question.candidate_id == candidate_id,
                 Question.parent_question_id == core_question.id,
             )
         )
@@ -183,6 +207,7 @@ async def decide_followup(
         return FollowupResult(ask=False, reason=state.get("reason", "no_clarification_needed"))
 
     question = Question(
+        candidate_id=candidate_id,
         topic_id=topic_id,
         type=QuestionType.FOLLOW_UP,
         pattern=QuestionPattern.REASONING,

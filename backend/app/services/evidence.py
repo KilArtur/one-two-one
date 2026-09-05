@@ -12,11 +12,9 @@ import uuid
 from collections.abc import Sequence
 from typing import Any
 
-_WORD_RE = re.compile(r"[^\W_]+", re.UNICODE)
 
-
-def _tokens(text: str) -> set[str]:
-    return {token.lower() for token in _WORD_RE.findall(text)}
+def _normalize(text: str) -> str:
+    return re.sub(r"\s+", " ", text).strip().lower()
 
 
 def locate_evidence(
@@ -31,29 +29,22 @@ def locate_evidence(
         return None
 
     segments = list(segments or [])
-    needle = quote.lower()
-
-    best_segment: dict[str, Any] | None = None
-    best_overlap = 0
-    quote_tokens = _tokens(quote)
-
-    for segment in segments:
-        text = str(segment.get("text", ""))
-        haystack = text.lower()
-        if needle and (needle in haystack or (haystack and haystack in needle)):
-            best_segment = segment
-            break
-        overlap = len(quote_tokens & _tokens(text))
-        if overlap > best_overlap:
-            best_overlap = overlap
-            best_segment = segment
-
-    if best_segment is None:
-        best_segment = segments[0] if segments else {}
-
+    needle = _normalize(quote)
+    texts = [_normalize(str(segment.get("text", ""))) for segment in segments]
+    offset = " ".join(texts).find(needle)
+    if offset < 0:
+        return None
+    cursor = 0
+    matched = []
+    for segment, text in zip(segments, texts, strict=True):
+        if cursor < offset + len(needle) and cursor + len(text) > offset:
+            matched.append(segment)
+        cursor += len(text) + 1
+    if not matched or matched[0].get("start") is None:
+        return None
     return {
         "quote": quote,
-        "start_sec": best_segment.get("start"),
-        "end_sec": best_segment.get("end"),
+        "start_sec": matched[0]["start"],
+        "end_sec": matched[-1].get("end"),
         "question_id": str(question_id),
     }

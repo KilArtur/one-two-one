@@ -1,6 +1,7 @@
 import { ResultLinkContext } from "./ResultLinkContext";
 import { useContext, useEffect, useState } from "react";
 import { getTranscripts, TranscriptAnswer } from "../api/client";
+import { EvidencePlayer } from "./EvidencePanel";
 
 type Range = { start: number; end: number };
 export function quoteRanges(text: string, quotes: string[]): Range[] {
@@ -74,6 +75,7 @@ export function TranscriptPanel({ token, candidateId, topicId }: { token: string
   const [answers, setAnswers] = useState<TranscriptAnswer[] | null>(null);
   const [error, setError] = useState("");
   const [attempt, setAttempt] = useState(0);
+  const [recording, setRecording] = useState<TranscriptAnswer | null>(null);
   useEffect(() => {
     const controller = new AbortController(); setAnswers(null); setError("");
     getTranscripts(token, candidateId, topicId, controller.signal, resultLink).then((data) => {
@@ -87,5 +89,13 @@ export function TranscriptPanel({ token, candidateId, topicId }: { token: string
     <p>Выделены цитаты, использованные в оценке соответствующего топика.</p>
     {error ? <><p role="alert">{error}</p><button onClick={() => setAttempt((v) => v + 1)}>Повторить загрузку транскрипта</button></>
       : answers ? <TranscriptContent answers={answers} /> : <p role="status">Загружаем транскрипт…</p>}
+    {answers?.filter((answer) => !answer.skipped && !answer.technically_lost).map((answer) =>
+      <p key={answer.answer_id}><button className="btn ghost" onClick={() => setRecording(answer)}>
+        Посмотреть запись: {answer.question}
+      </button></p>)}
+    {recording && <EvidencePlayer key={recording.answer_id} token={token} candidateId={candidateId} item={{
+      answer_id: recording.answer_id, question_id: recording.question_id,
+      question: recording.question, quote: "", start_sec: 0, end_sec: null, video_available: true,
+    }} />}
   </section>;
 }

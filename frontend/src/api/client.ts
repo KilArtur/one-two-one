@@ -282,10 +282,21 @@ export const getAnswerMedia = (token: string, candidate: string, answer: string,
 export const recordVideoView = (token: string, candidate: string, answer: string, eventId: string, position: number, resultLink?: string) =>
   internalRequest(`/candidates/${candidate}/answers/${answer}/views`, token, undefined, { event_id: eventId, position_sec: position }, resultLink);
 export async function internalLogin(username: string, password: string, role: string): Promise<string> {
-  const response = await fetch(`${API_BASE_URL}/auth/token`, {
-    method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ username, password, role }),
-  });
-  if (!response.ok) throw new Error("Не удалось войти. Проверьте данные.");
+  let response: Response;
+  try {
+    response = await fetch(`${API_BASE_URL}/auth/token`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ username, password, role }),
+    });
+  } catch {
+    throw new Error(
+      "Нет связи с API. Проверьте, что backend запущен на VITE_API_BASE_URL и CORS разрешает этот origin.",
+    );
+  }
+  if (!response.ok) {
+    throw new Error("Не удалось войти. Логин — любой, пароль — INTERNAL_AUTH_PASSWORD из .env.");
+  }
   return ((await response.json()) as { access_token: string }).access_token;
 }
 
@@ -343,3 +354,112 @@ export const resolveResultLink = (token: string, link: string, signal?: AbortSig
   internalRequest<ResultLinkInfo>("/result-links/resolve", token, signal, { token: link });
 export const getVideoViews = (token: string, candidate: string, signal?: AbortSignal) =>
   internalRequest<VideoViewItem[]>(`/candidates/${candidate}/video-views`, token, signal);
+
+/* --- Vacancies (staff) --- */
+
+export interface VacancyTopic {
+  id: string;
+  title: string;
+  skill_type: "hard" | "soft";
+  importance: "mandatory" | "desired";
+  requirement_description: string | null;
+  depth_expectations: string | null;
+  verifiable_by_interview: boolean;
+  order: number;
+}
+
+export interface Vacancy {
+  id: string;
+  lineage_id: string;
+  title: string;
+  grade: string;
+  tasks: string | null;
+  stop_factors: string[];
+  specialist_profile: string | null;
+  version: number;
+  status: string;
+  topics: VacancyTopic[];
+}
+
+export interface VacancyTopicWrite {
+  title: string;
+  skill_type: "hard" | "soft";
+  importance: "mandatory" | "desired";
+  requirement_description?: string | null;
+  depth_expectations?: string | null;
+  verifiable_by_interview?: boolean;
+  order?: number;
+}
+
+export async function listVacancies(token: string, signal?: AbortSignal): Promise<Vacancy[]> {
+  return internalRequest<Vacancy[]>("/vacancies", token, signal);
+}
+
+export async function getVacancy(token: string, id: string, signal?: AbortSignal): Promise<Vacancy> {
+  return internalRequest<Vacancy>(`/vacancies/${id}`, token, signal);
+}
+
+export async function createVacancy(
+  token: string,
+  body: {
+    title: string;
+    grade: string;
+    tasks?: string | null;
+    stop_factors?: string[];
+    specialist_profile?: string | null;
+    topics: VacancyTopicWrite[];
+  },
+): Promise<Vacancy> {
+  const response = await fetch(`${API_BASE_URL}/vacancies`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!response.ok) {
+    const detail = await response.text();
+    throw new Error(
+      response.status === 422
+        ? `Не удалось создать вакансию: проверьте поля. ${detail.slice(0, 300)}`
+        : detail || "Не удалось создать вакансию.",
+    );
+  }
+  return response.json() as Promise<Vacancy>;
+}
+
+export async function generateCoreQuestions(token: string, vacancyId: string): Promise<{id: string; text: string}[]> {
+  const response = await fetch(`${API_BASE_URL}/vacancies/${vacancyId}/core-questions`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!response.ok) {
+    const detail = await response.text().catch(() => "");
+    throw new Error(
+      detail
+        ? `Не удалось сгенерировать вопросы: ${detail.slice(0, 300)}`
+        : "Не удалось сгенерировать вопросы. Проверьте LLM-ключ.",
+    );
+  }
+  return response.json() as Promise<{id: string; text: string}[]>;
+}
+
+export async function createCandidate(token: string, vacancyId: string, resumeText: string): Promise<{id: string}> {
+  const response = await fetch(`${API_BASE_URL}/candidates`, {
+    method: "POST", headers: {Authorization: `Bearer ${token}`, "Content-Type": "application/json"},
+    body: JSON.stringify({vacancy_id: vacancyId, resume_text: resumeText || null}),
+  });
+  if (response.status === 409) throw new Error("Сначала откройте «Вакансии» и сгенерируйте Core-вопросы.");
+  if (!response.ok) throw new Error("Не удалось создать кандидата. Проверьте роль и соединение.");
+  return response.json() as Promise<{id: string}>;
+}
+
+export async function issueInterviewLink(
+  token: string,
+  candidateId: string,
+): Promise<{ id: string; token: string; expires_at: string }> {
+  const response = await fetch(`${API_BASE_URL}/candidates/${candidateId}/interview-link`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!response.ok) throw new Error("Не удалось выпустить ссылку интервью.");
+  return response.json() as Promise<{ id: string; token: string; expires_at: string }>;
+}

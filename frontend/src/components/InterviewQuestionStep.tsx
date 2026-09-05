@@ -147,26 +147,100 @@ export function InterviewQuestionStep({ question, token, onSaved }: {
     };
   }, [question.id, token, limit, attempt]);
 
-  return <section>
-    <h2>{question.text}</h2>
-    <p>Вопрос озвучен синтезированным голосом. После озвучки запись начнётся автоматически.</p>
-    <audio ref={player} aria-label="Озвучка вопроса" />
-    {needsPlay && <button onClick={() => {
-      void player.current?.play().then(() => setNeedsPlay(false)).catch(() => setNeedsPlay(true));
-    }}>Прослушать вопрос</button>}
-    <video ref={camera} autoPlay muted playsInline aria-label="Камера интервью"
-      style={{ width: "100%", maxHeight: 300, background: "#111" }} />
-    <p role="timer" aria-label="Осталось времени" style={{ fontSize: 32, fontVariantNumeric: "tabular-nums", margin: "12px 0" }}>{Math.floor(remaining / 60)}:{String(remaining % 60).padStart(2, "0")}</p>
-    <p role="status" style={{ color: phase === "recording" ? "#b91c1c" : "inherit", fontWeight: 600 }}>{phase === "recording" ? "● REC — идёт запись ответа" : phase === "speaking"
-      ? "Звучит вопрос — таймер ещё не запущен" : phase === "preparing" ? "Подготавливаем озвучку и устройства…"
-      : phase === "recorded" ? (upload.status === "saved" ? "Ответ сохранён" : "Сохраняем ответ…") : phase === "stopping" ? "Завершаем запись…" : "Запись остановлена"}</p>
-    {phase === "recording" && <button onClick={() => stop.current()}>Закончить ответ</button>}
-    {upload.status === "error" && <div>
-      <p role="alert">{upload.error} Не закрывайте вкладку.</p>
-      <button onClick={() => void upload.queue.retry()}>Повторить загрузку</button>
-    </div>}
-    {phase === "recording" && upload.status !== "error" && <p>Части ответа загружаются по ходу записи.</p>}
-    {error && <p role="alert">{error}</p>}
-    {phase === "error" && canRetry && <button onClick={() => setAttempt(attempt + 1)}>Повторить озвучку</button>}
-  </section>;
+  return (
+    <section className="live-copy">
+      <p className="live-question-label">
+        {question.type === "follow_up" ? "Уточнение" : "Вопрос"}
+      </p>
+      <h2 style={{ color: "white", fontSize: "clamp(28px, 3vw, 42px)", fontWeight: 400 }}>
+        {question.text}
+      </h2>
+      <p style={{ color: "#aaaab0" }}>
+        Вопрос озвучен синтезированным голосом. После озвучки запись начнётся автоматически.
+      </p>
+      <audio ref={player} aria-label="Озвучка вопроса" />
+      {needsPlay && (
+        <button
+          type="button"
+          className="btn dark"
+          onClick={() => {
+            void player.current
+              ?.play()
+              .then(() => setNeedsPlay(false))
+              .catch(() => setNeedsPlay(true));
+          }}
+        >
+          Прослушать вопрос
+        </button>
+      )}
+      <div className="candidate-camera" style={{ marginTop: 24 }}>
+        <video
+          ref={camera}
+          autoPlay
+          muted
+          playsInline
+          aria-label="Камера интервью"
+          style={{ width: "100%", height: "100%", objectFit: "cover" }}
+        />
+        {phase === "recording" && (
+          <span className="rec-chip">
+            <span className="recording-dot" /> REC
+          </span>
+        )}
+      </div>
+      <p
+        role="timer"
+        aria-label="Осталось времени"
+        className="timer"
+        style={{ color: "white", margin: "18px 0 8px" }}
+      >
+        {Math.floor(remaining / 60)}:{String(remaining % 60).padStart(2, "0")}
+      </p>
+      <p
+        role="status"
+        style={{
+          color: phase === "recording" ? "#ff8d86" : "#d0d0d4",
+          fontWeight: 600,
+        }}
+      >
+        {phase === "recording"
+          ? "● REC — идёт запись ответа"
+          : phase === "speaking"
+            ? "Звучит вопрос — таймер ещё не запущен"
+            : phase === "preparing"
+              ? "Подготавливаем озвучку и устройства…"
+              : phase === "recorded"
+                ? upload.status === "saved"
+                  ? "Ответ сохранён"
+                  : "Сохраняем ответ…"
+                : phase === "stopping"
+                  ? "Завершаем запись…"
+                  : "Запись остановлена"}
+      </p>
+      {phase === "recording" && (
+        <button type="button" className="btn dark" onClick={() => stop.current()}>
+          Закончить ответ
+        </button>
+      )}
+      {upload.status === "error" && (
+        <div>
+          <p role="alert">
+            {upload.error} Не закрывайте вкладку.
+          </p>
+          <button type="button" className="btn dark" onClick={() => void upload.queue.retry()}>
+            Повторить загрузку
+          </button>
+        </div>
+      )}
+      {phase === "recording" && upload.status !== "error" && (
+        <p style={{ color: "#aaaab0" }}>Части ответа загружаются по ходу записи.</p>
+      )}
+      {error && <p role="alert">{error}</p>}
+      {phase === "error" && canRetry && (
+        <button type="button" className="btn dark" onClick={() => setAttempt(attempt + 1)}>
+          Повторить озвучку
+        </button>
+      )}
+    </section>
+  );
 }

@@ -91,6 +91,8 @@ async def assess_topic(
     answer = await session.get(Answer, answer_id)
     if answer is None:
         return None
+    if answer.candidate_id != candidate_id:
+        return None
     question = await session.get(Question, answer.question_id)
     if question is None:
         return None
@@ -128,8 +130,24 @@ async def assess_topic(
         await session.refresh(assessment)
         return assessment
 
+    topic_answers = list(
+        await session.scalars(
+            select(Answer)
+            .join(Question)
+            .where(Answer.candidate_id == candidate_id, Question.topic_id == topic.id)
+            .order_by(Answer.created_at)
+        )
+    )
+    transcript = "\n".join(_transcript_text(item) for item in topic_answers if not item.skipped)
     result = await llm_client.generate_structured(
-        build_prompt(topic, question, answer),
+        format_topic_assessment_prompt(
+            topic_title=topic.title,
+            skill_type=topic.skill_type.value,
+            requirement_description=topic.requirement_description,
+            depth_expectations=topic.depth_expectations,
+            question_text=question.text,
+            transcript=transcript,
+        ),
         schema=TopicAssessmentLLM,
         prompt_version=TOPIC_ASSESSMENT_PROMPT_VERSION,
     )
@@ -146,11 +164,22 @@ async def assess_topic(
         explicit_no_experience=verdict.explicit_no_experience,
         technical_error=verdict.technical_error,
     )
-    evidence_item = locate_evidence(
-        answer.transcript_segments,
-        verdict.evidence_quote,
-        question_id=answer.question_id,
+    evidence_item = next(
+        (
+            located
+            for item in topic_answers
+            if (
+                located := locate_evidence(
+                    item.transcript_segments,
+                    verdict.evidence_quote,
+                    question_id=item.question_id,
+                )
+            )
+        ),
+        None,
     )
+    if not evidence_item:
+        status = AssessmentStatus.NEEDS_CHECK
     evidence: list[dict[str, Any]] | None = [evidence_item] if evidence_item else None
 
     assessment = TopicAssessment(
@@ -211,4 +240,7 @@ async def change_topic_status(
     )
     await session.commit()
     await session.refresh(assessment)
+    from app.services.interview_result import assemble_interview_result
+
+    await assemble_interview_result(session, assessment.candidate_id)
     return assessment

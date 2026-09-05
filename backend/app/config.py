@@ -2,9 +2,10 @@
 
 from functools import lru_cache
 from pathlib import Path
+from typing import Annotated
 
-from pydantic import Field
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic import Field, field_validator
+from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
 ROOT_DIR = Path(__file__).resolve().parents[2]
 
@@ -13,7 +14,7 @@ class Settings(BaseSettings):
     """Настройки приложения."""
 
     model_config = SettingsConfigDict(
-        env_file=ROOT_DIR / ".env",
+        env_file=(ROOT_DIR / ".env", ROOT_DIR / ".env.local"),
         env_file_encoding="utf-8",
         extra="ignore",
     )
@@ -21,7 +22,7 @@ class Settings(BaseSettings):
     app_name: str = "AI Interviewer API"
     app_version: str = "0.1.0"
     app_env: str = "development"
-    cors_origins: list[str] = ["http://localhost:5173"]
+    cors_origins: Annotated[list[str], NoDecode] = ["http://localhost:5173"]
     jwt_secret_key: str = ""
     internal_auth_password: str = "change-me"
     jwt_access_token_ttl_seconds: int = 3600
@@ -55,6 +56,18 @@ class Settings(BaseSettings):
     s3_bucket: str = "interviewer-media"
     s3_presigned_url_ttl_seconds: int = 3600
     s3_use_path_style: bool = True
+
+    @field_validator("cors_origins", mode="before")
+    @classmethod
+    def parse_origins(cls, value: object) -> object:
+        """Accept comma-separated origins as used by the project env template."""
+        if isinstance(value, str):
+            if value.startswith("["):
+                import json
+
+                return json.loads(value)
+            return [origin.strip() for origin in value.split(",") if origin.strip()]
+        return value
 
 
 @lru_cache

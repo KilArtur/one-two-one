@@ -64,9 +64,7 @@ async def _last_author(session: AsyncSession, assessment_id: uuid.UUID) -> str:
     return log.author_role.value if log is not None else "system"
 
 
-async def build_result_card(
-    session: AsyncSession, candidate_id: uuid.UUID
-) -> ResultCard | None:
+async def build_result_card(session: AsyncSession, candidate_id: uuid.UUID) -> ResultCard | None:
     """Собирает карточку результата кандидата (матрица + рекомендация + coverage)."""
     candidate = await session.get(Candidate, candidate_id)
     if candidate is None:
@@ -98,10 +96,34 @@ async def build_result_card(
             )
         )
         outcomes.append(
-            TopicOutcome(
-                importance=assessment.topic.importance, status=assessment.current_status
-            )
+            TopicOutcome(importance=assessment.topic.importance, status=assessment.current_status)
         )
+
+    assessed_ids = {item.topic_id for item in assessments}
+    for topic in candidate.vacancy.topics:
+        if topic.id not in assessed_ids:
+            from app.models.topic_assessment import AssessmentStatus
+
+            topics.append(
+                ResultTopicRow(
+                    topic_id=topic.id,
+                    topic_title=topic.title,
+                    skill_type=topic.skill_type.value,
+                    importance=topic.importance.value,
+                    system_status="needs_check",
+                    current_status="needs_check",
+                    author="system",
+                    reasoning_summary="Обработка ответа ещё не завершена.",
+                )
+            )
+            outcomes.append(
+                TopicOutcome(
+                    importance=topic.importance,
+                    status=AssessmentStatus.NEEDS_CHECK,
+                )
+            )
+    order = {topic.id: topic.order for topic in candidate.vacancy.topics}
+    topics.sort(key=lambda row: order[row.topic_id])
 
     stop_triggered = await candidate_stop_factor_triggered(session, candidate_id)
     recommendation, reason = recommendation_with_reason(

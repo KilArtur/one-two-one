@@ -2,7 +2,7 @@ import { ResultLinkContext } from "./ResultLinkContext";
 import { useContext, useEffect, useRef, useState } from "react";
 import { AnswerMedia, EvidenceItem, getAnswerMedia, getEvidence, recordVideoView } from "../api/client";
 
-function EvidencePlayer({ token, candidateId, item }: { token: string; candidateId: string; item: EvidenceItem }) {
+export function EvidencePlayer({ token, candidateId, item }: { token: string; candidateId: string; item: EvidenceItem }) {
   const resultLink = useContext(ResultLinkContext);
   const [media, setMedia] = useState<AnswerMedia | null>(null);
   const [error, setError] = useState("");

@@ -32,18 +32,24 @@ def create_celery_app(settings: Settings | None = None) -> Celery:
     register_debug_task(app)
     from celery.schedules import crontab
 
+    from app.tasks.local_pipeline import register_pending_task
     from app.tasks.pipeline import register_pipeline_task
     from app.tasks.retention import register_retention_task
     from app.tasks.transcription import register_transcription_task
 
     register_transcription_task(app)
     register_pipeline_task(app)
+    register_pending_task(app)
     register_retention_task(app)
     app.conf.beat_schedule = {
+        "process-pending-interviews": {
+            "task": "app.process_pending",
+            "schedule": 5.0,
+        },
         "purge-expired-data": {
             "task": "app.purge_expired_data",
             "schedule": crontab(hour=3, minute=0),
-        }
+        },
     }
     return app
 
