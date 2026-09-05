@@ -45,6 +45,8 @@ class Settings(BaseSettings):
     tts_model: str = "tts-1"
     tts_voice: str = "alloy"
     tts_timeout_seconds: float = Field(default=30.0, gt=0)
+    asr_model: str = "whisper-1"
+    asr_timeout_seconds: float = Field(default=120.0, gt=0)
 
     s3_endpoint_url: str = "http://localhost:9000"
     s3_region: str = "us-east-1"

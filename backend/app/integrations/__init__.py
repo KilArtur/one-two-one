@@ -1,5 +1,11 @@
 """Интеграции с внешними провайдерами."""
 
+from app.integrations.asr import (
+    ASRClientError,
+    OpenAIWhisperClient,
+    TranscriptionResult,
+    get_asr_client,
+)
 from app.integrations.llm import (
     LangChainLLMClient,
     LLMClientError,
@@ -16,6 +22,7 @@ from app.integrations.storage import (
 )
 
 __all__ = [
+    "ASRClientError",
     "LLMClientError",
     "LLMInvocationResult",
     "LangChainLLMClient",
@@ -24,6 +31,9 @@ __all__ = [
     "S3Object",
     "S3StorageClient",
     "S3StorageError",
+    "OpenAIWhisperClient",
+    "TranscriptionResult",
+    "get_asr_client",
     "get_llm_client",
     "get_s3_storage_client",
 ]

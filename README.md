@@ -70,6 +70,11 @@ Batch-оценка транскриптов без видео (Этап 1): `uv 
 <input.json|.csv> [-o report.json]` — статус/рекомендация/coverage по каждому кандидату
 (core в `services.batch_eval`, пример — `scripts/batch_eval_sample.json`).
 
+ASR (Whisper): `integrations.asr.OpenAIWhisperClient` — транскрипт с сегментами и таймкодами,
+словарь вакансии через `prompt` (audio-провайдер из `AUDIO_*`/`ASR_MODEL`). Транскрибация
+ответа (M5) — Celery-задача `app.transcribe_answer` (`services.transcription.transcribe_answer`):
+`recorded→transcribing→ready`; пустая/битая дорожка → `error` и топик получает `needs_check`.
+
 ## Запуск frontend
 
 ```bash
