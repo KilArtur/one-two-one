@@ -397,6 +397,35 @@ export async function getVacancy(token: string, id: string, signal?: AbortSignal
   return internalRequest<Vacancy>(`/vacancies/${id}`, token, signal);
 }
 
+export interface VacancyDraft {
+  title: string;
+  grade: string;
+  tasks: string;
+  question_examples: string;
+  topics: {
+    title: string;
+    skill_type: "hard" | "soft";
+    importance: "mandatory" | "desired";
+    requirement_description: string;
+    depth_expectations: string;
+  }[];
+}
+
+export async function draftVacancyFromPdf(token: string, file: File): Promise<VacancyDraft> {
+  const body = new FormData();
+  body.append("file", file);
+  const response = await fetch(`${API_BASE_URL}/vacancies/draft`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}` },
+    body,
+  });
+  if (!response.ok) {
+    const body = await response.json().catch(() => null);
+    throw new Error(body?.detail ?? "Не удалось разобрать документ.");
+  }
+  return response.json() as Promise<VacancyDraft>;
+}
+
 export async function createVacancy(
   token: string,
   body: {

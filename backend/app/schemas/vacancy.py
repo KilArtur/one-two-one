@@ -21,6 +21,26 @@ class TopicWrite(BaseModel):
     order: int = 0
 
 
+class TopicDraft(BaseModel):
+    """Топик, разобранный моделью из документа вакансии."""
+
+    title: str = Field(description="Короткое название проверяемого требования")
+    skill_type: SkillType = Field(description="hard — техническое, soft — коммуникации")
+    importance: TopicImportance = Field(description="mandatory — обязательное, desired — плюс")
+    requirement_description: str = Field(description="Что именно подтверждается в интервью")
+    depth_expectations: str = Field(description="Признаки достаточного уровня для грейда")
+
+
+class VacancyDraft(BaseModel):
+    """Черновик вакансии из загруженного документа — заготовка формы, а не запись в БД."""
+
+    title: str = Field(description="Название роли без компании и условий найма")
+    grade: VacancyGrade = Field(description="Грейд по требуемому опыту")
+    tasks: str = Field(description="Чем предстоит заниматься")
+    question_examples: str = Field(description="Примеры вопросов из документа или пустая строка")
+    topics: list[TopicDraft] = Field(description="От 1 до 9 проверяемых требований")
+
+
 class TopicRead(BaseModel):
     """Топик в ответе API."""
 

@@ -1,7 +1,7 @@
 import { FormEvent, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 
-import { VacancyTopicWrite, createVacancy } from "../api/client";
+import { VacancyTopicWrite, createVacancy, draftVacancyFromPdf } from "../api/client";
 import { Breadcrumbs, PageHead } from "../layouts/Shell";
 
 const MIN_TOPICS = 1;
@@ -24,9 +24,29 @@ export function VacancyCreatePage({ token }: { token: string }) {
   const [topics, setTopics] = useState<VacancyTopicWrite[]>([{ ...EMPTY_TOPIC(), order: 1 }]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [parsing, setParsing] = useState(false);
 
   function updateTopic(index: number, patch: Partial<VacancyTopicWrite>) {
     setTopics((rows) => rows.map((row, i) => (i === index ? { ...row, ...patch } : row)));
+  }
+
+  async function loadFromPdf(file: File) {
+    setParsing(true);
+    setError("");
+    try {
+      const draft = await draftVacancyFromPdf(token, file);
+      setTitle(draft.title);
+      setGrade(draft.grade);
+      setTasks(draft.tasks);
+      setQuestionExamples(draft.question_examples);
+      if (draft.topics.length) {
+        setTopics(draft.topics.map((topic, index) => ({ ...topic, order: index + 1 })));
+      }
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "Не удалось разобрать документ.");
+    } finally {
+      setParsing(false);
+    }
   }
 
   function addTopic() {
@@ -86,6 +106,25 @@ export function VacancyCreatePage({ token }: { token: string }) {
         ]}
       />
       <PageHead eyebrow={`Матрица до ${MAX_TOPICS} топиков`} title="Новая вакансия" />
+
+      <section className="panel">
+        <label htmlFor="vacancy-pdf">Описание вакансии в PDF</label>
+        <p className="meta">
+          Модель разберёт документ на топики и заполнит форму — дальше всё можно поправить руками.
+        </p>
+        <input
+          id="vacancy-pdf"
+          type="file"
+          accept="application/pdf"
+          disabled={parsing}
+          onChange={(event) => {
+            const file = event.target.files?.[0];
+            event.target.value = "";
+            if (file) void loadFromPdf(file);
+          }}
+        />
+        {parsing && <p role="status">Разбираем документ…</p>}
+      </section>
 
       <form className="panel" onSubmit={(event) => void submit(event)}>
         <div className="form-grid">

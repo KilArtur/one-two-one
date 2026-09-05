@@ -5,11 +5,11 @@ from __future__ import annotations
 import uuid
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db import get_db
-from app.integrations.llm import LangChainLLMClient, get_llm_client
+from app.integrations.llm import LangChainLLMClient, LLMClientError, get_llm_client
 from app.schemas.question import QuestionRead
 from app.schemas.vacancy import (
     AsrDictionaryRead,
@@ -19,12 +19,19 @@ from app.schemas.vacancy import (
     TopicUpdate,
     TopicWrite,
     VacancyCreate,
+    VacancyDraft,
     VacancyRead,
     VacancyUpdate,
 )
 from app.services import question_generation
 from app.services import vacancy as vacancy_service
 from app.services.vacancy import TopicCountError, VacancyNotDraftError
+from app.services.vacancy_draft import (
+    MAX_DOCUMENT_BYTES,
+    PdfExtractionError,
+    build_vacancy_draft,
+    extract_pdf_text,
+)
 
 router = APIRouter(prefix="/vacancies", tags=["vacancies"])
 
@@ -49,6 +56,27 @@ async def create_vacancy(data: VacancyCreate, session: SessionDep) -> VacancyRea
     """Создаёт вакансию версии 1."""
     vacancy = await vacancy_service.create_vacancy(session, data)
     return VacancyRead.model_validate(vacancy)
+
+
+@router.post("/draft", response_model=VacancyDraft)
+async def draft_from_document(file: UploadFile, llm: LLMDep) -> VacancyDraft:
+    """Разбирает PDF-описание вакансии в черновик формы; ничего не сохраняет."""
+    try:
+        data = await file.read(MAX_DOCUMENT_BYTES + 1)
+    finally:
+        await file.close()
+    if len(data) > MAX_DOCUMENT_BYTES:
+        raise HTTPException(status.HTTP_413_CONTENT_TOO_LARGE, "Файл больше 10 МБ")
+    try:
+        text = extract_pdf_text(data)
+    except PdfExtractionError as exc:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(exc)) from exc
+    try:
+        return await build_vacancy_draft(text, llm_client=llm)
+    except LLMClientError as exc:
+        raise HTTPException(
+            status.HTTP_503_SERVICE_UNAVAILABLE, "Модель недоступна, заполните форму вручную"
+        ) from exc
 
 
 @router.get("", response_model=list[VacancyRead])
