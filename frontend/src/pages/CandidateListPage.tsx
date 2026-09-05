@@ -63,8 +63,8 @@ export function CandidateListPage({ token, vacancyId }: { token: string; vacancy
     try {
       const link = await issueInterviewLink(token, candidateId);
       const url = `${window.location.origin}/interview?token=${link.token}`;
-      setLinkInfo(url);
-      await navigator.clipboard?.writeText(url).catch(() => undefined);
+      await navigator.clipboard.writeText(url);
+      setLinkInfo("Ссылка на интервью скопирована.");
     } catch (reason) {
       setLinkInfo(reason instanceof Error ? reason.message : "Не удалось выпустить ссылку.");
     }
@@ -127,9 +127,7 @@ export function CandidateListPage({ token, vacancyId }: { token: string; vacancy
           {creating ? "Создаём приглашение…" : "Пригласить кандидата"}
         </button>
       </section>}
-      {linkInfo && <p className="activity-note">{linkInfo.startsWith("http")
-        ? <>Приглашение: <a href={linkInfo} target="_blank" rel="noreferrer">Открыть интервью</a><br /><span>{linkInfo}</span></>
-        : linkInfo}</p>}
+      {linkInfo && <p className="activity-note" role="status">{linkInfo}</p>}
 
       {candidates === null ? (
         <p role="status">Загружаем кандидатов…</p>
