@@ -17,6 +17,7 @@ from langgraph.graph import END, START, StateGraph
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.config import get_settings
 from app.integrations.llm import LangChainLLMClient, LLMClientError, get_llm_client
 from app.models.answer import Answer
 from app.models.candidate import Candidate
@@ -51,8 +52,9 @@ class _State(TypedDict, total=False):
     decided: bool
 
 
-def build_followup_graph(llm_client: LangChainLLMClient):
+def build_followup_graph(llm_client: LangChainLLMClient, *, decision_timeout: float | None = None):
     """Строит LangGraph-граф решения об уточнении (гейт лимита → быстрый LLM → Р12)."""
+    timeout = decision_timeout or get_settings().followup_decision_timeout_seconds
 
     def gate(state: _State) -> _State:
         if state["followups_count"] >= MAX_FOLLOWUPS:
@@ -67,7 +69,7 @@ def build_followup_graph(llm_client: LangChainLLMClient):
             answers=state["answers_text"] or "—",
         )
         try:
-            async with asyncio.timeout(5):
+            async with asyncio.timeout(timeout):
                 result = await llm_client.generate_structured(
                     prompt,
                     schema=FollowupDecisionLLM,

@@ -40,6 +40,7 @@ class Settings(BaseSettings):
     llm_model: str = "gpt-4o"
     llm_fast_model: str = "gpt-4o-mini"
     llm_timeout_seconds: float = 30.0
+    followup_decision_timeout_seconds: float = Field(default=20.0, gt=0)
 
     audio_api_key: str = ""
     audio_base_url: str = "https://api.openai.com/v1"
