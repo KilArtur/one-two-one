@@ -38,6 +38,7 @@ class Candidate(Base, TimestampMixin):
     vacancy_id: Mapped[uuid.UUID] = mapped_column(
         Uuid, ForeignKey("vacancy.id", ondelete="CASCADE"), nullable=False, index=True
     )
+    full_name: Mapped[str | None] = mapped_column(String(255))
     resume_text: Mapped[str | None] = mapped_column(Text)
     resume_file_url: Mapped[str | None] = mapped_column(String(1024))
     consent_given_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))

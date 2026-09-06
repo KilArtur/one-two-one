@@ -33,6 +33,9 @@ def test_triple_counts_always_with_disputed_coverage_null() -> None:
         1,
     )
     assert result.mandatory_coverage is None
+    assert result.mandatory_confirmed_share == Decimal("0.5000")
+    assert result.mandatory_potential_share == Decimal("0.7500")
+    assert result.desired_confirmed_share == Decimal("1.0000")
 
 
 def test_mandatory_coverage_appears_after_disputes_closed() -> None:
@@ -101,5 +104,8 @@ def test_no_aggregate_score_field_exists() -> None:
         "not_confirmed_count",
         "mandatory_coverage",
         "desired_coverage",
+        "mandatory_confirmed_share",
+        "desired_confirmed_share",
+        "mandatory_potential_share",
     }
     assert not any("score" in name for name in field_names)

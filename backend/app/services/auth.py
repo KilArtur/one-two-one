@@ -6,6 +6,7 @@ import base64
 import hashlib
 import hmac
 import json
+import os
 import time
 import uuid
 from dataclasses import dataclass
@@ -19,11 +20,39 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import Settings, get_settings
 from app.models.interview_link import InterviewLink
+from app.models.staff_user import StaffUser
 from app.models.topic import SkillType
 
 _ALGORITHM = "HS256"
 _TOKEN_TYPE = "JWT"
 _bearer_scheme = HTTPBearer(auto_error=False)
+_PBKDF2_ROUNDS = 120_000
+
+
+def hash_password(password: str) -> str:
+    """PBKDF2-SHA256 хеш пароля со случайной солью."""
+    salt = os.urandom(16)
+    digest = hashlib.pbkdf2_hmac(
+        "sha256", password.encode("utf-8"), salt, _PBKDF2_ROUNDS
+    )
+    return f"pbkdf2_sha256${_PBKDF2_ROUNDS}${salt.hex()}${digest.hex()}"
+
+
+def verify_password(password: str, password_hash: str) -> bool:
+    """Проверяет пароль против сохранённого PBKDF2-хеша."""
+    try:
+        algo, rounds_s, salt_hex, digest_hex = password_hash.split("$", 3)
+        if algo != "pbkdf2_sha256":
+            return False
+        digest = hashlib.pbkdf2_hmac(
+            "sha256",
+            password.encode("utf-8"),
+            bytes.fromhex(salt_hex),
+            int(rounds_s),
+        )
+        return hmac.compare_digest(digest.hex(), digest_hex)
+    except (ValueError, TypeError):
+        return False
 
 
 class AppRole(StrEnum):
@@ -197,7 +226,7 @@ def authenticate_internal_user(
     role: str,
     settings: Settings | None = None,
 ) -> CurrentUser | None:
-    """Проверяет простой внутренний пароль и допустимую роль."""
+    """Проверяет общий пароль из .env и допустимую роль (legacy / тесты)."""
     settings = settings or get_settings()
     try:
         parsed_role = AppRole(role)
@@ -208,6 +237,67 @@ def authenticate_internal_user(
         return None
 
     return CurrentUser(username=username, role=parsed_role)
+
+
+async def authenticate_staff_login(
+    session: AsyncSession,
+    *,
+    username: str,
+    password: str,
+    role: str,
+    settings: Settings | None = None,
+) -> CurrentUser | None:
+    """Сначала ищет зарегистрированного пользователя, иначе — общий пароль из .env."""
+    settings = settings or get_settings()
+    try:
+        parsed_role = AppRole(role)
+    except ValueError:
+        return None
+
+    stored = await session.scalar(select(StaffUser).where(StaffUser.username == username))
+    if stored is not None:
+        if stored.role.value != parsed_role.value:
+            return None
+        if not verify_password(password, stored.password_hash):
+            return None
+        return CurrentUser(username=stored.username, role=parsed_role)
+
+    return authenticate_internal_user(
+        username=username, password=password, role=role, settings=settings
+    )
+
+
+async def register_staff_user(
+    session: AsyncSession,
+    *,
+    username: str,
+    password: str,
+    role: str,
+) -> CurrentUser:
+    """Создаёт внутреннего пользователя; username уникален."""
+    try:
+        parsed_role = AppRole(role)
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail="Unknown role"
+        ) from exc
+
+    existing = await session.scalar(select(StaffUser).where(StaffUser.username == username))
+    if existing is not None:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT, detail="Username already registered"
+        )
+
+    from app.models.staff_user import StaffRole
+
+    user = StaffUser(
+        username=username.strip(),
+        password_hash=hash_password(password),
+        role=StaffRole(parsed_role.value),
+    )
+    session.add(user)
+    await session.commit()
+    return CurrentUser(username=user.username, role=parsed_role)
 
 
 def get_current_user(

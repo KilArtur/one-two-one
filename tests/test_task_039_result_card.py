@@ -38,7 +38,9 @@ async def session() -> AsyncIterator[AsyncSession]:
 async def _seed(session: AsyncSession) -> uuid.UUID:
     vacancy = Vacancy(id=uuid.uuid4(), title="Backend", grade=VacancyGrade.MIDDLE)
     vacancy.lineage_id = vacancy.id
-    candidate = Candidate(vacancy_id=vacancy.id, resume_text="10 лет Python")
+    candidate = Candidate(
+        vacancy_id=vacancy.id, full_name="Иван Петров", resume_text="10 лет Python"
+    )
     session.add_all([vacancy, candidate])
     await session.flush()
 
@@ -101,6 +103,7 @@ async def test_matrix_and_recommendation(session: AsyncSession) -> None:
     assert card.recommendation == "fit"
     assert card.recommendation_reason == "all_mandatory_confirmed"
     assert (card.confirmed_count, card.needs_check_count, card.not_confirmed_count) == (2, 0, 0)
+    assert card.full_name == "Иван Петров"
     assert card.resume_text == "10 лет Python"
 
 

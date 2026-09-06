@@ -148,16 +148,9 @@ export function InterviewQuestionStep({ question, token, onSaved }: {
   }, [question.id, token, limit, attempt]);
 
   return (
-    <section className="live-copy">
-      <p className="live-question-label">
-        {question.type === "follow_up" ? "Уточнение" : "Вопрос"}
-      </p>
-      <h2 style={{ color: "white", fontSize: "clamp(28px, 3vw, 42px)", fontWeight: 400 }}>
-        {question.text}
-      </h2>
-      <p style={{ color: "#aaaab0" }}>
-        Вопрос озвучен синтезированным голосом. После озвучки запись начнётся автоматически.
-      </p>
+    <section className="live-copy live-copy-compact">
+      <h2 className="live-question-text">{question.text}</h2>
+      <p className="live-hint">После озвучки запись начнётся автоматически · до {limit} с</p>
       <audio ref={player} aria-label="Озвучка вопроса" />
       {needsPlay && (
         <button
@@ -173,74 +166,64 @@ export function InterviewQuestionStep({ question, token, onSaved }: {
           Прослушать вопрос
         </button>
       )}
-      <div className="candidate-camera" style={{ marginTop: 24 }}>
-        <video
-          ref={camera}
-          autoPlay
-          muted
-          playsInline
-          aria-label="Камера интервью"
-          style={{ width: "100%", height: "100%", objectFit: "cover" }}
-        />
-        {phase === "recording" && (
-          <span className="rec-chip">
-            <span className="recording-dot" /> REC
-          </span>
-        )}
-      </div>
-      <p
-        role="timer"
-        aria-label="Осталось времени"
-        className="timer"
-        style={{ color: "white", margin: "18px 0 8px" }}
-      >
-        {Math.floor(remaining / 60)}:{String(remaining % 60).padStart(2, "0")}
-      </p>
-      <p
-        role="status"
-        style={{
-          color: phase === "recording" ? "#ff8d86" : "#d0d0d4",
-          fontWeight: 600,
-        }}
-      >
-        {phase === "recording"
-          ? "● REC — идёт запись ответа"
-          : phase === "speaking"
-            ? "Звучит вопрос — таймер ещё не запущен"
-            : phase === "preparing"
-              ? "Подготавливаем озвучку и устройства…"
-              : phase === "recorded"
-                ? upload.status === "saved"
-                  ? "Ответ сохранён"
-                  : "Сохраняем ответ…"
-                : phase === "stopping"
-                  ? "Завершаем запись…"
-                  : "Запись остановлена"}
-      </p>
-      {phase === "recording" && (
-        <button type="button" className="btn dark" onClick={() => stop.current()}>
-          Закончить ответ
-        </button>
-      )}
-      {upload.status === "error" && (
-        <div>
-          <p role="alert">
-            {upload.error} Не закрывайте вкладку.
-          </p>
-          <button type="button" className="btn dark" onClick={() => void upload.queue.retry()}>
-            Повторить загрузку
-          </button>
+      <div className="live-stage">
+        <div className="candidate-camera interview-camera">
+          <video
+            ref={camera}
+            autoPlay
+            muted
+            playsInline
+            aria-label="Камера интервью"
+          />
+          {phase === "recording" && (
+            <span className="rec-chip">
+              <span className="recording-dot" /> REC
+            </span>
+          )}
         </div>
-      )}
-      {phase === "recording" && upload.status !== "error" && (
-        <p style={{ color: "#aaaab0" }}>Части ответа загружаются по ходу записи.</p>
-      )}
-      {error && <p role="alert">{error}</p>}
-      {phase === "error" && canRetry && (
-        <button type="button" className="btn dark" onClick={() => setAttempt(attempt + 1)}>
-          Повторить озвучку
-        </button>
-      )}
+        <div className="live-controls">
+          <p role="timer" aria-label="Осталось времени" className="timer">
+            {Math.floor(remaining / 60)}:{String(remaining % 60).padStart(2, "0")}
+          </p>
+          <p
+            role="status"
+            className={`live-phase${phase === "recording" ? " recording" : ""}`}
+          >
+            {phase === "recording"
+              ? "● REC — идёт запись"
+              : phase === "speaking"
+                ? "Звучит вопрос"
+                : phase === "preparing"
+                  ? "Подготовка…"
+                  : phase === "recorded"
+                    ? upload.status === "saved"
+                      ? "Ответ сохранён"
+                      : "Сохраняем…"
+                    : phase === "stopping"
+                      ? "Завершаем…"
+                      : "Остановлено"}
+          </p>
+          {phase === "recording" && (
+            <button type="button" className="btn dark" onClick={() => stop.current()}>
+              Закончить ответ
+            </button>
+          )}
+          {upload.status === "error" && (
+            <div>
+              <p role="alert">{upload.error} Не закрывайте вкладку.</p>
+              <button type="button" className="btn dark" onClick={() => void upload.queue.retry()}>
+                Повторить загрузку
+              </button>
+            </div>
+          )}
+          {error && <p role="alert">{error}</p>}
+          {phase === "error" && canRetry && (
+            <button type="button" className="btn dark" onClick={() => setAttempt(attempt + 1)}>
+              Повторить озвучку
+            </button>
+          )}
+        </div>
+      </div>
     </section>
   );
 }

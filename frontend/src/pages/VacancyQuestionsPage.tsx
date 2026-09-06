@@ -1,16 +1,19 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import {
+  Vacancy,
   VacancyQuestion,
   approveVacancyQuestion,
   approveVacancyQuestions,
   generateCoreQuestions,
+  getVacancy,
   listVacancyQuestions,
   updateVacancyQuestion,
 } from "../api/client";
 import { Breadcrumbs, EmptyState, PageHead, StatusPill } from "../layouts/Shell";
 
 export function VacancyQuestionsPage({ token, vacancyId }: { token: string; vacancyId: string }) {
+  const [vacancy, setVacancy] = useState<Vacancy | null>(null);
   const [questions, setQuestions] = useState<VacancyQuestion[] | null>(null);
   const [drafts, setDrafts] = useState<Record<string, string>>({});
   const [error, setError] = useState("");
@@ -19,10 +22,20 @@ export function VacancyQuestionsPage({ token, vacancyId }: { token: string; vaca
   const specialist = sessionStorage.getItem("internal-role") === "technical_specialist";
   const approved = questions !== null && questions.length > 0 && questions.every((q) => q.reviewed_by_expert);
 
+  const topicTitle = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const topic of vacancy?.topics ?? []) map.set(topic.id, topic.title);
+    return map;
+  }, [vacancy]);
+
   useEffect(() => {
     const controller = new AbortController();
-    listVacancyQuestions(token, vacancyId, controller.signal)
-      .then((rows) => {
+    Promise.all([
+      getVacancy(token, vacancyId, controller.signal),
+      listVacancyQuestions(token, vacancyId, controller.signal),
+    ])
+      .then(([nextVacancy, rows]) => {
+        setVacancy(nextVacancy);
         setQuestions(rows);
         setDrafts(Object.fromEntries(rows.map((row) => [row.id, row.text])));
       })
@@ -109,15 +122,21 @@ export function VacancyQuestionsPage({ token, vacancyId }: { token: string; vaca
         eyebrow="Ревью техспециалиста"
         title="Вопросы интервью"
         actions={
-          <StatusPill tone={approved ? "success" : "blue"}>
-            {approved ? "Подтверждены" : "Ожидают подтверждения"}
-          </StatusPill>
+          <div className="inline">
+            <StatusPill tone={approved ? "success" : "blue"}>
+              {approved ? "Подтверждены" : "Черновики"}
+            </StatusPill>
+            <button type="button" className="btn small ghost" disabled={busy} onClick={() => void generate()}>
+              {busy ? "…" : "Сгенерировать"}
+            </button>
+            {specialist && (
+              <button type="button" className="btn small primary" disabled={busy || approved} onClick={() => void approve()}>
+                Подтвердить все
+              </button>
+            )}
+          </div>
         }
       />
-      <p className="meta">
-        Интервью не запускается, пока техспециалист не подтвердит список. Подтверждённые вопросы
-        раскрываются под резюме кандидата при выпуске приглашения.
-      </p>
       {notice && <p className="activity-note" role="status">{notice}</p>}
 
       {questions === null ? (
@@ -125,50 +144,46 @@ export function VacancyQuestionsPage({ token, vacancyId }: { token: string; vaca
       ) : questions.length === 0 ? (
         <EmptyState title="Вопросов нет" text="Сгенерируйте ядро вопросов по топикам вакансии." />
       ) : (
-        <div className="matrix">
-          {questions.map((question, index) => (
-            <section className="panel" key={question.id}>
-              <div className="inline">
-                <span className="meta">Вопрос {index + 1}</span>
-                <span className="spacer" />
+        <div className="question-editor-list compact-questions">
+          {questions.map((question) => (
+            <section className="question-editor" key={question.id}>
+              <div className="question-editor-head">
+                <div>
+                  <h3>{topicTitle.get(question.topic_id) ?? "Топик"}</h3>
+                  <p className="meta" style={{ margin: "4px 0 0" }}>
+                    {question.type}
+                    {question.source_reason ? ` · ${question.source_reason}` : ""}
+                  </p>
+                </div>
                 <StatusPill tone={question.reviewed_by_expert ? "success" : "blue"}>
                   {question.reviewed_by_expert ? "подтверждён" : "черновик"}
                 </StatusPill>
               </div>
               <textarea
-                aria-label={`Вопрос ${index + 1}`}
+                aria-label={`Вопрос · ${topicTitle.get(question.topic_id) ?? question.id}`}
+                rows={3}
                 value={drafts[question.id] ?? ""}
                 disabled={!specialist}
                 onChange={(event) =>
                   setDrafts((rows) => ({ ...rows, [question.id]: event.target.value }))
                 }
               />
-              {question.source_reason && <p className="meta">{question.source_reason}</p>}
               {specialist && (
-                <button
-                  type="button"
-                  className="btn small ghost"
-                  disabled={busy || (question.reviewed_by_expert && drafts[question.id] === question.text)}
-                  onClick={() => void confirm(question)}
-                >
-                  {drafts[question.id] !== question.text ? "Сохранить и подтвердить" : "Подтвердить"}
-                </button>
+                <div className="question-actions">
+                  <button
+                    type="button"
+                    className="btn small ghost"
+                    disabled={busy || (question.reviewed_by_expert && drafts[question.id] === question.text)}
+                    onClick={() => void confirm(question)}
+                  >
+                    {drafts[question.id] !== question.text ? "Сохранить и подтвердить" : "Подтвердить"}
+                  </button>
+                </div>
               )}
             </section>
           ))}
         </div>
       )}
-
-      <div className="inline" style={{ marginTop: 24, justifyContent: "flex-end" }}>
-        <button type="button" className="btn ghost" disabled={busy} onClick={() => void generate()}>
-          {busy ? "Работаем…" : "Сгенерировать недостающие"}
-        </button>
-        {specialist && (
-          <button type="button" className="btn primary" disabled={busy || approved} onClick={() => void approve()}>
-            Подтвердить все
-          </button>
-        )}
-      </div>
       {!specialist && (
         <p className="meta">Подтверждать и править вопросы может только техспециалист.</p>
       )}

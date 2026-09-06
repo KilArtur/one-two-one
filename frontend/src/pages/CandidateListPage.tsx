@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 
 import {
   CandidateOverview,
@@ -18,19 +18,25 @@ import {
   coveragePct,
   coverageText,
 } from "../lib/labels";
+import { candidateCode } from "../lib/candidateCode";
 
 type RecommendationFilter = "" | "fit" | "not_fit" | "additional_check" | "none";
 type SortBasis = "mandatory" | "desired";
 type SortKey = "coverage_desc" | "coverage_asc";
 
-/** Целевое покрытие — по обязательным навыкам. */
+/** Покрытие обязательных: доля подтверждённых (всегда, даже при спорных). */
 function mandatoryOf(candidate: CandidateOverview): number | null {
-  return candidate.mandatory_coverage ?? null;
+  return candidate.mandatory_confirmed_share ?? candidate.mandatory_coverage ?? null;
 }
 
-/** Дополнительное покрытие — по желательным навыкам. */
+/** Покрытие желательных: доля подтверждённых. */
 function desiredOf(candidate: CandidateOverview): number | null {
-  return candidate.desired_coverage ?? null;
+  return candidate.desired_confirmed_share ?? candidate.desired_coverage ?? null;
+}
+
+/** Потенциал по обязательным: подтверждено + требует проверки. */
+function mandatoryPotentialOf(candidate: CandidateOverview): number | null {
+  return candidate.mandatory_potential_share ?? null;
 }
 
 function coverageBy(candidate: CandidateOverview, basis: SortBasis): number | null {
@@ -48,6 +54,7 @@ export function CandidateListPage({ token, vacancyId }: { token: string; vacancy
   const [linkInfo, setLinkInfo] = useState("");
   const [revision, setRevision] = useState(0);
   const [resume, setResume] = useState("");
+  const [fullName, setFullName] = useState("");
   const [sourceText, setSourceText] = useState("");
   const [card, setCard] = useState<ResumeCard["profile"] | null>(null);
   const [resumeNote, setResumeNote] = useState("");
@@ -80,6 +87,7 @@ export function CandidateListPage({ token, vacancyId }: { token: string; vacancy
     try {
       const parsed = await draftResumeCard(token, file);
       setCard(parsed.profile);
+      setFullName(parsed.profile.full_name || "");
       setResume(parsed.resume_text);
       setSourceText(parsed.source_text ?? "");
       setResumeNote(
@@ -98,9 +106,10 @@ export function CandidateListPage({ token, vacancyId }: { token: string; vacancy
   async function invite() {
     setCreating(true);
     try {
-      const candidate = await createCandidate(token, vacancyId, resume);
+      const candidate = await createCandidate(token, vacancyId, resume, fullName || card?.full_name);
       await copyLink(candidate.id);
       setResume("");
+      setFullName("");
       setSourceText("");
       setCard(null);
       setResumeNote("");
@@ -249,34 +258,36 @@ export function CandidateListPage({ token, vacancyId }: { token: string; vacancy
             <option value="desired">желательным</option>
           </select>
         </label>
-        <span className="spacer" />
-        <Link className="btn ghost" to="/staff/vacancies/new">
-          Новая вакансия
-        </Link>
       </div>
 
-      {recruiter && <section className="panel" style={{ marginTop: 20 }}>
-        <label htmlFor="candidate-resume-pdf">Резюме в PDF (необязательно)</label>
-        <p className="meta">
-          Сначала считываем текст из PDF, затем модель извлекает основное — как у вакансии. Карточку
-          и текст ниже можно поправить перед приглашением.
-        </p>
-        <input
-          id="candidate-resume-pdf"
-          type="file"
-          accept="application/pdf"
-          disabled={parsing}
-          onChange={(event) => {
-            const file = event.target.files?.[0];
-            event.target.value = "";
-            if (file) void loadResume(file);
-          }}
-        />
-        {parsing && <p role="status">Считываем текст и извлекаем основное…</p>}
-        {!parsing && resumeNote && <p role="status">{resumeNote}</p>}
-        {card && (card.full_name || card.headline || card.skills.length > 0) && (
-          <div className="matrix" style={{ marginBottom: 16 }}>
-            <section className="panel" aria-label="Извлечённое основное">
+      {recruiter && (
+        <section className="panel candidate-invite" style={{ marginTop: 28 }}>
+          <div className="form-group">
+            <label htmlFor="candidate-resume-pdf">Резюме в PDF (необязательно)</label>
+            <p className="meta">
+              Сначала считываем текст из PDF, затем модель извлекает основное — как у вакансии. Карточку
+              и текст ниже можно поправить перед приглашением.
+            </p>
+            <input
+              id="candidate-resume-pdf"
+              type="file"
+              accept="application/pdf"
+              disabled={parsing}
+              onChange={(event) => {
+                const file = event.target.files?.[0];
+                event.target.value = "";
+                if (file) void loadResume(file);
+              }}
+            />
+            {parsing && <p role="status">Считываем текст и извлекаем основное…</p>}
+            {!parsing && resumeNote && <p role="status">{resumeNote}</p>}
+          </div>
+          {card && (card.full_name || card.headline || card.skills.length > 0) && (
+            <div
+              className="candidate-invite-card"
+              role="region"
+              aria-label="Извлечённое основное"
+            >
               <div className="title-cell">{card.full_name || "Кандидат"}</div>
               {card.headline && <p className="meta">{card.headline}</p>}
               {card.skills.length > 0 && (
@@ -305,21 +316,37 @@ export function CandidateListPage({ token, vacancyId }: { token: string; vacancy
                   </ul>
                 </>
               )}
-            </section>
+            </div>
+          )}
+          {sourceText && (
+            <details className="candidate-invite-source">
+              <summary className="meta">Текст из PDF</summary>
+              <p style={{ whiteSpace: "pre-wrap" }}>{sourceText}</p>
+            </details>
+          )}
+          <div className="form-group">
+            <label htmlFor="candidate-full-name">Имя и фамилия</label>
+            <input
+              id="candidate-full-name"
+              className="field"
+              value={fullName}
+              onChange={(event) => setFullName(event.target.value)}
+              placeholder="Как показывать в списке кандидатов"
+            />
           </div>
-        )}
-        {sourceText && (
-          <details style={{ marginBottom: 16 }}>
-            <summary className="meta">Текст из PDF</summary>
-            <p style={{ whiteSpace: "pre-wrap" }}>{sourceText}</p>
-          </details>
-        )}
-        <label htmlFor="candidate-resume">Основное из резюме (необязательно)</label>
-        <textarea id="candidate-resume" value={resume} onChange={(event) => setResume(event.target.value)} />
-        <button className="btn primary" disabled={creating || parsing} onClick={() => void invite()}>
-          {creating ? "Создаём приглашение…" : "Пригласить кандидата"}
-        </button>
-      </section>}
+          <div className="form-group">
+            <label htmlFor="candidate-resume">Основное из резюме (необязательно)</label>
+            <textarea
+              id="candidate-resume"
+              value={resume}
+              onChange={(event) => setResume(event.target.value)}
+            />
+          </div>
+          <button className="btn primary" disabled={creating || parsing} onClick={() => void invite()}>
+            {creating ? "Создаём приглашение…" : "Пригласить кандидата"}
+          </button>
+        </section>
+      )}
       {linkInfo && <p className="activity-note" role="status">{linkInfo}</p>}
 
       {candidates === null ? (
@@ -343,7 +370,7 @@ export function CandidateListPage({ token, vacancyId }: { token: string; vacancy
                 <th aria-sort={sort === "coverage_asc" ? "ascending" : "descending"}>
                   <button
                     type="button"
-                    className="btn small ghost"
+                    className="table-sort"
                     aria-label="Сортировать по проценту покрытия"
                     onClick={() =>
                       setSort((value) => (value === "coverage_desc" ? "coverage_asc" : "coverage_desc"))
@@ -367,7 +394,9 @@ export function CandidateListPage({ token, vacancyId }: { token: string; vacancy
                   onClick={() => navigate(`/staff/candidates/${candidate.candidate_id}`)}
                 >
                   <td>
-                    <div className="title-cell">{candidate.candidate_id.slice(0, 8)}…</div>
+                    <div className="title-cell">
+                      {candidateCode(candidate.candidate_id)}
+                    </div>
                     <div className="cell-sub">{candidate.candidate_status}</div>
                   </td>
                   <td>
@@ -379,8 +408,11 @@ export function CandidateListPage({ token, vacancyId }: { token: string; vacancy
                     )}
                   </td>
                   <td>
-                    <div className="title-cell">{coveragePct(mandatoryOf(candidate))}</div>
-                    <div className="cell-sub">желательные: {coveragePct(desiredOf(candidate))}</div>
+                    <div className="title-cell">обяз. {coveragePct(mandatoryOf(candidate))}</div>
+                    <div className="cell-sub">желат. {coveragePct(desiredOf(candidate), "нет")}</div>
+                    <div className="cell-sub">
+                      потенциал обяз. {coveragePct(mandatoryPotentialOf(candidate))}
+                    </div>
                     <div className="cell-sub">
                       {coverageText(
                         candidate.confirmed_count,
@@ -394,30 +426,32 @@ export function CandidateListPage({ token, vacancyId }: { token: string; vacancy
                       ? RECOMMENDATION_LABEL[candidate.recommendation] ?? candidate.recommendation
                       : "—"}
                   </td>
-                  <td className="inline">
-                    <button
-                      type="button"
-                      className="btn small ghost"
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        void copyLink(candidate.candidate_id);
-                      }}
-                    >
-                      Ссылка
-                    </button>
-                    {recruiter && (
+                  <td className="table-actions">
+                    <div className="table-actions-inner">
                       <button
                         type="button"
-                        className="btn small ghost"
-                        disabled={busyId === candidate.candidate_id}
+                        className="table-action"
                         onClick={(event) => {
                           event.stopPropagation();
-                          void remove(candidate.candidate_id);
+                          void copyLink(candidate.candidate_id);
                         }}
                       >
-                        Удалить
+                        Ссылка
                       </button>
-                    )}
+                      {recruiter && (
+                        <button
+                          type="button"
+                          className="table-action table-action-danger"
+                          disabled={busyId === candidate.candidate_id}
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            void remove(candidate.candidate_id);
+                          }}
+                        >
+                          Удалить
+                        </button>
+                      )}
+                    </div>
                   </td>
                 </tr>
               ))}

@@ -22,6 +22,7 @@ const overview = (
   extras: Partial<client.CandidateOverview> = {},
 ): client.CandidateOverview => ({
   candidate_id: id,
+  full_name: extras.full_name ?? `Кандидат ${id}`,
   candidate_status: "submitted",
   processing_status: status,
   confirmed_count: 3,
@@ -31,6 +32,9 @@ const overview = (
   skill_coverage: 0.75,
   mandatory_coverage: null,
   desired_coverage: null,
+  mandatory_confirmed_share: extras.mandatory_confirmed_share ?? extras.mandatory_coverage ?? null,
+  desired_confirmed_share: extras.desired_confirmed_share ?? extras.desired_coverage ?? null,
+  mandatory_potential_share: extras.mandatory_potential_share ?? null,
   ...extras,
 });
 
@@ -45,6 +49,9 @@ beforeEach(() => {
       skill_coverage: 0.25,
       mandatory_coverage: 0.25,
       desired_coverage: 0,
+      mandatory_confirmed_share: 0.25,
+      desired_confirmed_share: 0,
+      mandatory_potential_share: 0.25,
     }),
     overview("c-high", "ready", {
       recommendation: "fit",
@@ -54,6 +61,9 @@ beforeEach(() => {
       skill_coverage: 1,
       mandatory_coverage: 1,
       desired_coverage: 1,
+      mandatory_confirmed_share: 1,
+      desired_confirmed_share: 1,
+      mandatory_potential_share: 1,
     }),
     overview("c-error", "error", {
       recommendation: "additional_check",
@@ -61,8 +71,11 @@ beforeEach(() => {
       needs_check_count: 2,
       not_confirmed_count: 0,
       skill_coverage: 0.5,
-      mandatory_coverage: 0.5,
+      mandatory_coverage: null,
       desired_coverage: 0.5,
+      mandatory_confirmed_share: 0.5,
+      desired_confirmed_share: 0.5,
+      mandatory_potential_share: 1,
     }),
   ]);
 });
@@ -77,12 +90,14 @@ describe("CandidateListPage", () => {
     await waitFor(() => screen.getAllByTestId("candidate-row"));
     const rows = screen.getAllByTestId("candidate-row");
     expect(rows).toHaveLength(3);
-    expect(rows[0].textContent).toContain("c-high");
-    expect(rows[0].textContent).toContain("100%");
+    expect(rows[0].textContent).toContain("К-c-high");
+    expect(rows[0].textContent).toContain("обяз. 100%");
+    expect(rows[0].textContent).toContain("желат. 100%");
+    expect(rows[0].textContent).toContain("потенциал обяз. 100%");
     expect(screen.getByText("Среднее (обязательные)").previousElementSibling?.textContent).toBe("58%");
     fireEvent.click(screen.getByRole("button", { name: "Сортировать по проценту покрытия" }));
-    expect(screen.getAllByTestId("candidate-row")[0].textContent).toContain("c-low");
-    expect(screen.getAllByTestId("candidate-row")[0].textContent).toContain("25%");
+    expect(screen.getAllByTestId("candidate-row")[0].textContent).toContain("К-c-low");
+    expect(screen.getAllByTestId("candidate-row")[0].textContent).toContain("обяз. 25%");
   });
 
   it("визуально помечает кандидата в состоянии error", async () => {
@@ -111,7 +126,7 @@ describe("CandidateListPage", () => {
       target: { value: "not_fit" },
     });
     await waitFor(() => expect(screen.getAllByTestId("candidate-row")).toHaveLength(1));
-    expect(screen.getAllByTestId("candidate-row")[0].textContent).toContain("c-low");
+    expect(screen.getAllByTestId("candidate-row")[0].textContent).toContain("К-c-low");
   });
 
   it("после PDF показывает извлечённое основное и текст из файла", async () => {

@@ -1,8 +1,9 @@
 import { FormEvent, ReactNode, useState } from "react";
 import { Brand, StaffShell } from "../layouts/Shell";
-import { internalLogin } from "../api/client";
+import { internalLogin, internalRegister } from "../api/client";
 
 type Role = "recruiter" | "technical_specialist" | "hiring_manager";
+type Mode = "login" | "register";
 
 const ROLES: { id: Role; title: string; text: string }[] = [
   {
@@ -25,27 +26,35 @@ const ROLES: { id: Role; title: string; text: string }[] = [
 export function InternalSession({ children }: { children: (token: string) => ReactNode }) {
   const [token, setToken] = useState(() => sessionStorage.getItem("internal-session") ?? "");
   const [role, setRole] = useState<Role | null>(null);
+  const [mode, setMode] = useState<Mode>("login");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
 
-  async function login(event: FormEvent<HTMLFormElement>) {
+  async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!role) return;
     setBusy(true);
     setError("");
     const data = new FormData(event.currentTarget);
+    const username = String(data.get("username"));
+    const password = String(data.get("password"));
     try {
-      const next = await internalLogin(
-        String(data.get("username")),
-        String(data.get("password")),
-        role,
-      );
+      const next =
+        mode === "register"
+          ? await internalRegister(username, password, role)
+          : await internalLogin(username, password, role);
       sessionStorage.setItem("internal-session", next);
       sessionStorage.setItem("internal-role", role);
-      sessionStorage.setItem("internal-username", String(data.get("username")));
+      sessionStorage.setItem("internal-username", username);
       setToken(next);
     } catch (reason) {
-      setError(reason instanceof Error ? reason.message : "Ошибка входа.");
+      setError(
+        reason instanceof Error
+          ? reason.message
+          : mode === "register"
+            ? "Ошибка регистрации."
+            : "Ошибка входа.",
+      );
     } finally {
       setBusy(false);
     }
@@ -57,6 +66,7 @@ export function InternalSession({ children }: { children: (token: string) => Rea
     sessionStorage.removeItem("internal-username");
     setToken("");
     setRole(null);
+    setMode("login");
   }
 
   if (token) {
@@ -74,14 +84,8 @@ export function InternalSession({ children }: { children: (token: string) => Rea
       <div className="auth">
         <div className="auth-head">
           <Brand />
-          <span className="meta" style={{ color: "#9a9aa0" }}>
-            Вход для команды подбора
-          </span>
         </div>
         <div className="auth-main">
-          <p className="eyebrow" style={{ color: "#8f8f95" }}>
-            Adaptive Interview
-          </p>
           <h1>
             Выберите роль,
             <br />
@@ -93,7 +97,11 @@ export function InternalSession({ children }: { children: (token: string) => Rea
                 key={item.id}
                 type="button"
                 className="role-card"
-                onClick={() => setRole(item.id)}
+                onClick={() => {
+                  setRole(item.id);
+                  setMode("login");
+                  setError("");
+                }}
               >
                 <div>
                   <b>{item.title}</b>
@@ -103,10 +111,6 @@ export function InternalSession({ children }: { children: (token: string) => Rea
               </button>
             ))}
           </div>
-        </div>
-        <div className="auth-foot">
-          <span>Логин любой · пароль = INTERNAL_AUTH_PASSWORD из .env (по умолчанию change-me)</span>
-          <span>Финальное решение всегда за человеком</span>
         </div>
       </div>
     );
@@ -121,43 +125,59 @@ export function InternalSession({ children }: { children: (token: string) => Rea
           Другая роль
         </button>
       </div>
-      <div className="auth-main" style={{ maxWidth: 520 }}>
-        <p className="eyebrow" style={{ color: "#8f8f95" }}>
-          {current.title}
-        </p>
-        <h1 style={{ fontSize: "clamp(42px, 6vw, 64px)", marginBottom: 36 }}>Вход</h1>
-        <form onSubmit={(event) => void login(event)}>
-          <div className="form-group" style={{ marginBottom: 16 }}>
-            <label htmlFor="username" style={{ color: "#b8b8bd" }}>
-              Имя пользователя
-            </label>
-            <input
-              id="username"
-              name="username"
-              required
-              autoComplete="username"
-              style={{ background: "#1c1c20", borderColor: "#414146", color: "white" }}
-            />
+      <div className="auth-main auth-form">
+        <p className="eyebrow">{current.title}</p>
+        <h1 className="auth-form-title">{mode === "register" ? "Регистрация" : "Вход"}</h1>
+        <div className="inline auth-mode">
+          <button
+            type="button"
+            className={`btn small ${mode === "login" ? "primary" : "dark"}`}
+            onClick={() => {
+              setMode("login");
+              setError("");
+            }}
+          >
+            Войти
+          </button>
+          <button
+            type="button"
+            className={`btn small ${mode === "register" ? "primary" : "dark"}`}
+            onClick={() => {
+              setMode("register");
+              setError("");
+            }}
+          >
+            Зарегистрироваться
+          </button>
+        </div>
+        <form onSubmit={(event) => void submit(event)}>
+          <div className="form-group">
+            <label htmlFor="username">Имя пользователя</label>
+            <input id="username" name="username" required autoComplete="username" />
           </div>
-          <div className="form-group" style={{ marginBottom: 24 }}>
-            <label htmlFor="password" style={{ color: "#b8b8bd" }}>
-              Пароль
-            </label>
+          <div className="form-group">
+            <label htmlFor="password">Пароль</label>
             <input
               id="password"
               name="password"
               type="password"
               required
-              autoComplete="current-password"
-              style={{ background: "#1c1c20", borderColor: "#414146", color: "white" }}
+              minLength={mode === "register" ? 6 : 1}
+              autoComplete={mode === "register" ? "new-password" : "current-password"}
             />
           </div>
           <input type="hidden" name="role" value={role} />
           <button className="btn primary" disabled={busy} type="submit">
-            {busy ? "Входим…" : "Войти"}
+            {busy
+              ? mode === "register"
+                ? "Создаём…"
+                : "Входим…"
+              : mode === "register"
+                ? "Создать аккаунт"
+                : "Войти"}
           </button>
           {error && (
-            <p role="alert" style={{ color: "#ff8d86", marginTop: 16 }}>
+            <p role="alert" className="auth-error">
               {error}
             </p>
           )}

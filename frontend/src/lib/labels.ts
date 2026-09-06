@@ -10,9 +10,9 @@ export const PROCESSING_LABEL: Record<string, string> = {
 };
 
 export const STATUS_LABEL: Record<string, string> = {
-  confirmed: "✅ подтверждено",
-  needs_check: "❓ требует проверки",
-  not_confirmed: "❌ не подтверждено",
+  confirmed: "подтверждено",
+  needs_check: "требует проверки",
+  not_confirmed: "не подтверждено",
   out_of_scope: "вне зоны интервью",
 };
 
@@ -53,7 +53,7 @@ export const ROLE_LABEL: Record<string, string> = {
 };
 
 export function coverageText(confirmed: number, needs: number, notConfirmed: number): string {
-  return `✅ ${confirmed} · ❓ ${needs} · ❌ ${notConfirmed}`;
+  return `${confirmed} подтв. · ${needs} проверка · ${notConfirmed} нет`;
 }
 
 export function skillCoverage(
@@ -67,8 +67,9 @@ export function skillCoverage(
   return total === 0 ? null : confirmed / total;
 }
 
-export function coveragePct(value: number | null): string {
-  return value === null ? "—" : `${Math.round(value * 100)}%`;
+/** Доля покрытия; `empty` — подпись, когда группы нет или данных ещё нет. */
+export function coveragePct(value: number | null, empty = "—"): string {
+  return value === null ? empty : `${Math.round(value * 100)}%`;
 }
 
 export function pct(share: number | null, count: number, total: number): string {

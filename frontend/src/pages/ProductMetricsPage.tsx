@@ -4,9 +4,9 @@ import { Breadcrumbs, PageHead } from "../layouts/Shell";
 import { pct } from "../lib/labels";
 
 const labels: Record<string, string> = {
-  confirmed: "✅ подтверждено",
-  needs_check: "❓ требует проверки",
-  not_confirmed: "❌ не подтверждено",
+  confirmed: "подтверждено",
+  needs_check: "требует проверки",
+  not_confirmed: "не подтверждено",
 };
 
 function share(value: MetricShare): string {
@@ -43,7 +43,7 @@ export function ProductMetricsPage({ token, vacancyId }: { token: string; vacanc
       <Breadcrumbs items={[{ label: "Команда", to: "/staff/overview" }, { label: "Метрики" }]} />
       <PageHead
         eyebrow="Раздел 11.2"
-        title="Продуктовые метрики"
+        title="Метрики"
         actions={
           <button
             type="button"

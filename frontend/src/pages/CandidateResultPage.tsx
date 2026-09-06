@@ -1,6 +1,6 @@
 import { ResultAccessPanel } from "../components/ResultAccessPanel";
 import { ResultLinkContext } from "../components/ResultLinkContext";
-import { useContext, useEffect, useState } from "react";
+import { useContext, useEffect, useMemo, useState } from "react";
 
 import {
   ResultTopicRow,
@@ -19,8 +19,12 @@ import {
   RECOMMENDATION_LABEL,
   STATUS_LABEL,
   STATUS_TONE,
+  coveragePct,
   coverageText,
 } from "../lib/labels";
+import { candidateCode } from "../lib/candidateCode";
+
+type TopicDraft = { status: string; comment: string };
 
 function canEditTopic(shared: boolean, skillType: string): boolean {
   if (shared) return false;
@@ -31,46 +35,28 @@ function canEditTopic(shared: boolean, skillType: string): boolean {
 }
 
 function TopicStatusEditor({
-  token,
-  candidateId,
   topic,
-  onSaved,
+  draft,
+  busy,
+  onChange,
+  onSave,
 }: {
-  token: string;
-  candidateId: string;
   topic: ResultTopicRow;
-  onSaved: () => void;
+  draft: TopicDraft;
+  busy: boolean;
+  onChange: (next: TopicDraft) => void;
+  onSave: () => void;
 }) {
-  const [status, setStatus] = useState(topic.current_status);
-  const [comment, setComment] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState("");
-
-  async function save() {
-    if (busy) return;
-    setBusy(true);
-    setError("");
-    try {
-      await changeTopicStatus(token, candidateId, topic.topic_id, status, comment);
-      setComment("");
-      onSaved();
-    } catch (reason) {
-      setError(reason instanceof Error ? reason.message : "Не удалось сохранить статус.");
-    } finally {
-      setBusy(false);
-    }
-  }
-
   return (
-    <div>
+    <div className="topic-edit">
       <label>
         <span className="meta">Статус</span>
         <select
           className="field"
           aria-label={`Статус топика ${topic.topic_title}`}
-          value={status}
+          value={draft.status}
           disabled={busy}
-          onChange={(event) => setStatus(event.target.value)}
+          onChange={(event) => onChange({ ...draft, status: event.target.value })}
         >
           <option value="confirmed">подтверждено</option>
           <option value="needs_check">требует проверки</option>
@@ -83,23 +69,22 @@ function TopicStatusEditor({
           className="field"
           aria-label={`Комментарий к статусу ${topic.topic_title}`}
           maxLength={2000}
-          value={comment}
+          value={draft.comment}
           disabled={busy}
           placeholder="Комментарий (необязательно)"
-          onChange={(event) => setComment(event.target.value)}
+          onChange={(event) => onChange({ ...draft, comment: event.target.value })}
         />
       </label>
-      <button
-        type="button"
-        className="btn small"
-        disabled={busy}
-        onClick={() => void save()}
-      >
+      <button type="button" className="btn small" disabled={busy} onClick={onSave}>
         {busy ? "Сохраняем…" : "Сохранить"}
       </button>
-      {error && <p role="alert">{error}</p>}
     </div>
   );
+}
+
+function isDirty(topic: ResultTopicRow, draft: TopicDraft | undefined): boolean {
+  if (!draft) return false;
+  return draft.status !== topic.current_status || draft.comment.trim().length > 0;
 }
 
 export function CandidateResultPage({
@@ -121,6 +106,10 @@ export function CandidateResultPage({
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [revision, setRevision] = useState(0);
+  const [drafts, setDrafts] = useState<Record<string, TopicDraft>>({});
+  const [savingIds, setSavingIds] = useState<string[]>([]);
+  const [saveError, setSaveError] = useState("");
+  const [saveNotice, setSaveNotice] = useState("");
 
   useEffect(() => {
     const controller = new AbortController();
@@ -133,6 +122,53 @@ export function CandidateResultPage({
       });
     return () => controller.abort();
   }, [token, candidateId, resultLink, revision]);
+
+  useEffect(() => {
+    if (!card) return;
+    setDrafts(
+      Object.fromEntries(
+        card.topics.map((row) => [row.topic_id, { status: row.current_status, comment: "" }]),
+      ),
+    );
+    setSaveError("");
+    setSaveNotice("");
+  }, [card]);
+
+  const editableTopics = useMemo(
+    () => (card ? card.topics.filter((row) => canEditTopic(shared, row.skill_type)) : []),
+    [card, shared],
+  );
+  const dirtyIds = useMemo(
+    () =>
+      editableTopics
+        .filter((row) => isDirty(row, drafts[row.topic_id]))
+        .map((row) => row.topic_id),
+    [editableTopics, drafts],
+  );
+  const saving = savingIds.length > 0;
+
+  async function saveTopics(topicIds: string[]) {
+    if (!card || topicIds.length === 0 || saving) return;
+    setSavingIds(topicIds);
+    setSaveError("");
+    setSaveNotice("");
+    try {
+      for (const topicId of topicIds) {
+        const row = card.topics.find((item) => item.topic_id === topicId);
+        const draft = drafts[topicId];
+        if (!row || !draft) continue;
+        await changeTopicStatus(token, candidateId, topicId, draft.status, draft.comment);
+      }
+      setSaveNotice(
+        topicIds.length === 1 ? "Статус сохранён." : `Сохранено топиков: ${topicIds.length}.`,
+      );
+      setRevision((value) => value + 1);
+    } catch (reason) {
+      setSaveError(reason instanceof Error ? reason.message : "Не удалось сохранить статусы.");
+    } finally {
+      setSavingIds([]);
+    }
+  }
 
   async function remove() {
     if (!window.confirm("Удалить кандидата и его интервью?")) return;
@@ -168,65 +204,69 @@ export function CandidateResultPage({
 
       <div className="result-hero">
         <p className="eyebrow" style={{ color: "#9d99ff" }}>
-          Карточка результата
+          {candidateCode(card.candidate_id)}
         </p>
         <h1>{RECOMMENDATION_LABEL[card.recommendation] ?? card.recommendation}</h1>
-        <p>
-          Правило Р5: {REASON_LABEL[card.recommendation_reason] ?? card.recommendation_reason}.
-          Покрытие требований — тройка статусов, без числовой оценки.
-        </p>
+        <p>{REASON_LABEL[card.recommendation_reason] ?? card.recommendation_reason}.</p>
       </div>
 
-      <div className="metric-strip" aria-label="Покрытие">
+      <div className="metric-strip metric-strip-coverage" aria-label="Покрытие">
         <div className="metric recommendation">
           <span className="label">Рекомендация</span>
           <span className="value">{RECOMMENDATION_LABEL[card.recommendation] ?? card.recommendation}</span>
           <span className="detail">{REASON_LABEL[card.recommendation_reason] ?? card.recommendation_reason}</span>
         </div>
         <div className="metric">
-          <span className="label">Подтверждено</span>
-          <span className="value">{card.confirmed_count}</span>
-          <span className="detail">{coverageText(card.confirmed_count, card.needs_check_count, card.not_confirmed_count)}</span>
-        </div>
-        <div className="metric">
-          <span className="label">К проверке</span>
-          <span className="value">{card.needs_check_count}</span>
-          <span className="detail">needs_check</span>
-        </div>
-        <div className="metric">
           <span className="label">Обязательные</span>
           <span className="value">
-            {card.mandatory_coverage === null ? "—" : `${Math.round(card.mandatory_coverage * 100)}%`}
+            {coveragePct(card.mandatory_confirmed_share ?? card.mandatory_coverage)}
+          </span>
+          <span className="detail">подтверждено / все обязательные</span>
+        </div>
+        <div className="metric">
+          <span className="label">Желательные</span>
+          <span className="value">
+            {coveragePct(card.desired_confirmed_share ?? card.desired_coverage, "нет")}
           </span>
           <span className="detail">
-            желательные:{" "}
-            {card.desired_coverage === null ? "—" : `${Math.round(card.desired_coverage * 100)}%`}
+            {(card.desired_confirmed_share ?? card.desired_coverage) === null
+              ? "желательных топиков нет"
+              : "подтверждено / все желательные"}
+          </span>
+        </div>
+        <div className="metric">
+          <span className="label">Потенциал обяз.</span>
+          <span className="value">{coveragePct(card.mandatory_potential_share ?? null)}</span>
+          <span className="detail">
+            подтв. + проверка ·{" "}
+            {coverageText(card.confirmed_count, card.needs_check_count, card.not_confirmed_count)}
           </span>
         </div>
       </div>
 
-      <section className="section" aria-label="Заявлено в резюме">
-        <div className="section-head">
-          <h2>Резюме</h2>
-          {recruiter && (
-            <button type="button" className="btn small ghost" disabled={busy} onClick={() => void remove()}>
-              Удалить кандидата
-            </button>
-          )}
-        </div>
-        <div className="panel">
-          {card.resume_text ? (
-            <p style={{ whiteSpace: "pre-wrap" }}>{card.resume_text}</p>
-          ) : (
-            <p className="meta">Резюме не прикладывали при приглашении.</p>
-          )}
-        </div>
-      </section>
-
       <section className="section" aria-label="Матрица топиков">
         <div className="section-head">
           <h2>Матрица требований (подтверждено в интервью)</h2>
+          <div className="inline">
+            {editableTopics.length > 0 && (
+              <button
+                type="button"
+                className="btn primary"
+                disabled={saving || dirtyIds.length === 0}
+                onClick={() => void saveTopics(dirtyIds)}
+              >
+                {saving && savingIds.length > 1 ? "Сохраняем всё…" : "Сохранить всё"}
+              </button>
+            )}
+            {recruiter && (
+              <button type="button" className="btn small ghost" disabled={busy} onClick={() => void remove()}>
+                Удалить кандидата
+              </button>
+            )}
+          </div>
         </div>
+        {saveError && <p role="alert">{saveError}</p>}
+        {saveNotice && <p role="status">{saveNotice}</p>}
         <div className="table-wrap">
           <table>
             <thead>
@@ -246,25 +286,32 @@ export function CandidateResultPage({
                   <td>{row.skill_type === "hard" ? "hard" : "soft"}</td>
                   <td>{row.importance === "mandatory" ? "обязательный" : "желательный"}</td>
                   <td>
-                    {row.reviewable ?? row.has_evidence ? (
-                      <button type="button" className="btn small ghost" onClick={() => setTopic(row.topic_id)}>
-                        {STATUS_LABEL[row.current_status] ?? row.current_status}
-                        {row.has_evidence ? " — цитата и видео" : " — видео и транскрипт"}
-                      </button>
-                    ) : (
+                    <div className="topic-status-cell">
                       <StatusPill tone={STATUS_TONE[row.current_status]}>
                         {STATUS_LABEL[row.current_status] ?? row.current_status}
                       </StatusPill>
-                    )}
+                      {(row.reviewable ?? row.has_evidence) && (
+                        <button
+                          type="button"
+                          className="btn small ghost"
+                          onClick={() => setTopic(row.topic_id)}
+                        >
+                          {row.has_evidence ? "Цитата и видео" : "Видео и транскрипт"}
+                        </button>
+                      )}
+                    </div>
                   </td>
                   <td>{AUTHOR_LABEL[row.author] ?? row.author}</td>
                   <td>
-                    {canEditTopic(shared, row.skill_type) ? (
+                    {canEditTopic(shared, row.skill_type) && drafts[row.topic_id] ? (
                       <TopicStatusEditor
-                        token={token}
-                        candidateId={candidateId}
                         topic={row}
-                        onSaved={() => setRevision((value) => value + 1)}
+                        draft={drafts[row.topic_id]}
+                        busy={saving}
+                        onChange={(next) =>
+                          setDrafts((current) => ({ ...current, [row.topic_id]: next }))
+                        }
+                        onSave={() => void saveTopics([row.topic_id])}
                       />
                     ) : (
                       <span className="meta">
@@ -282,10 +329,14 @@ export function CandidateResultPage({
           </table>
         </div>
         <p className="meta" style={{ marginTop: 12 }}>
-          Покрытие: ✅ {card.confirmed_count} · ❓ {card.needs_check_count} · ❌ {card.not_confirmed_count}
-          {card.mandatory_coverage !== null && (
-            <> · обязательные: {Math.round(card.mandatory_coverage * 100)}%</>
-          )}
+          Покрытие:{" "}
+          {coverageText(card.confirmed_count, card.needs_check_count, card.not_confirmed_count)}
+          {" · "}
+          обяз. {coveragePct(card.mandatory_confirmed_share ?? card.mandatory_coverage)}
+          {" · "}
+          желат. {coveragePct(card.desired_confirmed_share ?? card.desired_coverage, "нет")}
+          {" · "}
+          потенциал обяз. {coveragePct(card.mandatory_potential_share ?? null)}
         </p>
       </section>
 
@@ -297,7 +348,7 @@ export function CandidateResultPage({
           <p>
             <strong>{RECOMMENDATION_LABEL[card.recommendation] ?? card.recommendation}</strong>
           </p>
-          <p>Правило Р5: {REASON_LABEL[card.recommendation_reason] ?? card.recommendation_reason}.</p>
+          <p>{REASON_LABEL[card.recommendation_reason] ?? card.recommendation_reason}.</p>
         </div>
       </section>
 

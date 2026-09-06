@@ -40,6 +40,7 @@ class CandidateCreate(BaseModel):
     """Create an invitation for a vacancy without requiring a resume."""
 
     vacancy_id: uuid.UUID
+    full_name: str | None = Field(default=None, max_length=255)
     resume_text: str | None = Field(default=None, max_length=50000)
 
 
@@ -47,6 +48,7 @@ class CandidateRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     id: uuid.UUID
     vacancy_id: uuid.UUID
+    full_name: str | None = None
     status: str
 
 
@@ -61,7 +63,16 @@ async def create_candidate(
         raise HTTPException(404, "Vacancy not found")
     if not await questions_approved(session, vacancy.id):
         raise HTTPException(409, QUESTIONS_NOT_APPROVED)
-    candidate = Candidate(vacancy_id=data.vacancy_id, resume_text=data.resume_text)
+    full_name = (data.full_name or "").strip() or None
+    if full_name is None and data.resume_text:
+        first_line = data.resume_text.strip().splitlines()[0].strip()
+        if first_line and len(first_line) <= 255:
+            full_name = first_line
+    candidate = Candidate(
+        vacancy_id=data.vacancy_id,
+        full_name=full_name,
+        resume_text=data.resume_text,
+    )
     session.add(candidate)
     await session.commit()
     await session.refresh(candidate)
@@ -132,6 +143,7 @@ class CandidateOverviewRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     candidate_id: uuid.UUID
+    full_name: str | None = None
     candidate_status: str
     processing_status: str
     confirmed_count: int
@@ -141,6 +153,9 @@ class CandidateOverviewRead(BaseModel):
     skill_coverage: float | None = None
     mandatory_coverage: float | None = None
     desired_coverage: float | None = None
+    mandatory_confirmed_share: float | None = None
+    desired_confirmed_share: float | None = None
+    mandatory_potential_share: float | None = None
 
 
 @router.get("", response_model=list[CandidateOverviewRead])
@@ -179,6 +194,7 @@ class ResultCardRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     candidate_id: uuid.UUID
+    full_name: str | None = None
     recommendation: str
     recommendation_reason: str
     confirmed_count: int
@@ -186,6 +202,9 @@ class ResultCardRead(BaseModel):
     not_confirmed_count: int
     mandatory_coverage: float | None
     desired_coverage: float | None
+    mandatory_confirmed_share: float | None = None
+    desired_confirmed_share: float | None = None
+    mandatory_potential_share: float | None = None
     resume_text: str | None
     topics: list[ResultTopicRowRead]
 

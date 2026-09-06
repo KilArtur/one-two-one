@@ -8,6 +8,7 @@ from app.models.interview_link import InterviewLink
 from app.models.interview_result import InterviewRecommendation, InterviewResult
 from app.models.question import Question, QuestionPattern, QuestionType
 from app.models.result_link import ResultLink
+from app.models.staff_user import StaffUser
 from app.models.topic import SkillType, Topic, TopicImportance
 from app.models.topic_assessment import (
     AssessmentConfidence,
@@ -38,6 +39,7 @@ __all__ = [
     "QuestionType",
     "ReviewerRole",
     "SkillType",
+    "StaffUser",
     "StatusChangeLog",
     "Topic",
     "TopicAssessment",

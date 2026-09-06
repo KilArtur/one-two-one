@@ -146,97 +146,89 @@ export function EquipmentCheck({
   }
 
   return (
-    <main>
-      <p className="eyebrow">Шаг 2 · Подготовка</p>
-      <h1>Проверка камеры и микрофона</h1>
-      <p>
-        Разрешите доступ к обоим устройствам. Запишите короткую пробу: посмотрите в камеру и
-        произнесите несколько слов. Тестовая запись остаётся в этой вкладке.
-      </p>
-      {estimate && (
-        <div className="panel" style={{ marginBottom: 16 }}>
-          <strong>
-            Интервью займёт примерно {estimate.min}–{estimate.max} минут.
-          </strong>
-          <p className="meta" style={{ marginTop: 4 }}>
-            Тем в интервью: {estimate.topics}. На каждую тему — основной вопрос (2 минуты) и, если
-            нужно уточнить, до двух дополнительных вопросов по 1 минуте (максимум 3 вопроса на тему).
-          </p>
-        </div>
-      )}
-      <div className="device-layout">
+    <main className="equipment-screen">
+      <div className="equipment-head">
         <div>
-          <div className="camera">
-            <video
-              ref={liveVideo}
-              aria-label="Изображение с камеры"
-              autoPlay
-              muted
-              playsInline
-              style={{ width: "100%", height: "100%", objectFit: "cover", position: "absolute", inset: 0 }}
-            />
-            <span className="camera-label">LIVE</span>
-          </div>
-        </div>
-        <div className="diag">
-          <div className="diag-row">
-            <div className="inline">
-              <strong>Камера и микрофон</strong>
-              <span className={`status ${ready ? "success" : error ? "risk" : "blue"}`}>
-                {ready ? "Готово" : error ? "Ошибка" : "Ожидание"}
-              </span>
-            </div>
-            <p role="status">
-              {recording
-                ? "Идёт тестовая запись — 3 секунды…"
-                : ready
-                  ? "Камера и микрофон подключены."
-                  : error
-                    ? "Проверка не пройдена."
-                    : "Ожидаем доступ к устройствам…"}
-            </p>
-            <div className="mic-meter" aria-hidden>
-              <i /><i /><i /><i /><i /><i /><i /><i />
-            </div>
-          </div>
-          <div className="diag-row">
-            {error && <p role="alert">{error}</p>}
-            <div className="inline" style={{ flexWrap: "wrap" }}>
-              <button type="button" className="btn primary" onClick={record} disabled={!ready || recording}>
-                {preview ? "Записать пробу заново" : "Записать 3 секунды"}
-              </button>
-              <button
-                type="button"
-                className="btn ghost"
-                onClick={() => setAttempt(attempt + 1)}
-                disabled={recording}
-              >
-                Повторить проверку устройств
-              </button>
-            </div>
-          </div>
+          <p className="eyebrow">Шаг 2 · Подготовка</p>
+          <h1>Проверка камеры и микрофона</h1>
+          <p className="equipment-lead">
+            Разрешите доступ, запишите 3 секунды и убедитесь, что вас видно и слышно.
+            {estimate ? ` Интервью ≈ ${estimate.min}–${estimate.max} мин · тем: ${estimate.topics}.` : ""}
+          </p>
         </div>
       </div>
-      {preview && (
-        <section className="section">
-          <h2>Прослушайте и посмотрите запись</h2>
+
+      <div className="equipment-row">
+        <div className="camera equipment-camera">
           <video
-            aria-label="Тестовая запись"
-            src={preview}
-            controls
+            ref={liveVideo}
+            aria-label="Изображение с камеры"
+            autoPlay
+            muted
             playsInline
-            style={{ width: "100%", maxHeight: 360, background: "#111" }}
           />
-          <p>
-            Убедитесь, что вас видно и слышно. Если звука нет, проверьте микрофон и сделайте новую пробу.
+          <span className="camera-label">LIVE</span>
+        </div>
+
+        <aside className="equipment-controls">
+          <div className="inline">
+            <strong>Камера и микрофон</strong>
+            <span className={`status ${ready ? "success" : error ? "risk" : "blue"}`}>
+              {ready ? "Готово" : error ? "Ошибка" : "Ожидание"}
+            </span>
+          </div>
+          <p role="status" className="equipment-status">
+            {recording
+              ? "Идёт тестовая запись — 3 секунды…"
+              : ready
+                ? "Камера и микрофон подключены."
+                : error
+                  ? "Проверка не пройдена."
+                  : "Ожидаем доступ к устройствам…"}
           </p>
-          {onContinue && (
-            <button type="button" className="btn primary" onClick={onContinue} disabled={!ready}>
-              Меня видно и слышно — начать интервью
+          {error && <p role="alert">{error}</p>}
+          <div className="equipment-actions">
+            <button type="button" className="btn primary" onClick={record} disabled={!ready || recording}>
+              {preview ? "Записать пробу заново" : "Записать 3 секунды"}
             </button>
-          )}
-        </section>
-      )}
+            <button
+              type="button"
+              className="btn ghost"
+              onClick={() => setAttempt(attempt + 1)}
+              disabled={recording}
+            >
+              Повторить проверку устройств
+            </button>
+          </div>
+          {/* Слот всегда на месте — превью не сдвигает live-камеру */}
+          <div className={`equipment-preview-frame${preview ? " has-preview" : ""}`}>
+            {preview ? (
+              <video
+                aria-label="Тестовая запись"
+                src={preview}
+                controls
+                playsInline
+                className="equipment-preview-video"
+              />
+            ) : (
+              <span className="equipment-preview-placeholder">Пробная запись (3 с)</span>
+            )}
+          </div>
+        </aside>
+      </div>
+
+      <div className="equipment-foot">
+        {onContinue && (
+          <button
+            type="button"
+            className="btn primary"
+            onClick={onContinue}
+            disabled={!ready || !preview}
+          >
+            Меня видно и слышно — начать
+          </button>
+        )}
+      </div>
     </main>
   );
 }

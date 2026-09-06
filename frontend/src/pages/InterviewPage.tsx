@@ -81,7 +81,6 @@ export function InterviewPage({ token }: { token: string }) {
   const question = questions[index];
   const isLast = index + 1 >= questions.length;
   const isFollowup = question.type === "follow_up";
-  // Каркас = основные вопросы (по одному на топик). Уточняющие не увеличивают счётчик.
   const baseTotal = questions.filter((item) => item.type !== "follow_up").length;
   const baseNumber = questions
     .slice(0, index + 1)
@@ -141,11 +140,11 @@ export function InterviewPage({ token }: { token: string }) {
   }
 
   return (
-    <div className="interview">
+    <div className="interview interview-compact">
       <div className="interview-top">
         <Brand />
-        <span className="meta" style={{ color: "#aaaab0" }}>
-          Непрерывная запись ответа
+        <span className="meta interview-top-meta">
+          {isFollowup ? "Уточнение" : `${baseNumber} / ${baseTotal}`}
         </span>
       </div>
       <div className="interview-progress" aria-hidden>
@@ -153,63 +152,53 @@ export function InterviewPage({ token }: { token: string }) {
       </div>
       <div className="interview-main">
         <div className="interview-question">
-          <p className="eyebrow" style={{ color: "#9d99ff" }}>
-            {isFollowup ? "Дополнительный вопрос" : `Вопрос ${baseNumber} из ${baseTotal}`}
+          <p className="eyebrow interview-eyebrow">
+            {isFollowup ? "Уточняющий" : `Вопрос ${baseNumber} из ${baseTotal}`}
           </p>
-          <h1>
-            {isFollowup
-              ? "Уточняющий вопрос по текущей теме"
-              : `Вопрос ${baseNumber} из ${baseTotal}`}
-          </h1>
-          <p>
-            {isFollowup
-              ? "Это дополнительный вопрос по той же теме, чтобы уточнить ответ — на него 1 минута."
-              : "На основной вопрос — 2 минуты, на уточнение — 1 минута. Перезапись ответа недоступна."}
-          </p>
-          {!answers[question.id] && <InterviewQuestionStep
-            key={question.id}
-            question={question}
-            token={token}
-            onSaved={onSaved}
-          />}
-          {answers[question.id] && <p role="status">Ответ сохранён.</p>}
-          {actionError && <p role="alert">{actionError}</p>}
-        </div>
-      </div>
-      <div className="record-bar">
-        <div className="record-status">
           {!answers[question.id] && (
-            <div>
-              <p className="meta">Пропуск нельзя отменить: вопрос будет засчитан как «не подтверждено».</p>
-              <button type="button" className="btn ghost" onClick={onSkip}>
-                Пропустить вопрос
-              </button>
-            </div>
+            <InterviewQuestionStep
+              key={question.id}
+              question={question}
+              token={token}
+              onSaved={onSaved}
+            />
           )}
           {answers[question.id] && (
-            <>
+            <div className="interview-next">
+              <p role="status">Ответ сохранён.</p>
               {deciding && <p role="status">Проверяем, нужно ли уточнение…</p>}
               {!deciding &&
                 (isLast ? (
                   <button
                     type="button"
-                    className="btn primary"
+                    className="btn interview-cta"
                     onClick={onSubmit}
                     disabled={submitting}
                   >
                     {submitting ? "Отправляем…" : "Завершить и отправить интервью"}
                   </button>
                 ) : (
-                  <button type="button" className="btn primary" onClick={() => setIndex(index + 1)}>
+                  <button
+                    type="button"
+                    className="btn interview-cta"
+                    onClick={() => setIndex(index + 1)}
+                  >
                     Следующий вопрос
                   </button>
                 ))}
-            </>
+            </div>
           )}
-        </div>
-        <div className="health">
-          <span>REC после озвучки</span>
-          <span>Ответ сохраняется чанками</span>
+          {actionError && <p role="alert">{actionError}</p>}
+          {!answers[question.id] && (
+            <button
+              type="button"
+              className="btn dark interview-skip"
+              onClick={() => void onSkip()}
+              title="Пропуск нельзя отменить: вопрос будет засчитан как «не подтверждено»"
+            >
+              Пропустить вопрос
+            </button>
+          )}
         </div>
       </div>
     </div>

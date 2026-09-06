@@ -65,11 +65,6 @@ export function StaffShell({
               <span className="side-label">Метрики</span>
             </NavLink>
           </div>
-          <div className="side-foot">
-            Финальное решение принимает человек.
-            <br />
-            AI-score в интерфейсе не показывается.
-          </div>
         </aside>
         <div className="main">{children}</div>
       </div>
@@ -94,7 +89,7 @@ export function CandidateChrome({
   const order = steps.map((s) => s.id);
   const current = order.indexOf(step);
   return (
-    <div className="candidate">
+    <div className={`candidate${step === "devices" ? " equipment-fit" : ""}`}>
       <header className="topbar">
         <Brand />
         <span className="meta">Асинхронное видеоинтервью</span>

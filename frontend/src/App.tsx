@@ -6,6 +6,7 @@ import { HealthPage } from "./pages/HealthPage";
 import { OverviewPage } from "./pages/OverviewPage";
 import { VacanciesPage } from "./pages/VacanciesPage";
 import { VacancyCreatePage } from "./pages/VacancyCreatePage";
+import { VacancyDetailPage } from "./pages/VacancyDetailPage";
 import { VacancyQuestionsPage } from "./pages/VacancyQuestionsPage";
 import { StaffCandidatesPage } from "./pages/StaffCandidatesPage";
 import { CandidateResultPage } from "./pages/CandidateResultPage";
@@ -28,6 +29,15 @@ function MetricsRoute() {
   return (
     <InternalSession>
       {(token) => <ProductMetricsPage token={token} vacancyId={vacancyId} />}
+    </InternalSession>
+  );
+}
+
+function VacancyDetailRoute() {
+  const { vacancyId } = useParams();
+  return (
+    <InternalSession>
+      {(token) => <VacancyDetailPage token={token} vacancyId={vacancyId!} />}
     </InternalSession>
   );
 }
@@ -55,6 +65,7 @@ export default function App() {
       <Route path="/staff/overview" element={<Staff>{(token) => <OverviewPage token={token} />}</Staff>} />
       <Route path="/staff/vacancies" element={<Staff>{(token) => <VacanciesPage token={token} />}</Staff>} />
       <Route path="/staff/vacancies/new" element={<Staff>{(token) => <VacancyCreatePage token={token} />}</Staff>} />
+      <Route path="/staff/vacancies/:vacancyId" element={<VacancyDetailRoute />} />
       <Route path="/staff/candidates" element={<Staff>{(token) => <StaffCandidatesPage token={token} />}</Staff>} />
       <Route path="/staff/candidates/:candidateId" element={<ResultRoute />} />
       <Route path="/staff/review" element={<Staff>{(token) => <ReviewQueuePage token={token} />}</Staff>} />

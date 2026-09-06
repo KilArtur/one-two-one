@@ -46,6 +46,7 @@ class ResultCard:
     """Карточка результата кандидата."""
 
     candidate_id: uuid.UUID
+    full_name: str | None
     recommendation: str
     recommendation_reason: str
     confirmed_count: int
@@ -53,6 +54,9 @@ class ResultCard:
     not_confirmed_count: int
     mandatory_coverage: Decimal | None
     desired_coverage: Decimal | None
+    mandatory_confirmed_share: Decimal | None
+    desired_confirmed_share: Decimal | None
+    mandatory_potential_share: Decimal | None
     resume_text: str | None
     topics: list[ResultTopicRow]
 
@@ -149,6 +153,7 @@ async def build_result_card(session: AsyncSession, candidate_id: uuid.UUID) -> R
 
     return ResultCard(
         candidate_id=candidate_id,
+        full_name=candidate.full_name,
         recommendation=recommendation.value,
         recommendation_reason=reason,
         confirmed_count=coverage.confirmed_count,
@@ -156,6 +161,9 @@ async def build_result_card(session: AsyncSession, candidate_id: uuid.UUID) -> R
         not_confirmed_count=coverage.not_confirmed_count,
         mandatory_coverage=coverage.mandatory_coverage,
         desired_coverage=coverage.desired_coverage,
+        mandatory_confirmed_share=coverage.mandatory_confirmed_share,
+        desired_confirmed_share=coverage.desired_confirmed_share,
+        mandatory_potential_share=coverage.mandatory_potential_share,
         resume_text=candidate.resume_text,
         topics=topics,
     )

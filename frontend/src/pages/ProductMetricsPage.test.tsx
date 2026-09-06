@@ -54,7 +54,7 @@ it("shows fractions and refreshes review and completion after changes", async ()
   expect(screen.getByRole("columnheader", { name: "Исходный статус системы" })).toBeTruthy();
   fireEvent.click(screen.getByRole("button", { name: "Обновить метрики" }));
   await waitFor(() => expect(screen.getByText("Топиков с ревью: 1")).toBeTruthy());
-  expect(screen.getByText("❓ требует проверки → ✅ подтверждено: 1")).toBeTruthy();
+  expect(screen.getByText("требует проверки → подтверждено: 1")).toBeTruthy();
   expect(
     within(screen.getByRole("region", { name: "Прохождение интервью" })).getAllByText("50% (1 / 2)"),
   ).toHaveLength(2);

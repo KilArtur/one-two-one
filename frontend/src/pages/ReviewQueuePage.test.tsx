@@ -84,7 +84,7 @@ beforeEach(() => {
 
 it("shows context, allows an optional comment and refreshes the result after saving", async () => {
   renderQueue();
-  fireEvent.click(await screen.findByRole("button", { name: "Python · hard" }));
+  fireEvent.click(await screen.findByRole("button", { name: "К-candidate: Python · hard" }));
   expect(screen.getAllByText("Неясен личный вклад").length).toBeGreaterThan(0);
   expect(await screen.findByRole("article", { name: "Ответ: Что сделали лично?" })).toBeTruthy();
   expect(within(screen.getByRole("region", { name: "Evidence топика" })).getByText("Я сделал")).toBeTruthy();
@@ -99,14 +99,14 @@ it("shows context, allows an optional comment and refreshes the result after sav
   await screen.findByText("Статус сохранён.");
   expect(api.changeAssessmentStatus).toHaveBeenCalledWith("token", "assessment", "confirmed", "Проверил видео");
   expect(await screen.findByText("Нет топиков, требующих проверки.")).toBeTruthy();
-  expect(await screen.findByText("✅ подтверждено")).toBeTruthy();
+  expect(await screen.findByText("подтверждено")).toBeTruthy();
   expect(api.getResultCard).toHaveBeenCalledWith("token", "candidate", expect.any(AbortSignal), undefined);
 });
 
 it("retains the form on failed save and does not refresh the card prematurely", async () => {
   vi.mocked(api.changeAssessmentStatus).mockRejectedValue(new Error("Ошибка сохранения"));
   renderQueue();
-  fireEvent.click(await screen.findByRole("button", { name: "Python · hard" }));
+  fireEvent.click(await screen.findByRole("button", { name: "К-candidate: Python · hard" }));
   fireEvent.change(screen.getByLabelText("Комментарий эксперта (необязательно)"), { target: { value: "Проверил" } });
   fireEvent.click(screen.getByRole("button", { name: "Сохранить статус" }));
   expect(await screen.findByRole("alert")).toBeTruthy();
@@ -130,6 +130,19 @@ it("labels the hiring manager queue and allows loading retry", async () => {
   renderQueue();
   await screen.findByRole("alert");
   fireEvent.click(screen.getByRole("button", { name: "Повторить загрузку очереди" }));
-  await waitFor(() => expect(screen.getByRole("button", { name: "Коммуникация · soft" })).toBeTruthy());
+  await waitFor(() =>
+    expect(screen.getByRole("button", { name: "К-candidate: Коммуникация · soft" })).toBeTruthy(),
+  );
   expect(screen.getByText("Soft-топики · нанимающий менеджер")).toBeTruthy();
+});
+
+it("groups queue by candidate and opens confirm matrix", async () => {
+  renderQueue();
+  expect(await screen.findByRole("region", { name: "Кандидат К-candidate" })).toBeTruthy();
+  expect(screen.getAllByRole("button", { name: "К-candidate" }).length).toBeGreaterThan(0);
+  fireEvent.click(screen.getByRole("button", { name: "Подтвердить" }));
+  expect(await screen.findByText("Отметьте статусы в матрице и нажмите «Сохранить всё».")).toBeTruthy();
+  expect(api.getResultCard).toHaveBeenCalledWith("token", "candidate", expect.any(AbortSignal), undefined);
+  fireEvent.click(screen.getByRole("button", { name: "К очереди" }));
+  expect(await screen.findByRole("button", { name: "К-candidate: Python · hard" })).toBeTruthy();
 });

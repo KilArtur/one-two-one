@@ -1,4 +1,5 @@
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 import {
   changeAssessmentStatus,
   getInternalUser,
@@ -9,6 +10,8 @@ import {
 import { EvidencePanel } from "../components/EvidencePanel";
 import { TranscriptPanel } from "../components/TranscriptPanel";
 import { Breadcrumbs, EmptyState, PageHead, StatusPill } from "../layouts/Shell";
+import { candidateCode } from "../lib/candidateCode";
+import { STATUS_TONE } from "../lib/labels";
 import { CandidateResultPage } from "./CandidateResultPage";
 
 function ReviewDetail({
@@ -24,6 +27,7 @@ function ReviewDetail({
   const [comment, setComment] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const code = candidateCode(item.candidate_id);
 
   async function save(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -42,42 +46,42 @@ function ReviewDetail({
 
   return (
     <section className="panel" aria-label="Контекст ревью">
+      <p className="eyebrow">{code}</p>
       <h2>{item.topic_title}</h2>
+      <p className="meta">
+        Кандидат {code} · {item.skill_type}
+        {" · "}
+        <Link to={`/staff/candidates/${item.candidate_id}`}>Открыть карточку</Link>
+      </p>
       <h3>Причина неопределённости</h3>
       <p>{item.reasoning_summary ?? "Причина не указана. Проверьте ответ и запись."}</p>
       <TranscriptPanel token={token} candidateId={item.candidate_id} topicId={item.topic_id} />
       <EvidencePanel token={token} candidateId={item.candidate_id} topicId={item.topic_id} />
-      <form onSubmit={(event) => void save(event)}>
+      <form className="review-status-form" onSubmit={(event) => void save(event)}>
         <h3>Результат проверки топика</h3>
-        <p>
-          <label>
-            Новый статус{" "}
-            <select
-              className="field"
-              value={status}
-              disabled={busy}
-              onChange={(event) => setStatus(event.target.value)}
-            >
-              <option value="confirmed">✅ подтверждено</option>
-              <option value="needs_check">❓ требует проверки</option>
-              <option value="not_confirmed">❌ не подтверждено</option>
-            </select>
-          </label>
-        </p>
-        <p>
-          <label>
-            Комментарий эксперта (необязательно)
-            <br />
-            <textarea
-              maxLength={2000}
-              value={comment}
-              disabled={busy}
-              onChange={(event) => setComment(event.target.value)}
-              rows={4}
-              style={{ width: "100%" }}
-            />
-          </label>
-        </p>
+        <label className="form-group">
+          <span>Новый статус</span>
+          <select
+            className="field"
+            value={status}
+            disabled={busy}
+            onChange={(event) => setStatus(event.target.value)}
+          >
+            <option value="confirmed">подтверждено</option>
+            <option value="needs_check">требует проверки</option>
+            <option value="not_confirmed">не подтверждено</option>
+          </select>
+        </label>
+        <label className="form-group">
+          <span>Комментарий эксперта (необязательно)</span>
+          <textarea
+            maxLength={2000}
+            value={comment}
+            disabled={busy}
+            onChange={(event) => setComment(event.target.value)}
+            rows={4}
+          />
+        </label>
         <p className="meta">
           Правка изменяет текущий статус. Исходный статус системы и история сохраняются.
         </p>
@@ -94,6 +98,7 @@ export function ReviewQueuePage({ token }: { token: string }) {
   const [user, setUser] = useState<InternalUser | null>(null);
   const [items, setItems] = useState<ReviewItem[] | null>(null);
   const [selected, setSelected] = useState<ReviewItem | null>(null);
+  const [confirmCandidate, setConfirmCandidate] = useState<string | null>(null);
   const [savedCandidate, setSavedCandidate] = useState<string | null>(null);
   const [error, setError] = useState("");
   const [revision, setRevision] = useState(0);
@@ -117,6 +122,55 @@ export function ReviewQueuePage({ token }: { token: string }) {
     });
     return () => controller.abort();
   }, [token, revision]);
+
+  const groups = useMemo(() => {
+    const map = new Map<string, ReviewItem[]>();
+    for (const item of items ?? []) {
+      const rows = map.get(item.candidate_id) ?? [];
+      rows.push(item);
+      map.set(item.candidate_id, rows);
+    }
+    return [...map.entries()];
+  }, [items]);
+
+  function openConfirm(candidateId: string) {
+    setConfirmCandidate(candidateId);
+    setSelected(null);
+    setSavedCandidate(null);
+  }
+
+  if (confirmCandidate) {
+    const code = candidateCode(confirmCandidate);
+    return (
+      <main>
+        <Breadcrumbs items={[{ label: "Команда", to: "/staff/overview" }, { label: "Ревью" }]} />
+        <PageHead
+          eyebrow="Подтверждение кандидата"
+          title={code}
+          actions={
+            <button
+              type="button"
+              className="btn ghost"
+              onClick={() => {
+                setConfirmCandidate(null);
+                setRevision((value) => value + 1);
+              }}
+            >
+              К очереди
+            </button>
+          }
+        />
+        <p className="meta" style={{ marginBottom: 24 }}>
+          Отметьте статусы в матрице и нажмите «Сохранить всё».
+        </p>
+        <CandidateResultPage
+          key={`${confirmCandidate}-${revision}`}
+          token={token}
+          candidateId={confirmCandidate}
+        />
+      </main>
+    );
+  }
 
   return (
     <main>
@@ -163,26 +217,57 @@ export function ReviewQueuePage({ token }: { token: string }) {
               </button>
               {items.length ? (
                 <div className="requirement-layout" style={{ marginTop: 24 }}>
-                  <div className="requirement-list">
-                    {items.map((item) => (
-                      <button
-                        key={item.assessment_id}
-                        type="button"
-                        className={`requirement${selected?.assessment_id === item.assessment_id ? " active" : ""}`}
-                        aria-label={`${item.topic_title} · ${item.skill_type}`}
-                        aria-pressed={selected?.assessment_id === item.assessment_id}
-                        onClick={() => {
-                          setSelected(item);
-                          setSavedCandidate(null);
-                        }}
-                      >
-                        <strong>
-                          {item.topic_title} · {item.skill_type}
-                        </strong>
-                        <p>{item.reasoning_summary ?? "Требует проверки"}</p>
-                        <StatusPill tone="warning">{item.confidence} confidence</StatusPill>
-                      </button>
-                    ))}
+                  <div className="requirement-list review-queue-list">
+                    {groups.map(([candidateId, topics]) => {
+                      const code = candidateCode(candidateId);
+                      return (
+                        <section
+                          key={candidateId}
+                          className="review-candidate-group"
+                          aria-label={`Кандидат ${code}`}
+                        >
+                          <div className="review-candidate-head">
+                            <button
+                              type="button"
+                              className="review-candidate-code"
+                              onClick={() => openConfirm(candidateId)}
+                            >
+                              {code}
+                            </button>
+                            <span className="meta">
+                              {topics.length}{" "}
+                              {topics.length === 1 ? "топик" : topics.length < 5 ? "топика" : "топиков"}
+                            </span>
+                            <button
+                              type="button"
+                              className="btn small primary"
+                              onClick={() => openConfirm(candidateId)}
+                            >
+                              Подтвердить
+                            </button>
+                          </div>
+                          {topics.map((item) => (
+                            <button
+                              key={item.assessment_id}
+                              type="button"
+                              className={`requirement${selected?.assessment_id === item.assessment_id ? " active" : ""}`}
+                              aria-label={`${code}: ${item.topic_title} · ${item.skill_type}`}
+                              aria-pressed={selected?.assessment_id === item.assessment_id}
+                              onClick={() => {
+                                setSelected(item);
+                                setSavedCandidate(null);
+                              }}
+                            >
+                              <strong>
+                                {item.topic_title} · {item.skill_type}
+                              </strong>
+                              <p>{item.reasoning_summary ?? "Требует проверки"}</p>
+                              <StatusPill tone={STATUS_TONE.needs_check}>требует проверки</StatusPill>
+                            </button>
+                          ))}
+                        </section>
+                      );
+                    })}
                   </div>
                   <div>
                     {selected ? (
@@ -197,7 +282,10 @@ export function ReviewQueuePage({ token }: { token: string }) {
                         }}
                       />
                     ) : (
-                      <EmptyState title="Выберите топик" text="Справа откроется evidence и форма статуса." />
+                      <EmptyState
+                        title="Выберите топик или кандидата"
+                        text="Топик — точечная проверка. «Подтвердить» открывает матрицу кандидата."
+                      />
                     )}
                   </div>
                 </div>

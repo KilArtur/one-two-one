@@ -73,8 +73,13 @@ export function VacanciesPage({ token }: { token: string }) {
               {vacancies.map((vacancy) => (
                 <tr key={vacancy.id}>
                   <td>
-                    <div className="title-cell">{vacancy.title}</div>
-                    <div className="cell-sub">{vacancy.id}</div>
+                    <Link className="title-cell" to={`/staff/vacancies/${vacancy.id}`}>
+                      {vacancy.title}
+                    </Link>
+                    <div className="cell-sub">
+                      {vacancy.topics.filter((t) => t.importance === "mandatory").length} обязательных ·{" "}
+                      {vacancy.topics.filter((t) => t.skill_type === "hard").length} hard
+                    </div>
                   </td>
                   <td>{vacancy.grade}</td>
                   <td>
@@ -84,24 +89,29 @@ export function VacanciesPage({ token }: { token: string }) {
                   </td>
                   <td>{vacancy.topics.length}</td>
                   <td>v{vacancy.version}</td>
-                  <td className="inline">
-                    <Link className="btn small ghost" to={`/staff/candidates?vacancy_id=${vacancy.id}`}>
-                      Кандидаты
-                    </Link>
-                    <Link className="btn small" to={`/staff/vacancies/${vacancy.id}/questions`}>
-                      Вопросы
-                    </Link>
-                    <Link className="btn small ghost" to={`/staff/vacancies/${vacancy.id}/metrics`}>
-                      Метрики
-                    </Link>
-                    <button
-                      type="button"
-                      className="btn small ghost"
-                      disabled={busyId === vacancy.id}
-                      onClick={() => void remove(vacancy.id)}
-                    >
-                      Удалить
-                    </button>
+                  <td className="table-actions">
+                    <div className="table-actions-inner">
+                      <Link className="table-action" to={`/staff/vacancies/${vacancy.id}`}>
+                        Топики
+                      </Link>
+                      <Link className="table-action" to={`/staff/candidates?vacancy_id=${vacancy.id}`}>
+                        Кандидаты
+                      </Link>
+                      <Link className="table-action" to={`/staff/vacancies/${vacancy.id}/questions`}>
+                        Вопросы
+                      </Link>
+                      <Link className="table-action" to={`/staff/vacancies/${vacancy.id}/metrics`}>
+                        Метрики
+                      </Link>
+                      <button
+                        type="button"
+                        className="table-action table-action-danger"
+                        disabled={busyId === vacancy.id}
+                        onClick={() => void remove(vacancy.id)}
+                      >
+                        Удалить
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}

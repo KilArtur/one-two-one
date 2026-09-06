@@ -149,6 +149,7 @@ export async function submitInterview(token: string, signal?: AbortSignal): Prom
 
 export interface CandidateOverview {
   candidate_id: string;
+  full_name?: string | null;
   candidate_status: string;
   processing_status: string;
   confirmed_count: number;
@@ -158,6 +159,9 @@ export interface CandidateOverview {
   skill_coverage: number | null;
   mandatory_coverage: number | null;
   desired_coverage: number | null;
+  mandatory_confirmed_share?: number | null;
+  desired_confirmed_share?: number | null;
+  mandatory_potential_share?: number | null;
 }
 
 export async function listCandidates(
@@ -189,6 +193,7 @@ export interface ResultTopicRow {
 
 export interface ResultCard {
   candidate_id: string;
+  full_name?: string | null;
   recommendation: string;
   recommendation_reason: string;
   confirmed_count: number;
@@ -196,6 +201,9 @@ export interface ResultCard {
   not_confirmed_count: number;
   mandatory_coverage: number | null;
   desired_coverage: number | null;
+  mandatory_confirmed_share?: number | null;
+  desired_confirmed_share?: number | null;
+  mandatory_potential_share?: number | null;
   resume_text: string | null;
   topics: ResultTopicRow[];
 }
@@ -298,7 +306,31 @@ export async function internalLogin(username: string, password: string, role: st
     );
   }
   if (!response.ok) {
-    throw new Error("Не удалось войти. Логин — любой, пароль — INTERNAL_AUTH_PASSWORD из .env.");
+    throw new Error("Не удалось войти. Проверьте логин, пароль и роль.");
+  }
+  return ((await response.json()) as { access_token: string }).access_token;
+}
+
+export async function internalRegister(username: string, password: string, role: string): Promise<string> {
+  let response: Response;
+  try {
+    response = await fetch(`${API_BASE_URL}/auth/register`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ username, password, role }),
+    });
+  } catch {
+    throw new Error(
+      "Нет связи с API. Проверьте, что backend запущен на VITE_API_BASE_URL и CORS разрешает этот origin.",
+    );
+  }
+  if (!response.ok) {
+    const body = await response.json().catch(() => null);
+    const detail = typeof body?.detail === "string" ? body.detail : null;
+    if (response.status === 409) {
+      throw new Error("Такой логин уже занят. Войдите или выберите другое имя.");
+    }
+    throw new Error(detail ?? "Не удалось зарегистрироваться.");
   }
   return ((await response.json()) as { access_token: string }).access_token;
 }
@@ -596,14 +628,24 @@ export async function generateCoreQuestions(token: string, vacancyId: string): P
   return response.json() as Promise<{id: string; text: string}[]>;
 }
 
-export async function createCandidate(token: string, vacancyId: string, resumeText: string): Promise<{id: string}> {
+export async function createCandidate(
+  token: string,
+  vacancyId: string,
+  resumeText: string,
+  fullName?: string,
+): Promise<{ id: string; full_name?: string | null }> {
   const response = await fetch(`${API_BASE_URL}/candidates`, {
-    method: "POST", headers: {Authorization: `Bearer ${token}`, "Content-Type": "application/json"},
-    body: JSON.stringify({vacancy_id: vacancyId, resume_text: resumeText || null}),
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+    body: JSON.stringify({
+      vacancy_id: vacancyId,
+      resume_text: resumeText || null,
+      full_name: fullName?.trim() || null,
+    }),
   });
   if (response.status === 409) throw new Error("Сначала откройте «Вакансии» и сгенерируйте Core-вопросы.");
   if (!response.ok) throw new Error("Не удалось создать кандидата. Проверьте роль и соединение.");
-  return response.json() as Promise<{id: string}>;
+  return response.json() as Promise<{ id: string; full_name?: string | null }>;
 }
 
 export async function deleteCandidate(token: string, candidateId: string): Promise<void> {

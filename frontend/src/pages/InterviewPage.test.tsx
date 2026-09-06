@@ -59,7 +59,7 @@ describe("InterviewPage", () => {
     });
     render(<InterviewPage token="session" />);
     await waitFor(() => screen.getByText("Вопрос 2"));
-    expect(screen.getByRole("heading").textContent).toContain("Вопрос 3 из 3");
+    expect(screen.getByText("Вопрос 3 из 3")).toBeTruthy();
   });
 
   it("вставляет уточняющий вопрос после сохранения (M4)", async () => {
@@ -78,7 +78,7 @@ describe("InterviewPage", () => {
     fireEvent.click(screen.getByRole("button", { name: "Следующий вопрос" }));
     await waitFor(() => screen.getByText("Уточнение?"));
     // Уточняющий вопрос помечается как дополнительный и не увеличивает счётчик каркаса.
-    expect(screen.getByRole("heading").textContent).toContain("Уточняющий вопрос");
+    expect(screen.getByText("Уточняющий")).toBeTruthy();
   });
 
   it("без уточнения ведёт к следующему вопросу", async () => {
@@ -93,8 +93,9 @@ describe("InterviewPage", () => {
   it("пропуск вопроса вызывает skip и предупреждает о последствии (Р10)", async () => {
     render(<InterviewPage token="session" />);
     await waitFor(() => screen.getByText("Вопрос 0"));
-    expect(screen.getByText(/Пропуск нельзя отменить/)).toBeTruthy();
-    fireEvent.click(screen.getByRole("button", { name: "Пропустить вопрос" }));
+    const skip = screen.getByRole("button", { name: "Пропустить вопрос" });
+    expect(skip.getAttribute("title")).toMatch(/нельзя отменить/i);
+    fireEvent.click(skip);
     await waitFor(() =>
       expect(client.skipQuestion).toHaveBeenCalledWith("session", "q0"),
     );
