@@ -23,16 +23,14 @@ class TopicAssessmentLLM(BaseModel):
 
 
 class TopicStatusChangeRequest(BaseModel):
-    """Смена статуса топика экспертом с обязательным комментарием (Р21)."""
+    """Смена статуса топика экспертом; комментарий необязателен (правка идёт в append-only лог)."""
 
     new_status: AssessmentStatus
-    comment: str = Field(min_length=1, max_length=2000)
+    comment: str = Field(default="", max_length=2000)
 
     @field_validator("comment")
     @classmethod
-    def nonblank_comment(cls, value: str) -> str:
-        if not value.strip():
-            raise ValueError("Comment must not be blank")
+    def strip_comment(cls, value: str) -> str:
         return value.strip()
 
 

@@ -170,6 +170,7 @@ class ResultTopicRowRead(BaseModel):
     author: str
     reasoning_summary: str | None
     has_evidence: bool = False
+    reviewable: bool = False
 
 
 class ResultCardRead(BaseModel):

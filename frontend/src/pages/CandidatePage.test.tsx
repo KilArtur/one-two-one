@@ -3,13 +3,14 @@ import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/re
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { candidateApi } from "../api/client";
+import { candidateApi, getInterviewQuestions } from "../api/client";
 import { CandidatePage } from "./CandidatePage";
 
 vi.mock("../api/client", () => ({
   candidateApi: {
     exchange: vi.fn(), consent: vi.fn(), acceptConsent: vi.fn(), equipmentAccess: vi.fn(),
   },
+  getInterviewQuestions: vi.fn(),
 }));
 
 function open(path = "/interview/consent") {
@@ -22,6 +23,7 @@ beforeEach(() => {
   sessionStorage.setItem("candidate-session", "test-session");
   vi.mocked(candidateApi.consent).mockResolvedValue({ consent_given_at: null });
   vi.mocked(candidateApi.equipmentAccess).mockResolvedValue({ consent_given_at: "2026-09-05T12:00:00Z" });
+  vi.mocked(getInterviewQuestions).mockResolvedValue([]);
 });
 afterEach(cleanup);
 

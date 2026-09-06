@@ -82,16 +82,16 @@ beforeEach(() => {
   });
 });
 
-it("shows context, requires a nonblank comment and refreshes the result after saving", async () => {
+it("shows context, allows an optional comment and refreshes the result after saving", async () => {
   renderQueue();
   fireEvent.click(await screen.findByRole("button", { name: "Python · hard" }));
   expect(screen.getAllByText("Неясен личный вклад").length).toBeGreaterThan(0);
   expect(await screen.findByRole("article", { name: "Ответ: Что сделали лично?" })).toBeTruthy();
   expect(within(screen.getByRole("region", { name: "Evidence топика" })).getByText("Я сделал")).toBeTruthy();
   const save = screen.getByRole<HTMLButtonElement>("button", { name: "Сохранить статус" });
-  const comment = screen.getByLabelText("Комментарий эксперта (обязательно)");
-  fireEvent.change(comment, { target: { value: "   " } });
-  expect(save.disabled).toBe(true);
+  const comment = screen.getByLabelText("Комментарий эксперта (необязательно)");
+  // Комментарий необязателен: кнопка активна даже без текста.
+  expect(save.disabled).toBe(false);
   fireEvent.change(comment, { target: { value: "Проверил видео" } });
   fireEvent.change(screen.getByLabelText("Новый статус"), { target: { value: "confirmed" } });
   vi.mocked(api.getReviewQueue).mockResolvedValue([]);
@@ -107,7 +107,7 @@ it("retains the form on failed save and does not refresh the card prematurely", 
   vi.mocked(api.changeAssessmentStatus).mockRejectedValue(new Error("Ошибка сохранения"));
   renderQueue();
   fireEvent.click(await screen.findByRole("button", { name: "Python · hard" }));
-  fireEvent.change(screen.getByLabelText("Комментарий эксперта (обязательно)"), { target: { value: "Проверил" } });
+  fireEvent.change(screen.getByLabelText("Комментарий эксперта (необязательно)"), { target: { value: "Проверил" } });
   fireEvent.click(screen.getByRole("button", { name: "Сохранить статус" }));
   expect(await screen.findByRole("alert")).toBeTruthy();
   expect(screen.queryByText("Статус сохранён.")).toBeNull();

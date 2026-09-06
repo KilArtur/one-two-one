@@ -126,3 +126,65 @@ async def test_no_aggregate_score_field(session: AsyncSession) -> None:
 @pytest.mark.anyio
 async def test_missing_candidate_returns_none(session: AsyncSession) -> None:
     assert await build_result_card(session, uuid.uuid4()) is None
+
+
+@pytest.mark.anyio
+async def test_reviewable_covers_recording_without_evidence(session: AsyncSession) -> None:
+    """Топик «требует проверки» с записью, но без цитаты — всё равно доступен для ревью."""
+    from app.models.answer import Answer, AnswerProcessingStatus
+    from app.models.question import Question, QuestionPattern, QuestionType
+
+    vacancy = Vacancy(id=uuid.uuid4(), title="Backend", grade=VacancyGrade.MIDDLE)
+    vacancy.lineage_id = vacancy.id
+    candidate = Candidate(vacancy_id=vacancy.id)
+    session.add_all([vacancy, candidate])
+    await session.flush()
+
+    # topic 0: запись есть, evidence нет; topic 1: только пропущенный ответ (нет записи)
+    rows = {}
+    for i, (title, skipped, video) in enumerate(
+        [("Python", False, "s3://bucket/v.webm"), ("Kafka", True, None)]
+    ):
+        topic = Topic(
+            vacancy_id=vacancy.id,
+            title=title,
+            skill_type=SkillType.HARD,
+            importance=TopicImportance.MANDATORY,
+            order=i,
+        )
+        session.add(topic)
+        await session.flush()
+        question = Question(
+            topic_id=topic.id, type=QuestionType.CORE, pattern=QuestionPattern.EXPERIENCE, text="Q"
+        )
+        session.add(question)
+        await session.flush()
+        session.add(
+            Answer(
+                candidate_id=candidate.id,
+                question_id=question.id,
+                video_url=video,
+                audio_url=video,
+                skipped=skipped,
+                processing_status=AnswerProcessingStatus.READY,
+            )
+        )
+        session.add(
+            TopicAssessment(
+                candidate_id=candidate.id,
+                topic_id=topic.id,
+                system_status=AssessmentStatus.NEEDS_CHECK,
+                current_status=AssessmentStatus.NEEDS_CHECK,
+                confidence=AssessmentConfidence.LOW,
+            )
+        )
+        rows[title] = topic.id
+    await session.commit()
+    # Свежая загрузка как в API: selectin-стратегии подтянут vacancy и topics.
+    session.expunge_all()
+
+    card = await build_result_card(session, candidate.id)
+    by_title = {t.topic_title: t for t in card.topics}
+    assert by_title["Python"].reviewable is True
+    assert by_title["Python"].has_evidence is False
+    assert by_title["Kafka"].reviewable is False

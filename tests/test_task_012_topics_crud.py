@@ -59,30 +59,40 @@ async def test_add_seven_topics_returns_201(client: httpx.AsyncClient) -> None:
 
 
 @pytest.mark.anyio
-async def test_save_fewer_than_five_returns_422(client: httpx.AsyncClient) -> None:
+async def test_save_empty_returns_422(client: httpx.AsyncClient) -> None:
     vacancy = await _create_vacancy(client)
-    resp = await client.put(
-        f"/vacancies/{vacancy['id']}/topics",
-        json={"topics": [_topic(f"T{i}", i) for i in range(4)]},
-    )
+    resp = await client.put(f"/vacancies/{vacancy['id']}/topics", json={"topics": []})
     assert resp.status_code == 422
 
 
 @pytest.mark.anyio
-async def test_save_more_than_nine_returns_422(client: httpx.AsyncClient) -> None:
+async def test_save_fewer_than_five_is_allowed(client: httpx.AsyncClient) -> None:
     vacancy = await _create_vacancy(client)
     resp = await client.put(
         f"/vacancies/{vacancy['id']}/topics",
-        json={"topics": [_topic(f"T{i}", i) for i in range(10)]},
+        json={"topics": [_topic(f"T{i}", i) for i in range(3)]},
     )
-    assert resp.status_code == 422
+    assert resp.status_code == 200
+    assert len(resp.json()["topics"]) == 3
 
 
 @pytest.mark.anyio
-async def test_add_beyond_nine_returns_422(client: httpx.AsyncClient) -> None:
+async def test_save_more_than_nine_is_allowed(client: httpx.AsyncClient) -> None:
+    # Автогенерация ограничена 9 топиками, но вручную рекрутер может задать больше.
+    vacancy = await _create_vacancy(client)
+    resp = await client.put(
+        f"/vacancies/{vacancy['id']}/topics",
+        json={"topics": [_topic(f"T{i}", i) for i in range(12)]},
+    )
+    assert resp.status_code == 200
+    assert len(resp.json()["topics"]) == 12
+
+
+@pytest.mark.anyio
+async def test_add_beyond_nine_is_allowed(client: httpx.AsyncClient) -> None:
     vacancy = await _create_vacancy(client, [_topic(f"T{i}", i) for i in range(9)])
     resp = await client.post(f"/vacancies/{vacancy['id']}/topics", json=_topic("Десятый", 9))
-    assert resp.status_code == 422
+    assert resp.status_code == 201
 
 
 @pytest.mark.anyio

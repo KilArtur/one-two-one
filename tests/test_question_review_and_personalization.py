@@ -11,7 +11,11 @@ from app.config import Settings
 from app.db import Base, get_db
 from app.integrations.llm import LLMClientError, LLMInvocationResult, get_llm_client
 from app.main import create_app
-from app.schemas.question import GeneratedCoreQuestion, PersonalizedQuestions
+from app.schemas.question import (
+    GeneratedCoreQuestion,
+    PersonalizedQuestion,
+    PersonalizedQuestions,
+)
 from app.services.auth import AppRole, create_access_token
 
 SETTINGS = Settings(_env_file=None, app_env="testing", jwt_secret_key="review-test-secret")
@@ -28,6 +32,7 @@ class FakeLLMClient:
 
     def __init__(self) -> None:
         self.personalization_fails = False
+        self.personalization_detail = "дежурства по Kafka"
         self.core_calls = 0
 
     async def generate_structured(
@@ -47,7 +52,17 @@ class FakeLLMClient:
                     provider_base_url="http://fake",
                 )
             content: object = PersonalizedQuestions(
-                questions=["Расскажите про дежурства по Kafka в вашем последнем проекте"]
+                items=[
+                    PersonalizedQuestion(
+                        topic="Kafka",
+                        resume_detail=self.personalization_detail,
+                        question=(
+                            "Расскажите про дежурства по Kafka в вашем последнем проекте"
+                            if self.personalization_detail
+                            else "Базовый вопрос 1"
+                        ),
+                    )
+                ]
             )
         else:
             self.core_calls += 1
@@ -244,6 +259,32 @@ async def test_candidate_without_resume_keeps_core_questions(client: httpx.Async
     visible = (await client.get("/candidate-interview/questions", headers=candidate_headers)).json()
 
     assert [item["id"] for item in visible] == [questions[0]["id"]]
+
+
+@pytest.mark.anyio
+async def test_resume_without_relevant_detail_keeps_core(
+    client: httpx.AsyncClient, fake: FakeLLMClient
+) -> None:
+    # Резюме есть, но по теме топика ничего нет: resume_detail пуст -> остаётся каркас.
+    vacancy_id, questions = await _vacancy_with_questions(client)
+    await client.post(
+        f"/vacancies/{vacancy_id}/questions/approve", headers=_headers(AppRole.TECH_SPECIALIST)
+    )
+    fake.personalization_detail = ""
+
+    candidate = (await _invite(client, vacancy_id, RESUME)).json()
+    link = (
+        await client.post(
+            f"/candidates/{candidate['id']}/interview-link", headers=_headers(AppRole.RECRUITER)
+        )
+    ).json()
+    exchanged = await client.post("/candidate-auth/exchange", json={"token": link["token"]})
+    candidate_headers = {"Authorization": f"Bearer {exchanged.json()['access_token']}"}
+    await client.post("/candidate-auth/consent", json={"accepted": True}, headers=candidate_headers)
+
+    visible = (await client.get("/candidate-interview/questions", headers=candidate_headers)).json()
+    assert [item["id"] for item in visible] == [questions[0]["id"]]
+    assert visible[0]["type"] == "core"
 
 
 @pytest.mark.anyio

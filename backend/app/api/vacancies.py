@@ -40,8 +40,7 @@ CurrentUserDep = Annotated[CurrentUser, Depends(get_current_user)]
 _NOT_FOUND = HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Vacancy not found")
 _TOPIC_COUNT = HTTPException(
     status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
-    detail=f"Число топиков должно быть от {vacancy_service.MIN_TOPICS} "
-    f"до {vacancy_service.MAX_TOPICS} (Р8)",
+    detail=f"Нужен минимум {vacancy_service.MIN_TOPICS} топик",
 )
 _NOT_DRAFT = HTTPException(
     status_code=status.HTTP_409_CONFLICT,

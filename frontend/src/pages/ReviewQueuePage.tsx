@@ -27,7 +27,7 @@ function ReviewDetail({
 
   async function save(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!comment.trim() || busy) return;
+    if (busy) return;
     setBusy(true);
     setError("");
     try {
@@ -66,10 +66,9 @@ function ReviewDetail({
         </p>
         <p>
           <label>
-            Комментарий эксперта (обязательно)
+            Комментарий эксперта (необязательно)
             <br />
             <textarea
-              required
               maxLength={2000}
               value={comment}
               disabled={busy}
@@ -82,7 +81,7 @@ function ReviewDetail({
         <p className="meta">
           Правка изменяет текущий статус. Исходный статус системы и история сохраняются.
         </p>
-        <button className="btn primary" disabled={busy || !comment.trim()}>
+        <button className="btn primary" disabled={busy}>
           {busy ? "Сохраняем…" : "Сохранить статус"}
         </button>
         {error && <p role="alert">{error}</p>}

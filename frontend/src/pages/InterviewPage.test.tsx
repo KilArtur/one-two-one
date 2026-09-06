@@ -59,7 +59,7 @@ describe("InterviewPage", () => {
     });
     render(<InterviewPage token="session" />);
     await waitFor(() => screen.getByText("Вопрос 2"));
-    expect(screen.getByRole("heading").textContent).toContain("вопрос 3 из 3");
+    expect(screen.getByRole("heading").textContent).toContain("Вопрос 3 из 3");
   });
 
   it("вставляет уточняющий вопрос после сохранения (M4)", async () => {
@@ -77,7 +77,8 @@ describe("InterviewPage", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Следующий вопрос" }));
     await waitFor(() => screen.getByText("Уточнение?"));
-    expect(screen.getByRole("heading").textContent).toContain("из 4");
+    // Уточняющий вопрос помечается как дополнительный и не увеличивает счётчик каркаса.
+    expect(screen.getByRole("heading").textContent).toContain("Уточняющий вопрос");
   });
 
   it("без уточнения ведёт к следующему вопросу", async () => {

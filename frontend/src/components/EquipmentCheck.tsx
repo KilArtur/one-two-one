@@ -11,7 +11,13 @@ function deviceError(reason: unknown): string {
   return "Не удалось включить камеру и микрофон. Закройте использующие их приложения и повторите проверку.";
 }
 
-export function EquipmentCheck({ onContinue }: { onContinue?: () => void }) {
+export function EquipmentCheck({
+  onContinue,
+  estimate,
+}: {
+  onContinue?: () => void;
+  estimate?: { min: number; max: number; topics: number } | null;
+}) {
   const liveVideo = useRef<HTMLVideoElement>(null);
   const stream = useRef<MediaStream | null>(null);
   const recorder = useRef<MediaRecorder | null>(null);
@@ -147,6 +153,17 @@ export function EquipmentCheck({ onContinue }: { onContinue?: () => void }) {
         Разрешите доступ к обоим устройствам. Запишите короткую пробу: посмотрите в камеру и
         произнесите несколько слов. Тестовая запись остаётся в этой вкладке.
       </p>
+      {estimate && (
+        <div className="panel" style={{ marginBottom: 16 }}>
+          <strong>
+            Интервью займёт примерно {estimate.min}–{estimate.max} минут.
+          </strong>
+          <p className="meta" style={{ marginTop: 4 }}>
+            Тем в интервью: {estimate.topics}. На каждую тему — основной вопрос (2 минуты) и, если
+            нужно уточнить, до двух дополнительных вопросов по 1 минуте (максимум 3 вопроса на тему).
+          </p>
+        </div>
+      )}
       <div className="device-layout">
         <div>
           <div className="camera">

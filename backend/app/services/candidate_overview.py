@@ -30,18 +30,24 @@ class CandidateOverview:
 
 
 def _derive_processing_status(statuses: set[AnswerProcessingStatus]) -> str:
-    """Сводит статусы ответов кандидата к одному статусу обработки."""
+    """Сводит статусы ответов кандидата к одному статусу обработки.
+
+    Пока есть незавершённые ответы — показываем их стадию. Когда все ответы дошли до
+    терминального состояния, обработка «готова», если хоть один ответ распознан: сбой
+    отдельного ответа уже деградировал топик в needs_check и не делает всего кандидата
+    ошибочным. `error` остаётся, только если ни один ответ не удалось обработать.
+    """
     if not statuses:
         return "not_started"
-    if AnswerProcessingStatus.ERROR in statuses:
-        return "error"
-    if statuses == {AnswerProcessingStatus.READY}:
-        return "ready"
     if AnswerProcessingStatus.ANALYZING in statuses:
         return "analyzing"
     if AnswerProcessingStatus.TRANSCRIBING in statuses:
         return "transcribing"
-    return "recorded"
+    if AnswerProcessingStatus.RECORDED in statuses:
+        return "recorded"
+    if AnswerProcessingStatus.READY in statuses:
+        return "ready"
+    return "error"
 
 
 def _ratio(confirmed: int, needs_check: int, not_confirmed: int) -> float | None:

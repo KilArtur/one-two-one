@@ -184,6 +184,7 @@ export interface ResultTopicRow {
   author: string;
   reasoning_summary: string | null;
   has_evidence?: boolean;
+  reviewable?: boolean;
 }
 
 export interface ResultCard {

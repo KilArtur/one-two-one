@@ -3,8 +3,14 @@ import { Navigate, useLocation, useNavigate } from "react-router-dom";
 
 import { EquipmentCheck } from "../components/EquipmentCheck";
 import { InterviewPage } from "./InterviewPage";
-import { candidateApi } from "../api/client";
+import { candidateApi, getInterviewQuestions } from "../api/client";
 import { CandidateChrome } from "../layouts/Shell";
+
+// На тему: основной вопрос 2 мин + до двух уточнений по 1 мин (максимум 3 вопроса).
+const MIN_MINUTES_PER_TOPIC = 2;
+const MAX_MINUTES_PER_TOPIC = 4;
+
+type Estimate = { min: number; max: number; topics: number };
 
 const SESSION_KEY = "candidate-session";
 
@@ -19,6 +25,29 @@ export function CandidatePage() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [attempt, setAttempt] = useState(0);
+  const [estimate, setEstimate] = useState<Estimate | null>(null);
+
+  useEffect(() => {
+    if (!token || !consented) return;
+    const controller = new AbortController();
+    getInterviewQuestions(token, controller.signal)
+      .then((list) => {
+        const topics = new Set(
+          list.filter((item) => item.type !== "follow_up").map((item) => item.topic_id),
+        ).size;
+        if (topics > 0) {
+          setEstimate({
+            min: topics * MIN_MINUTES_PER_TOPIC,
+            max: topics * MAX_MINUTES_PER_TOPIC,
+            topics,
+          });
+        }
+      })
+      .catch(() => {
+        /* оценка длительности не критична для прохождения */
+      });
+    return () => controller.abort();
+  }, [token, consented]);
 
   useEffect(() => {
     let active = true;
@@ -98,7 +127,7 @@ export function CandidatePage() {
     if (!consented) return <Navigate to="/interview/consent" replace />;
     return (
       <CandidateChrome step="devices">
-        <EquipmentCheck onContinue={() => navigate("/interview/session")} />
+        <EquipmentCheck onContinue={() => navigate("/interview/session")} estimate={estimate} />
       </CandidateChrome>
     );
   }
@@ -114,7 +143,8 @@ export function CandidatePage() {
         <p className="eyebrow">Шаг 1 · Подготовка</p>
         <h1>Согласие на запись и обработку данных</h1>
         <p>
-          Интервью займёт около 20–30 минут. До начала записи необходимо ваше согласие.
+          Интервью обычно занимает 10–30 минут в зависимости от числа тем — точную оценку
+          покажем на следующем шаге. До начала записи необходимо ваше согласие.
         </p>
         <div className="legal-section">
           <p>

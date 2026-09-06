@@ -43,6 +43,8 @@ beforeEach(() => {
       needs_check_count: 0,
       not_confirmed_count: 3,
       skill_coverage: 0.25,
+      mandatory_coverage: 0.25,
+      desired_coverage: 0,
     }),
     overview("c-high", "ready", {
       recommendation: "fit",
@@ -50,6 +52,8 @@ beforeEach(() => {
       needs_check_count: 0,
       not_confirmed_count: 0,
       skill_coverage: 1,
+      mandatory_coverage: 1,
+      desired_coverage: 1,
     }),
     overview("c-error", "error", {
       recommendation: "additional_check",
@@ -57,6 +61,8 @@ beforeEach(() => {
       needs_check_count: 2,
       not_confirmed_count: 0,
       skill_coverage: 0.5,
+      mandatory_coverage: 0.5,
+      desired_coverage: 0.5,
     }),
   ]);
 });
@@ -73,7 +79,7 @@ describe("CandidateListPage", () => {
     expect(rows).toHaveLength(3);
     expect(rows[0].textContent).toContain("c-high");
     expect(rows[0].textContent).toContain("100%");
-    expect(screen.getByText("Среднее покрытие").previousElementSibling?.textContent).toBe("58%");
+    expect(screen.getByText("Среднее (обязательные)").previousElementSibling?.textContent).toBe("58%");
     fireEvent.click(screen.getByRole("button", { name: "Сортировать по проценту покрытия" }));
     expect(screen.getAllByTestId("candidate-row")[0].textContent).toContain("c-low");
     expect(screen.getAllByTestId("candidate-row")[0].textContent).toContain("25%");

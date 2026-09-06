@@ -21,7 +21,7 @@ from app.prompts import load_prompt
 from app.schemas.question import PersonalizedQuestions
 
 PERSONAL_QUESTION_PROMPT = "personal_question"
-PERSONAL_QUESTION_PROMPT_VERSION = "personal-question-v1"
+PERSONAL_QUESTION_PROMPT_VERSION = "personal-question-v2"
 MAX_RESUME_CHARS = 20000
 
 
@@ -88,9 +88,10 @@ async def personalize_questions(
 
     verdict: PersonalizedQuestions = result.content
     created: list[Question] = []
-    for (core, _), text in zip(pairs, verdict.questions, strict=False):
-        cleaned = text.strip()
-        if not cleaned or cleaned == core.text:
+    for (core, _), item in zip(pairs, verdict.items, strict=False):
+        cleaned = item.question.strip()
+        # Нет релевантной детали в резюме или модель вернула ядро — оставляем каркас топика.
+        if not item.resume_detail.strip() or not cleaned or cleaned == core.text:
             continue
         question = Question(
             candidate_id=candidate_id,

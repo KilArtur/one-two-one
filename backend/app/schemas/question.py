@@ -37,9 +37,31 @@ class GeneratedCoreQuestion(BaseModel):
     source_reason: str = Field(min_length=1)
 
 
+class PersonalizedQuestion(BaseModel):
+    """Один вопрос топика, раскрытый под конкретную деталь резюме кандидата (M2)."""
+
+    topic: str = Field(description="Название топика из входа — для сверки порядка")
+    resume_detail: str = Field(
+        default="",
+        description=(
+            "Конкретный проект, технология или роль из резюме, относящаяся ИМЕННО к этому "
+            "топику. Пустая строка, если в резюме нет ничего по теме топика."
+        ),
+    )
+    question: str = Field(
+        min_length=1,
+        description=(
+            "Один вопрос, проверяющий то же требование топика, но опирающийся на resume_detail. "
+            "Если resume_detail пуст — исходный вопрос без изменений."
+        ),
+    )
+
+
 class PersonalizedQuestions(BaseModel):
     """Подтверждённые вопросы, раскрытые под резюме кандидата (M2)."""
 
-    questions: list[str] = Field(
-        description="Переформулированные вопросы строго в том же порядке и количестве"
+    items: list[PersonalizedQuestion] = Field(
+        description=(
+            "По одному элементу на каждый входной вопрос, строго в том же порядке и количестве"
+        )
     )

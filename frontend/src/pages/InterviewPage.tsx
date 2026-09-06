@@ -80,7 +80,16 @@ export function InterviewPage({ token }: { token: string }) {
 
   const question = questions[index];
   const isLast = index + 1 >= questions.length;
-  const progress = Math.round(((index + (answers[question.id] ? 1 : 0)) / questions.length) * 100);
+  const isFollowup = question.type === "follow_up";
+  // Каркас = основные вопросы (по одному на топик). Уточняющие не увеличивают счётчик.
+  const baseTotal = questions.filter((item) => item.type !== "follow_up").length;
+  const baseNumber = questions
+    .slice(0, index + 1)
+    .filter((item) => item.type !== "follow_up").length;
+  const answeredBase = questions.filter(
+    (item) => item.type !== "follow_up" && answers[item.id],
+  ).length;
+  const progress = baseTotal === 0 ? 0 : Math.round((answeredBase / baseTotal) * 100);
 
   async function onSaved() {
     const saved = question;
@@ -145,12 +154,18 @@ export function InterviewPage({ token }: { token: string }) {
       <div className="interview-main">
         <div className="interview-question">
           <p className="eyebrow" style={{ color: "#9d99ff" }}>
-            Интервью · вопрос {index + 1} из {questions.length}
+            {isFollowup ? "Дополнительный вопрос" : `Вопрос ${baseNumber} из ${baseTotal}`}
           </p>
           <h1>
-            Интервью · вопрос {index + 1} из {questions.length}
+            {isFollowup
+              ? "Уточняющий вопрос по текущей теме"
+              : `Вопрос ${baseNumber} из ${baseTotal}`}
           </h1>
-          <p>На основной вопрос — 2 минуты, на уточнение — 1 минута. Перезапись ответа недоступна.</p>
+          <p>
+            {isFollowup
+              ? "Это дополнительный вопрос по той же теме, чтобы уточнить ответ — на него 1 минута."
+              : "На основной вопрос — 2 минуты, на уточнение — 1 минута. Перезапись ответа недоступна."}
+          </p>
           {!answers[question.id] && <InterviewQuestionStep
             key={question.id}
             question={question}

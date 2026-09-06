@@ -5,7 +5,6 @@ import { VacancyTopicWrite, createVacancy, draftVacancyFromPdf } from "../api/cl
 import { Breadcrumbs, PageHead } from "../layouts/Shell";
 
 const MIN_TOPICS = 1;
-const MAX_TOPICS = 9;
 
 const EMPTY_TOPIC = (): VacancyTopicWrite => ({
   title: "",
@@ -19,6 +18,7 @@ export function VacancyCreatePage({ token }: { token: string }) {
   const navigate = useNavigate();
   const [title, setTitle] = useState("");
   const [grade, setGrade] = useState("middle");
+  const [mainQuestionMinutes, setMainQuestionMinutes] = useState("2");
   const [tasks, setTasks] = useState("");
   const [questionExamples, setQuestionExamples] = useState("");
   const [topics, setTopics] = useState<VacancyTopicWrite[]>([{ ...EMPTY_TOPIC(), order: 1 }]);
@@ -52,10 +52,7 @@ export function VacancyCreatePage({ token }: { token: string }) {
   }
 
   function addTopic() {
-    setTopics((rows) => {
-      if (rows.length >= MAX_TOPICS) return rows;
-      return [...rows, { ...EMPTY_TOPIC(), order: rows.length + 1 }];
-    });
+    setTopics((rows) => [...rows, { ...EMPTY_TOPIC(), order: rows.length + 1 }]);
   }
 
   function removeTopic(index: number) {
@@ -67,12 +64,8 @@ export function VacancyCreatePage({ token }: { token: string }) {
 
   async function submit(event: FormEvent) {
     event.preventDefault();
-    if (topics.length < MIN_TOPICS || topics.length > MAX_TOPICS) {
-      setError(
-        topics.length < MIN_TOPICS
-          ? "Нужен хотя бы один топик."
-          : `Можно не больше ${MAX_TOPICS} топиков (сейчас ${topics.length}).`,
-      );
+    if (topics.length < MIN_TOPICS) {
+      setError("Нужен хотя бы один топик.");
       return;
     }
     setBusy(true);
@@ -107,7 +100,7 @@ export function VacancyCreatePage({ token }: { token: string }) {
           { label: "Новая" },
         ]}
       />
-      <PageHead eyebrow={`Матрица до ${MAX_TOPICS} топиков`} title="Новая вакансия" />
+      <PageHead eyebrow="Матрица требований" title="Новая вакансия" />
 
       <section className="panel">
         <label htmlFor="vacancy-pdf">Описание вакансии в PDF</label>
@@ -144,6 +137,20 @@ export function VacancyCreatePage({ token }: { token: string }) {
               <option value="senior">senior</option>
             </select>
           </div>
+          <div className="form-group">
+            <label htmlFor="main-question-minutes">Время на основной вопрос по топику</label>
+            <select
+              id="main-question-minutes"
+              value={mainQuestionMinutes}
+              onChange={(e) => setMainQuestionMinutes(e.target.value)}
+            >
+              <option value="1">1 минута</option>
+              <option value="2">2 минуты</option>
+              <option value="3">3 минуты</option>
+              <option value="5">5 минут</option>
+            </select>
+            <p className="meta">В демо на основной вопрос всегда 2 минуты, на уточнение — 1 минута.</p>
+          </div>
           <div className="form-group full">
             <label htmlFor="tasks">Задачи</label>
             <textarea id="tasks" value={tasks} onChange={(e) => setTasks(e.target.value)} />
@@ -162,15 +169,8 @@ export function VacancyCreatePage({ token }: { token: string }) {
         <div className="section-head" style={{ marginTop: 32 }}>
           <h2>Топики</h2>
           <div className="inline">
-            <span className="meta">
-              {topics.length} / макс. {MAX_TOPICS}
-            </span>
-            <button
-              type="button"
-              className="btn small ghost"
-              disabled={topics.length >= MAX_TOPICS}
-              onClick={addTopic}
-            >
+            <span className="meta">Топиков: {topics.length}</span>
+            <button type="button" className="btn small ghost" onClick={addTopic}>
               Добавить топик
             </button>
           </div>

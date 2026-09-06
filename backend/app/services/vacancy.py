@@ -4,9 +4,8 @@
 (version+1) с тем же `lineage_id`; предыдущие версии остаются доступными по своему id.
 У черновика (draft) состав топиков правится на месте без роста версии.
 
-Инвариант Р8: сохранённый состав вакансии — 5–9 топиков. Проверяется при сохранении
-состава через `replace_topics`; индивидуальное добавление ограничено только верхней
-границей (нельзя превысить 9), чтобы черновик можно было набирать постепенно.
+Состав вакансии — минимум один топик; верхней границы нет: автогенерация даёт до 9
+топиков (Р8), но рекрутер может добавить больше вручную под конкретную вакансию.
 """
 
 from __future__ import annotations
@@ -22,14 +21,13 @@ from app.models.topic import Topic
 from app.models.vacancy import Vacancy, VacancyStatus
 from app.schemas.vacancy import TopicUpdate, TopicWrite, VacancyCreate, VacancyUpdate
 
-MIN_TOPICS = 5
-MAX_TOPICS = 9
+MIN_TOPICS = 1
 
 _TERM_RE = re.compile(r"[A-Za-zА-Яа-я0-9][A-Za-zА-Яа-я0-9+#.\-]*")
 
 
 class TopicCountError(Exception):
-    """Нарушение диапазона числа топиков Р8 (5–9)."""
+    """Состав вакансии не может быть пустым (нужен минимум один топик)."""
 
 
 class VacancyNotDraftError(Exception):
@@ -112,7 +110,7 @@ async def update_vacancy(
 async def replace_topics(
     session: AsyncSession, vacancy_id: uuid.UUID, topics: list[TopicWrite]
 ) -> Vacancy | None:
-    """Сохраняет состав топиков (5–9 по Р8).
+    """Сохраняет состав топиков (минимум один; верхней границы нет).
 
     Для активной вакансии создаёт новую версию-снимок (version+1), сохраняя прежнюю
     неизменной; для черновика правит состав на месте.
@@ -120,7 +118,7 @@ async def replace_topics(
     vacancy = await session.get(Vacancy, vacancy_id)
     if vacancy is None:
         return None
-    if not MIN_TOPICS <= len(topics) <= MAX_TOPICS:
+    if len(topics) < MIN_TOPICS:
         raise TopicCountError
 
     if vacancy.status != VacancyStatus.ACTIVE:
@@ -149,14 +147,12 @@ async def replace_topics(
 
 
 async def add_topic(session: AsyncSession, vacancy_id: uuid.UUID, data: TopicWrite) -> Topic | None:
-    """Добавляет один топик в черновик вакансии (верхняя граница Р8 — не больше 9)."""
+    """Добавляет один топик в черновик вакансии (без верхней границы числа топиков)."""
     vacancy = await session.get(Vacancy, vacancy_id)
     if vacancy is None:
         return None
     if vacancy.status != VacancyStatus.DRAFT:
         raise VacancyNotDraftError
-    if len(vacancy.topics) + 1 > MAX_TOPICS:
-        raise TopicCountError
     topic = _build_topics([data])[0]
     topic.vacancy_id = vacancy.id
     session.add(topic)

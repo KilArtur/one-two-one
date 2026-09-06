@@ -17,19 +17,24 @@ import {
   STATUS_TONE,
   coveragePct,
   coverageText,
-  skillCoverage,
 } from "../lib/labels";
 
 type RecommendationFilter = "" | "fit" | "not_fit" | "additional_check" | "none";
+type SortBasis = "mandatory" | "desired";
 type SortKey = "coverage_desc" | "coverage_asc";
 
-function coverageOf(candidate: CandidateOverview): number | null {
-  return skillCoverage(
-    candidate.confirmed_count,
-    candidate.needs_check_count,
-    candidate.not_confirmed_count,
-    candidate.skill_coverage,
-  );
+/** Целевое покрытие — по обязательным навыкам. */
+function mandatoryOf(candidate: CandidateOverview): number | null {
+  return candidate.mandatory_coverage ?? null;
+}
+
+/** Дополнительное покрытие — по желательным навыкам. */
+function desiredOf(candidate: CandidateOverview): number | null {
+  return candidate.desired_coverage ?? null;
+}
+
+function coverageBy(candidate: CandidateOverview, basis: SortBasis): number | null {
+  return basis === "mandatory" ? mandatoryOf(candidate) : desiredOf(candidate);
 }
 
 export function CandidateListPage({ token, vacancyId }: { token: string; vacancyId: string }) {
@@ -38,6 +43,7 @@ export function CandidateListPage({ token, vacancyId }: { token: string; vacancy
   const [filter, setFilter] = useState("");
   const [recommendation, setRecommendation] = useState<RecommendationFilter>("");
   const [sort, setSort] = useState<SortKey>("coverage_desc");
+  const [sortBasis, setSortBasis] = useState<SortBasis>("mandatory");
   const [error, setError] = useState("");
   const [linkInfo, setLinkInfo] = useState("");
   const [revision, setRevision] = useState(0);
@@ -114,19 +120,19 @@ export function CandidateListPage({ token, vacancyId }: { token: string; vacancy
       return true;
     });
     const ranked = [...rows].sort((left, right) => {
-      const a = coverageOf(left);
-      const b = coverageOf(right);
+      const a = coverageBy(left, sortBasis);
+      const b = coverageBy(right, sortBasis);
       if (a === null && b === null) return 0;
       if (a === null) return 1;
       if (b === null) return -1;
       return sort === "coverage_asc" ? a - b : b - a;
     });
     return ranked;
-  }, [candidates, filter, recommendation, sort]);
+  }, [candidates, filter, recommendation, sort, sortBasis]);
 
   const summary = useMemo(() => {
     const rows = candidates ?? [];
-    const scored = rows.map(coverageOf).filter((value): value is number => value !== null);
+    const scored = rows.map(mandatoryOf).filter((value): value is number => value !== null);
     const average = scored.length === 0 ? null : scored.reduce((sum, value) => sum + value, 0) / scored.length;
     return {
       total: rows.length,
@@ -195,7 +201,7 @@ export function CandidateListPage({ token, vacancyId }: { token: string; vacancy
         </div>
         <div className="summary-cell">
           <strong>{coveragePct(summary.average)}</strong>
-          <span>Среднее покрытие</span>
+          <span>Среднее (обязательные)</span>
         </div>
       </div>
 
@@ -229,6 +235,18 @@ export function CandidateListPage({ token, vacancyId }: { token: string; vacancy
             <option value="not_fit">Не проходит</option>
             <option value="additional_check">На проверке</option>
             <option value="none">Ещё нет оценки</option>
+          </select>
+        </label>
+        <label>
+          Покрытие по{" "}
+          <select
+            aria-label="Основа покрытия для сортировки"
+            className="field"
+            value={sortBasis}
+            onChange={(event) => setSortBasis(event.target.value as SortBasis)}
+          >
+            <option value="mandatory">обязательным</option>
+            <option value="desired">желательным</option>
           </select>
         </label>
         <span className="spacer" />
@@ -331,7 +349,8 @@ export function CandidateListPage({ token, vacancyId }: { token: string; vacancy
                       setSort((value) => (value === "coverage_desc" ? "coverage_asc" : "coverage_desc"))
                     }
                   >
-                    Покрытие {sort === "coverage_asc" ? "↑" : "↓"}
+                    Покрытие · {sortBasis === "mandatory" ? "обяз." : "желат."}{" "}
+                    {sort === "coverage_asc" ? "↑" : "↓"}
                   </button>
                 </th>
                 <th>Рекомендация</th>
@@ -360,7 +379,8 @@ export function CandidateListPage({ token, vacancyId }: { token: string; vacancy
                     )}
                   </td>
                   <td>
-                    <div className="title-cell">{coveragePct(coverageOf(candidate))}</div>
+                    <div className="title-cell">{coveragePct(mandatoryOf(candidate))}</div>
+                    <div className="cell-sub">желательные: {coveragePct(desiredOf(candidate))}</div>
                     <div className="cell-sub">
                       {coverageText(
                         candidate.confirmed_count,

@@ -1,11 +1,10 @@
-"""Смена статуса экспертом (Р21): обязательный комментарий, append-only, system_status."""
+"""Смена статуса экспертом (Р21): необязательный комментарий, append-only, system_status."""
 
 import uuid
 from collections.abc import AsyncIterator
 
 import pytest
 from fastapi import HTTPException
-from pydantic import ValidationError
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.pool import StaticPool
@@ -69,10 +68,14 @@ async def _seed(session: AsyncSession, skill: SkillType = SkillType.HARD) -> uui
     return assessment.id
 
 
-def test_comment_is_mandatory() -> None:
-    # Шаг 1: пустой комментарий недопустим (валидация -> 422 на уровне API)
-    with pytest.raises(ValidationError):
-        TopicStatusChangeRequest(new_status=AssessmentStatus.CONFIRMED, comment="")
+def test_comment_is_optional() -> None:
+    # Комментарий необязателен: пустой принимается и нормализуется в пустую строку.
+    request = TopicStatusChangeRequest(new_status=AssessmentStatus.CONFIRMED, comment="")
+    assert request.comment == ""
+    assert (
+        TopicStatusChangeRequest(new_status=AssessmentStatus.CONFIRMED, comment="  ок  ").comment
+        == "ок"
+    )
 
 
 @pytest.mark.anyio

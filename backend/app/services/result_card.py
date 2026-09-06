@@ -15,7 +15,9 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from app.models.answer import Answer
 from app.models.candidate import Candidate
+from app.models.question import Question
 from app.models.topic_assessment import StatusChangeLog, TopicAssessment
 from app.services.coverage import compute_coverage
 from app.services.matrix import TopicOutcome
@@ -36,6 +38,7 @@ class ResultTopicRow:
     author: str
     reasoning_summary: str | None
     has_evidence: bool = False
+    reviewable: bool = False
 
 
 @dataclass(slots=True, frozen=True)
@@ -79,6 +82,18 @@ async def build_result_card(session: AsyncSession, candidate_id: uuid.UUID) -> R
     )
     assessments.sort(key=lambda item: item.topic.order)
 
+    recorded_topics = set(
+        await session.scalars(
+            select(Question.topic_id)
+            .join(Answer, Answer.question_id == Question.id)
+            .where(
+                Answer.candidate_id == candidate_id,
+                Answer.skipped.is_(False),
+                Answer.video_url.is_not(None),
+            )
+        )
+    )
+
     topics: list[ResultTopicRow] = []
     outcomes: list[TopicOutcome] = []
     for assessment in assessments:
@@ -94,6 +109,7 @@ async def build_result_card(session: AsyncSession, candidate_id: uuid.UUID) -> R
                 author=await _last_author(session, assessment.id),
                 reasoning_summary=assessment.reasoning_summary,
                 has_evidence=bool(assessment.evidence),
+                reviewable=bool(assessment.evidence) or assessment.topic_id in recorded_topics,
             )
         )
         outcomes.append(
@@ -116,6 +132,7 @@ async def build_result_card(session: AsyncSession, candidate_id: uuid.UUID) -> R
                     current_status="needs_check",
                     author="system",
                     reasoning_summary="Обработка ответа ещё не завершена.",
+                    reviewable=topic.id in recorded_topics,
                 )
             )
             outcomes.append(

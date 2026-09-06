@@ -59,10 +59,11 @@ async def test_role_context_and_result_refresh(api: ApiFixture) -> None:
     assert context[0]["transcript"] == "Я использовал Python"
     assert context[0]["quotes"] == ["Я использовал Python"]
     path = f"/topic-assessments/{hard_id}/status"
+    # Комментарий необязателен: пустой/пробельный принимается, статус остаётся needs_check.
     for comment in ["", "   ", "\n\t"]:
         assert (
-            await client.patch(path, json={"new_status": "confirmed", "comment": comment})
-        ).status_code == 422
+            await client.patch(path, json={"new_status": "needs_check", "comment": comment})
+        ).status_code == 200
     assert (
         await client.patch(path, json={"new_status": "confirmed", "comment": " Проверил видео "})
     ).status_code == 200

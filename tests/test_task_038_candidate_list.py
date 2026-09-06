@@ -118,3 +118,24 @@ async def test_filter_by_processing_status(session: AsyncSession) -> None:
     only_error = await list_vacancy_candidates(session, vacancy_id, processing_status="error")
     assert len(only_error) == 1
     assert only_error[0].processing_status == "error"
+
+
+def test_partial_error_stays_ready() -> None:
+    """Сбой одного ответа не делает всего кандидата ошибочным, если есть готовые."""
+    from app.services.candidate_overview import _derive_processing_status
+
+    assert (
+        _derive_processing_status(
+            {AnswerProcessingStatus.READY, AnswerProcessingStatus.ERROR}
+        )
+        == "ready"
+    )
+    # только ошибки — по-прежнему error
+    assert _derive_processing_status({AnswerProcessingStatus.ERROR}) == "error"
+    # незавершённая обработка не маскируется
+    assert (
+        _derive_processing_status(
+            {AnswerProcessingStatus.READY, AnswerProcessingStatus.ANALYZING}
+        )
+        == "analyzing"
+    )

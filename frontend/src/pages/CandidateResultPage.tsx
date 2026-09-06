@@ -47,7 +47,7 @@ function TopicStatusEditor({
   const [error, setError] = useState("");
 
   async function save() {
-    if (!comment.trim() || busy) return;
+    if (busy) return;
     setBusy(true);
     setError("");
     try {
@@ -82,18 +82,17 @@ function TopicStatusEditor({
         <input
           className="field"
           aria-label={`Комментарий к статусу ${topic.topic_title}`}
-          required
           maxLength={2000}
           value={comment}
           disabled={busy}
-          placeholder="Обязательный комментарий"
+          placeholder="Комментарий (необязательно)"
           onChange={(event) => setComment(event.target.value)}
         />
       </label>
       <button
         type="button"
         className="btn small"
-        disabled={busy || !comment.trim()}
+        disabled={busy}
         onClick={() => void save()}
       >
         {busy ? "Сохраняем…" : "Сохранить"}
@@ -247,9 +246,10 @@ export function CandidateResultPage({
                   <td>{row.skill_type === "hard" ? "hard" : "soft"}</td>
                   <td>{row.importance === "mandatory" ? "обязательный" : "желательный"}</td>
                   <td>
-                    {row.has_evidence ? (
+                    {row.reviewable ?? row.has_evidence ? (
                       <button type="button" className="btn small ghost" onClick={() => setTopic(row.topic_id)}>
-                        {STATUS_LABEL[row.current_status] ?? row.current_status} — цитата и видео
+                        {STATUS_LABEL[row.current_status] ?? row.current_status}
+                        {row.has_evidence ? " — цитата и видео" : " — видео и транскрипт"}
                       </button>
                     ) : (
                       <StatusPill tone={STATUS_TONE[row.current_status]}>
@@ -301,7 +301,14 @@ export function CandidateResultPage({
         </div>
       </section>
 
-      {topic && <EvidencePanel key={topic} token={token} candidateId={candidateId} topicId={topic} />}
+      {topic && (
+        <div key={topic}>
+          {card.topics.find((row) => row.topic_id === topic)?.has_evidence && (
+            <EvidencePanel token={token} candidateId={candidateId} topicId={topic} />
+          )}
+          <TranscriptPanel token={token} candidateId={candidateId} topicId={topic} />
+        </div>
+      )}
 
       <button
         type="button"
