@@ -223,7 +223,7 @@ it("shows saved notice after matrix confirm save", async () => {
   await screen.findByText("Можно сохранить матрицу как есть или поправить статусы — затем «Сохранить всё».");
   fireEvent.click(screen.getByRole("button", { name: "Сохранить всё" }));
   expect(
-    await screen.findAllByText("Изменения сохранены. Можно перейти к подтверждению другого кандидата."),
+    await screen.findAllByText("Статус сохранён. Можно перейти к другому кандидату."),
   ).toBeTruthy();
   expect(screen.getByRole("button", { name: "К очереди кандидатов" })).toBeTruthy();
 });

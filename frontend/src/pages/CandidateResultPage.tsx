@@ -159,13 +159,16 @@ export function CandidateResultPage({
         if (!row || !draft) continue;
         await changeTopicStatus(token, candidateId, topicId, draft.status, draft.comment);
       }
-      const notice =
-        ids.length === 1
-          ? "Статус сохранён. Можно перейти к другому кандидату."
-          : "Изменения сохранены. Можно перейти к подтверждению другого кандидата.";
+      const isFullMatrix =
+        editableTopics.length > 0 &&
+        ids.length === editableTopics.length &&
+        editableTopics.every((row) => ids.includes(row.topic_id));
+      const notice = isFullMatrix
+        ? "Статус сохранён. Можно перейти к другому кандидату."
+        : "Статус сохранён.";
       pendingNotice.current = notice;
       setSaveNotice(notice);
-      onMatrixSaved?.();
+      if (isFullMatrix) onMatrixSaved?.();
       setRevision((value) => value + 1);
     } catch (reason) {
       setSaveError(reason instanceof Error ? reason.message : "Не удалось сохранить статусы.");

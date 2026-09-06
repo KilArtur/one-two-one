@@ -187,7 +187,7 @@ export function ReviewQueuePage({ token }: { token: string }) {
         </p>
         {savedCandidate === confirmCandidate && (
           <p className="matrix-save-notice" role="status" style={{ marginBottom: 16 }}>
-            Изменения сохранены. Можно перейти к подтверждению другого кандидата.
+            Статус сохранён. Можно перейти к другому кандидату.
           </p>
         )}
         <CandidateResultPage
