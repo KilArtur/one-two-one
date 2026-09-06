@@ -18,7 +18,7 @@ import {
   coveragePct,
   coverageText,
 } from "../lib/labels";
-import { candidateCode } from "../lib/candidateCode";
+import { candidateCode, candidateLabel } from "../lib/candidateCode";
 
 type RecommendationFilter = "" | "fit" | "not_fit" | "additional_check" | "none";
 type SortBasis = "mandatory" | "desired";
@@ -214,73 +214,47 @@ export function CandidateListPage({ token, vacancyId }: { token: string; vacancy
         </div>
       </div>
 
-      <div className="filterbar" style={{ marginTop: 28 }}>
-        <label>
-          Обработка{" "}
-          <select
-            aria-label="Фильтр по статусу обработки"
-            className="field"
-            value={filter}
-            onChange={(event) => setFilter(event.target.value)}
-          >
-            <option value="">Все</option>
-            {Object.entries(PROCESSING_LABEL).map(([value, label]) => (
-              <option key={value} value={value}>
-                {label}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label>
-          Рекомендация{" "}
-          <select
-            aria-label="Фильтр по рекомендации"
-            className="field"
-            value={recommendation}
-            onChange={(event) => setRecommendation(event.target.value as RecommendationFilter)}
-          >
-            <option value="">Все</option>
-            <option value="fit">Проходит</option>
-            <option value="not_fit">Не проходит</option>
-            <option value="additional_check">На проверке</option>
-            <option value="none">Ещё нет оценки</option>
-          </select>
-        </label>
-        <label>
-          Покрытие по{" "}
-          <select
-            aria-label="Основа покрытия для сортировки"
-            className="field"
-            value={sortBasis}
-            onChange={(event) => setSortBasis(event.target.value as SortBasis)}
-          >
-            <option value="mandatory">обязательным</option>
-            <option value="desired">желательным</option>
-          </select>
-        </label>
-      </div>
-
       {recruiter && (
         <section className="panel candidate-invite" style={{ marginTop: 28 }}>
           <div className="form-group">
-            <label htmlFor="candidate-resume-pdf">Резюме в PDF (необязательно)</label>
-            <p className="meta">
-              Сначала считываем текст из PDF, затем модель извлекает основное — как у вакансии. Карточку
-              и текст ниже можно поправить перед приглашением.
-            </p>
-            <input
-              id="candidate-resume-pdf"
-              type="file"
-              accept="application/pdf"
-              disabled={parsing}
-              onChange={(event) => {
-                const file = event.target.files?.[0];
-                event.target.value = "";
-                if (file) void loadResume(file);
-              }}
-            />
-            {parsing && <p role="status">Считываем текст и извлекаем основное…</p>}
-            {!parsing && resumeNote && <p role="status">{resumeNote}</p>}
+            <div className={`upload-box compact${card || resumeNote ? " ready" : ""}`}>
+              <div>
+                <p className="eyebrow">Необязательно</p>
+                <h2 className="upload-box-title">Резюме в PDF</h2>
+                <p className="meta">
+                  Сначала считываем текст из PDF, затем модель извлекает основное — как у вакансии.
+                  Карточку и текст ниже можно поправить перед приглашением.
+                </p>
+              </div>
+              <label className={`upload-pick${parsing ? " disabled" : ""}`} htmlFor="candidate-resume-pdf">
+                <span className="upload-pick-icon" aria-hidden>
+                  ↑
+                </span>
+                <span>{parsing ? "Считываем…" : "Выбрать PDF"}</span>
+                <input
+                  id="candidate-resume-pdf"
+                  type="file"
+                  accept="application/pdf"
+                  disabled={parsing}
+                  aria-label="Резюме в PDF (необязательно)"
+                  onChange={(event) => {
+                    const file = event.target.files?.[0];
+                    event.target.value = "";
+                    if (file) void loadResume(file);
+                  }}
+                />
+              </label>
+              {!parsing && resumeNote && <p role="status">{resumeNote}</p>}
+              {parsing && (
+                <div className="process-wait" role="status" aria-live="polite">
+                  <span className="process-spinner" aria-hidden />
+                  <div>
+                    <p className="process-wait-title">Обрабатываем резюме…</p>
+                    <p className="meta">Считываем PDF и извлекаем основное — ничего не зависло.</p>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
           {card && (card.full_name || card.headline || card.skills.length > 0) && (
             <div
@@ -349,6 +323,52 @@ export function CandidateListPage({ token, vacancyId }: { token: string; vacancy
       )}
       {linkInfo && <p className="activity-note" role="status">{linkInfo}</p>}
 
+      <div className="filterbar" style={{ marginTop: 28 }}>
+        <label>
+          Обработка{" "}
+          <select
+            aria-label="Фильтр по статусу обработки"
+            className="field"
+            value={filter}
+            onChange={(event) => setFilter(event.target.value)}
+          >
+            <option value="">Все</option>
+            {Object.entries(PROCESSING_LABEL).map(([value, label]) => (
+              <option key={value} value={value}>
+                {label}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label>
+          Рекомендация{" "}
+          <select
+            aria-label="Фильтр по рекомендации"
+            className="field"
+            value={recommendation}
+            onChange={(event) => setRecommendation(event.target.value as RecommendationFilter)}
+          >
+            <option value="">Все</option>
+            <option value="fit">Проходит</option>
+            <option value="not_fit">Не проходит</option>
+            <option value="additional_check">На проверке</option>
+            <option value="none">Ещё нет оценки</option>
+          </select>
+        </label>
+        <label>
+          Покрытие по{" "}
+          <select
+            aria-label="Основа покрытия для сортировки"
+            className="field"
+            value={sortBasis}
+            onChange={(event) => setSortBasis(event.target.value as SortBasis)}
+          >
+            <option value="mandatory">обязательным</option>
+            <option value="desired">желательным</option>
+          </select>
+        </label>
+      </div>
+
       {candidates === null ? (
         <p role="status">Загружаем кандидатов…</p>
       ) : visible.length === 0 ? (
@@ -395,9 +415,13 @@ export function CandidateListPage({ token, vacancyId }: { token: string; vacancy
                 >
                   <td>
                     <div className="title-cell">
-                      {candidateCode(candidate.candidate_id)}
+                      {candidateLabel(candidate.candidate_id, candidate.full_name)}
                     </div>
-                    <div className="cell-sub">{candidate.candidate_status}</div>
+                    <div className="cell-sub">
+                      {candidate.full_name?.trim()
+                        ? `${candidateCode(candidate.candidate_id)} · ${candidate.candidate_status}`
+                        : candidate.candidate_status}
+                    </div>
                   </td>
                   <td>
                     <StatusPill tone={STATUS_TONE[candidate.processing_status]}>
@@ -428,16 +452,18 @@ export function CandidateListPage({ token, vacancyId }: { token: string; vacancy
                   </td>
                   <td className="table-actions">
                     <div className="table-actions-inner">
-                      <button
-                        type="button"
-                        className="table-action"
-                        onClick={(event) => {
-                          event.stopPropagation();
-                          void copyLink(candidate.candidate_id);
-                        }}
-                      >
-                        Ссылка
-                      </button>
+                      {recruiter && (
+                        <button
+                          type="button"
+                          className="table-action"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            void copyLink(candidate.candidate_id);
+                          }}
+                        >
+                          Ссылка
+                        </button>
+                      )}
                       {recruiter && (
                         <button
                           type="button"

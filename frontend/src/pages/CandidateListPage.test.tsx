@@ -22,7 +22,7 @@ const overview = (
   extras: Partial<client.CandidateOverview> = {},
 ): client.CandidateOverview => ({
   candidate_id: id,
-  full_name: extras.full_name ?? `Кандидат ${id}`,
+  full_name: extras.full_name ?? null,
   candidate_status: "submitted",
   processing_status: status,
   confirmed_count: 3,
@@ -154,6 +154,15 @@ describe("CandidateListPage", () => {
     expect((screen.getByLabelText("Основное из резюме (необязательно)") as HTMLTextAreaElement).value).toContain(
       "Python",
     );
+  });
+
+  it("показывает имя кандидата вместо кода, если оно задано", async () => {
+    vi.mocked(client.listCandidates).mockResolvedValue([
+      overview("c-named", "ready", { full_name: "Анна Смирнова", mandatory_confirmed_share: 1 }),
+    ]);
+    renderList();
+    await waitFor(() => screen.getByText("Анна Смирнова"));
+    expect(screen.getByText(/К-c-named/)).toBeTruthy();
   });
 
   it("удаляет кандидата из списка после подтверждения", async () => {

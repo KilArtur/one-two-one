@@ -63,13 +63,20 @@ def test_high_confidence_missing_signal_needs_check() -> None:
     assert status == AssessmentStatus.NEEDS_CHECK
 
 
-def test_no_experience_at_medium_confidence_defaults_to_needs_check() -> None:
+def test_no_experience_or_evasion_not_confirmed_at_any_confidence() -> None:
     status = resolve_topic_status(
         signals=TopicSignals(),
         confidence=AssessmentConfidence.MEDIUM,
         explicit_no_experience=True,
     )
-    assert status == AssessmentStatus.NEEDS_CHECK
+    assert status == AssessmentStatus.NOT_CONFIRMED
+
+    status_low = resolve_topic_status(
+        signals=TopicSignals(),
+        confidence=AssessmentConfidence.LOW,
+        explicit_no_experience=True,
+    )
+    assert status_low == AssessmentStatus.NOT_CONFIRMED
 
 
 def test_signals_from_mapping() -> None:

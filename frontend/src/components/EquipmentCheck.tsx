@@ -13,10 +13,8 @@ function deviceError(reason: unknown): string {
 
 export function EquipmentCheck({
   onContinue,
-  estimate,
 }: {
   onContinue?: () => void;
-  estimate?: { min: number; max: number; topics: number } | null;
 }) {
   const liveVideo = useRef<HTMLVideoElement>(null);
   const stream = useRef<MediaStream | null>(null);
@@ -153,7 +151,6 @@ export function EquipmentCheck({
           <h1>Проверка камеры и микрофона</h1>
           <p className="equipment-lead">
             Разрешите доступ, запишите 3 секунды и убедитесь, что вас видно и слышно.
-            {estimate ? ` Интервью ≈ ${estimate.min}–${estimate.max} мин · тем: ${estimate.topics}.` : ""}
           </p>
         </div>
       </div>

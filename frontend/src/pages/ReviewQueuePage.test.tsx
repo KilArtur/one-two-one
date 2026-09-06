@@ -56,9 +56,15 @@ beforeEach(() => {
       video_available: false,
     },
   ]);
+  vi.mocked(api.getAnswerMedia).mockResolvedValue({
+    video_url: "https://media/video",
+    audio_url: null,
+  });
   vi.mocked(api.changeAssessmentStatus).mockResolvedValue();
+  vi.mocked(api.changeTopicStatus).mockResolvedValue();
   vi.mocked(api.getResultCard).mockResolvedValue({
     candidate_id: "candidate",
+    full_name: null,
     topics: [
       {
         topic_id: "topic",
@@ -69,6 +75,8 @@ beforeEach(() => {
         system_status: "needs_check",
         author: "technical_specialist",
         reasoning_summary: null,
+        has_evidence: true,
+        reviewable: true,
       },
     ],
     recommendation: "fit",
@@ -79,7 +87,25 @@ beforeEach(() => {
     mandatory_coverage: 1,
     desired_coverage: null,
     resume_text: null,
+    mandatory_confirmed_share: 1,
+    desired_confirmed_share: null,
+    mandatory_potential_share: 1,
   });
+});
+
+it("removes topic from queue after save without status change", async () => {
+  renderQueue();
+  fireEvent.click(await screen.findByRole("button", { name: "К-candidate: Python · hard" }));
+  vi.mocked(api.getReviewQueue).mockResolvedValue([]);
+  fireEvent.click(screen.getByRole("button", { name: "Сохранить статус" }));
+  await screen.findByText("Статус сохранён.");
+  expect(api.changeAssessmentStatus).toHaveBeenCalledWith(
+    "token",
+    "assessment",
+    "needs_check",
+    "",
+  );
+  expect(await screen.findByText("Нет топиков, требующих проверки.")).toBeTruthy();
 });
 
 it("shows context, allows an optional comment and refreshes the result after saving", async () => {
@@ -136,13 +162,68 @@ it("labels the hiring manager queue and allows loading retry", async () => {
   expect(screen.getByText("Soft-топики · нанимающий менеджер")).toBeTruthy();
 });
 
+it("opens matrix from topic detail", async () => {
+  renderQueue();
+  fireEvent.click(await screen.findByRole("button", { name: "К-candidate: Python · hard" }));
+  const detail = screen.getByRole("region", { name: "Контекст ревью" });
+  fireEvent.click(within(detail).getByRole("button", { name: "Матрица требований" }));
+  expect(
+    await screen.findByText("Можно сохранить матрицу как есть или поправить статусы — затем «Сохранить всё»."),
+  ).toBeTruthy();
+  expect(api.getResultCard).toHaveBeenCalledWith("token", "candidate", expect.any(AbortSignal), undefined);
+});
+
 it("groups queue by candidate and opens confirm matrix", async () => {
   renderQueue();
   expect(await screen.findByRole("region", { name: "Кандидат К-candidate" })).toBeTruthy();
   expect(screen.getAllByRole("button", { name: "К-candidate" }).length).toBeGreaterThan(0);
-  fireEvent.click(screen.getByRole("button", { name: "Подтвердить" }));
-  expect(await screen.findByText("Отметьте статусы в матрице и нажмите «Сохранить всё».")).toBeTruthy();
+  fireEvent.click(screen.getByRole("button", { name: "Матрица требований" }));
+  expect(
+    await screen.findByText("Можно сохранить матрицу как есть или поправить статусы — затем «Сохранить всё»."),
+  ).toBeTruthy();
   expect(api.getResultCard).toHaveBeenCalledWith("token", "candidate", expect.any(AbortSignal), undefined);
-  fireEvent.click(screen.getByRole("button", { name: "К очереди" }));
+  fireEvent.click(screen.getByRole("button", { name: "К очереди кандидатов" }));
   expect(await screen.findByRole("button", { name: "К-candidate: Python · hard" })).toBeTruthy();
+});
+
+it("shows saved notice after matrix confirm save", async () => {
+  sessionStorage.setItem("internal-role", "technical_specialist");
+  vi.mocked(api.changeTopicStatus).mockResolvedValue();
+  vi.mocked(api.getResultCard).mockResolvedValue({
+    candidate_id: "candidate",
+    full_name: null,
+    topics: [
+      {
+        topic_id: "topic",
+        topic_title: "Python",
+        skill_type: "hard",
+        importance: "mandatory",
+        current_status: "needs_check",
+        system_status: "needs_check",
+        author: "system",
+        reasoning_summary: null,
+        has_evidence: true,
+        reviewable: true,
+      },
+    ],
+    recommendation: "additional_check",
+    recommendation_reason: "mandatory_needs_check",
+    confirmed_count: 0,
+    needs_check_count: 1,
+    not_confirmed_count: 0,
+    mandatory_coverage: null,
+    desired_coverage: null,
+    resume_text: null,
+    mandatory_confirmed_share: 0,
+    desired_confirmed_share: null,
+    mandatory_potential_share: 1,
+  });
+  renderQueue();
+  fireEvent.click(await screen.findByRole("button", { name: "Матрица требований" }));
+  await screen.findByText("Можно сохранить матрицу как есть или поправить статусы — затем «Сохранить всё».");
+  fireEvent.click(screen.getByRole("button", { name: "Сохранить всё" }));
+  expect(
+    await screen.findAllByText("Изменения сохранены. Можно перейти к подтверждению другого кандидата."),
+  ).toBeTruthy();
+  expect(screen.getByRole("button", { name: "К очереди кандидатов" })).toBeTruthy();
 });

@@ -91,6 +91,41 @@ async def approve_core_questions(
     return questions
 
 
+async def unapprove_question(
+    session: AsyncSession, vacancy_id: uuid.UUID, question_id: uuid.UUID
+) -> Question | None:
+    """Снимает подтверждение с одного core-вопроса."""
+    question = await session.scalar(
+        select(Question)
+        .join(Topic, Question.topic_id == Topic.id)
+        .where(
+            Question.id == question_id,
+            Topic.vacancy_id == vacancy_id,
+            Question.type == QuestionType.CORE,
+        )
+    )
+    if question is None:
+        return None
+    question.reviewed_by_expert = False
+    await session.commit()
+    await session.refresh(question)
+    return question
+
+
+async def unapprove_core_questions(
+    session: AsyncSession, vacancy_id: uuid.UUID
+) -> list[Question] | None:
+    """Снимает подтверждение со всего ядра вопросов вакансии."""
+    vacancy = await session.get(Vacancy, vacancy_id)
+    if vacancy is None:
+        return None
+    questions = await list_core_questions(session, vacancy_id)
+    for question in questions:
+        question.reviewed_by_expert = False
+    await session.commit()
+    return questions
+
+
 async def questions_approved(session: AsyncSession, vacancy_id: uuid.UUID) -> bool:
     """True, если на каждый топик есть подтверждённый техспециалистом вопрос."""
     topics_count = await session.scalar(

@@ -1,8 +1,10 @@
 """Очередь ревью спорных топиков по ролям (M7, принцип 5).
 
 Техспециалист разбирает hard-топики, нанимающий менеджер — soft; рекрутер статусы не
-меняет и очереди не имеет. В очередь попадают только топики со статусом `needs_check`
-(закрытые уходят). Сортировка: самое неопределённое сверху (low → medium → high).
+меняет и очереди не имеет. В очередь попадают только топики со статусом `needs_check`,
+которые ещё не сохранял эксперт (`reviewed_by IS NULL`). После сохранения
+статуса (даже без смены значения) топик уходит из очереди. Сортировка:
+самое неопределённое сверху (low → medium → high).
 """
 
 from __future__ import annotations
@@ -46,6 +48,7 @@ async def review_queue(session: AsyncSession, user: CurrentUser) -> list[dict]:
             .join(Topic, Topic.id == TopicAssessment.topic_id)
             .where(
                 TopicAssessment.current_status == AssessmentStatus.NEEDS_CHECK,
+                TopicAssessment.reviewed_by.is_(None),
                 Topic.skill_type == skill,
             )
         )

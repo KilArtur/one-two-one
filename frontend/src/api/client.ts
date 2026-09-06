@@ -612,6 +612,37 @@ export async function approveVacancyQuestions(
   return response.json() as Promise<VacancyQuestion[]>;
 }
 
+export async function unapproveVacancyQuestion(
+  token: string,
+  vacancyId: string,
+  questionId: string,
+): Promise<VacancyQuestion> {
+  const response = await fetch(
+    `${API_BASE_URL}/vacancies/${vacancyId}/questions/${questionId}/unapprove`,
+    { method: "POST", headers: { Authorization: `Bearer ${token}` } },
+  );
+  if (!response.ok) {
+    const body = await response.json().catch(() => null);
+    throw new Error(body?.detail ?? "Не удалось снять подтверждение.");
+  }
+  return response.json() as Promise<VacancyQuestion>;
+}
+
+export async function unapproveVacancyQuestions(
+  token: string,
+  vacancyId: string,
+): Promise<VacancyQuestion[]> {
+  const response = await fetch(`${API_BASE_URL}/vacancies/${vacancyId}/questions/unapprove`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!response.ok) {
+    const body = await response.json().catch(() => null);
+    throw new Error(body?.detail ?? "Не удалось снять подтверждение.");
+  }
+  return response.json() as Promise<VacancyQuestion[]>;
+}
+
 export async function generateCoreQuestions(token: string, vacancyId: string): Promise<{id: string; text: string}[]> {
   const response = await fetch(`${API_BASE_URL}/vacancies/${vacancyId}/core-questions`, {
     method: "POST",

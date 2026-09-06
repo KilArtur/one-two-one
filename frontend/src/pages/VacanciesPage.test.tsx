@@ -22,12 +22,16 @@ const vacancy = (id: string, title: string): client.Vacancy => ({
 });
 
 beforeEach(() => {
+  sessionStorage.setItem("internal-role", "recruiter");
   vi.mocked(client.listVacancies).mockResolvedValue([
     vacancy("v1", "Backend"),
     vacancy("v2", "Frontend"),
   ]);
 });
-afterEach(() => cleanup());
+afterEach(() => {
+  sessionStorage.clear();
+  cleanup();
+});
 
 describe("VacanciesPage", () => {
   it("удаляет вакансию из списка после подтверждения", async () => {

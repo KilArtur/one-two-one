@@ -15,7 +15,7 @@ const answer: api.TranscriptAnswer = {
   quotes: ["Я использовал Python"], processing_status: "ready", skipped: false, technically_lost: false,
 };
 it("highlights quotes across segment boundaries without rewriting the text", () => {
-  render(<TranscriptContent answers={[answer]} token="t" candidateId="c" />);
+  render(<TranscriptContent answers={[answer]} />);
   const list = screen.getByRole("list");
   expect(within(list).getAllByRole("listitem")).toHaveLength(3);
   expect(within(list).getByText("0:02–0:04")).toBeTruthy();
@@ -24,7 +24,7 @@ it("highlights quotes across segment boundaries without rewriting the text", () 
 });
 it("merges repeated overlapping quotes and treats markup as text", () => {
   expect(quoteRanges("one   two one", ["one two", "two", "one", "unmatched"])).toEqual([{ start: 0, end: 9 }, { start: 10, end: 13 }]);
-  render(<TranscriptContent answers={[{ ...answer, segments: [], transcript: "<script>alert(1)</script>", quotes: ["<script>"] }]} token="t" candidateId="c" />);
+  render(<TranscriptContent answers={[{ ...answer, segments: [], transcript: "<script>alert(1)</script>", quotes: ["<script>"] }]} />);
   expect(document.querySelector("script")).toBeNull();
   expect(screen.getByText("<script>").tagName).toBe("MARK");
 });
@@ -43,6 +43,10 @@ it("opens the transcript from the card without a resume block", async () => {
     resume_text: "Заявлено: 10 лет Python",
   });
   vi.mocked(api.getTranscripts).mockResolvedValue([answer]);
+  vi.mocked(api.getAnswerMedia).mockResolvedValue({
+    video_url: "https://media/video",
+    audio_url: null,
+  });
   render(
     <MemoryRouter>
       <CandidateResultPage token="token" candidateId="c" />
@@ -52,7 +56,16 @@ it("opens the transcript from the card without a resume block", async () => {
   expect(await screen.findByRole("article", { name: "Ответ: Опыт Python?" })).toBeTruthy();
   expect(screen.queryByRole("region", { name: "Заявлено в резюме" })).toBeNull();
   expect(screen.queryByText("Заявлено: 10 лет Python")).toBeNull();
-  expect(screen.getByRole("button", { name: "Смотреть запись" })).toBeTruthy();
+  expect(await screen.findByLabelText("Видео ответа")).toBeTruthy();
+  expect(screen.queryByRole("button", { name: "Смотреть запись" })).toBeNull();
+});
+it("keeps global question numbers when filtered by topic", () => {
+  const first = { ...answer, answer_id: "a1", question_id: "q1", topic_id: "t1", question: "Первый?" };
+  const second = { ...answer, answer_id: "a2", question_id: "q2", topic_id: "t2", question: "Второй?" };
+  render(<TranscriptContent answers={[first, second]} topicId="t2" />);
+  expect(screen.getByText("Вопрос 2")).toBeTruthy();
+  expect(screen.getByText("Второй?")).toBeTruthy();
+  expect(screen.queryByText("Первый?")).toBeNull();
 });
 it("explains missing transcripts and flags interrupted or skipped answers", () => {
   render(

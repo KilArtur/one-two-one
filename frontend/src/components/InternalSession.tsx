@@ -128,28 +128,6 @@ export function InternalSession({ children }: { children: (token: string) => Rea
       <div className="auth-main auth-form">
         <p className="eyebrow">{current.title}</p>
         <h1 className="auth-form-title">{mode === "register" ? "Регистрация" : "Вход"}</h1>
-        <div className="inline auth-mode">
-          <button
-            type="button"
-            className={`btn small ${mode === "login" ? "primary" : "dark"}`}
-            onClick={() => {
-              setMode("login");
-              setError("");
-            }}
-          >
-            Войти
-          </button>
-          <button
-            type="button"
-            className={`btn small ${mode === "register" ? "primary" : "dark"}`}
-            onClick={() => {
-              setMode("register");
-              setError("");
-            }}
-          >
-            Зарегистрироваться
-          </button>
-        </div>
         <form onSubmit={(event) => void submit(event)}>
           <div className="form-group">
             <label htmlFor="username">Имя пользователя</label>
@@ -182,6 +160,37 @@ export function InternalSession({ children }: { children: (token: string) => Rea
             </p>
           )}
         </form>
+        <p className="auth-switch">
+          {mode === "login" ? (
+            <>
+              Нет аккаунта?{" "}
+              <button
+                type="button"
+                className="auth-switch-link"
+                onClick={() => {
+                  setMode("register");
+                  setError("");
+                }}
+              >
+                Зарегистрироваться
+              </button>
+            </>
+          ) : (
+            <>
+              Уже есть аккаунт?{" "}
+              <button
+                type="button"
+                className="auth-switch-link"
+                onClick={() => {
+                  setMode("login");
+                  setError("");
+                }}
+              >
+                Войти
+              </button>
+            </>
+          )}
+        </p>
       </div>
     </div>
   );

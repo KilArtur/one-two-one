@@ -73,9 +73,8 @@ it.each([["core", 120], ["personal", 120], ["follow_up", 60]] as const)("starts 
   expect(screen.getByRole("timer").textContent).toBe("0:01");
   expect(completed).not.toHaveBeenCalled();
   act(() => { vi.advanceTimersByTime(1000); });
-  expect(screen.getByRole("timer").textContent).toBe("0:00");
-  expect(screen.getByRole("status").textContent).not.toContain("REC");
   expect(completed).toHaveBeenCalledTimes(1);
+  expect(screen.getByRole("status").textContent).toMatch(/Сохраняем ответ/);
   expect(screen.queryByRole("button", { name: "Повторить озвучку" })).toBeNull();
 });
 
@@ -125,7 +124,7 @@ it("uses a deadline instead of counting timer ticks", async () => {
   vi.setSystemTime(Date.now() + 125000);
   act(() => { vi.advanceTimersByTime(250); });
   expect(completed).toHaveBeenCalledTimes(1);
-  expect(screen.getByRole("timer").textContent).toBe("0:00");
+  expect(screen.getByRole("status").textContent).toMatch(/Сохраняем ответ/);
 });
 
 it("cleans up devices and timers on navigation", async () => {

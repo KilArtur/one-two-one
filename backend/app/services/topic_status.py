@@ -48,15 +48,17 @@ def resolve_topic_status(
     """Возвращает статус топика по правилу Р13.
 
     - осознанный пропуск вопроса → `not_confirmed`;
-    - при высокой уверенности: явное отсутствие опыта или существенная техническая
-      ошибка → `not_confirmed`; все три сигнала → `confirmed`; иначе → `needs_check`;
-    - любая средняя/низкая уверенность → `needs_check` (состояние по умолчанию).
+    - явное отсутствие опыта или уклонение от ответа («нет идей» и т.п.) →
+      `not_confirmed`;
+    - при высокой уверенности: существенная техническая ошибка → `not_confirmed`;
+      все три сигнала → `confirmed`; иначе → `needs_check`;
+    - любая средняя/низкая уверенность (без уклонения) → `needs_check`.
     """
-    if skipped:
+    if skipped or explicit_no_experience:
         return AssessmentStatus.NOT_CONFIRMED
 
     if confidence == AssessmentConfidence.HIGH:
-        if explicit_no_experience or technical_error:
+        if technical_error:
             return AssessmentStatus.NOT_CONFIRMED
         if signals.all_present:
             return AssessmentStatus.CONFIRMED

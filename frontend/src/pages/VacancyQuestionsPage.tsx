@@ -8,6 +8,8 @@ import {
   generateCoreQuestions,
   getVacancy,
   listVacancyQuestions,
+  unapproveVacancyQuestion,
+  unapproveVacancyQuestions,
   updateVacancyQuestion,
 } from "../api/client";
 import { Breadcrumbs, EmptyState, PageHead, StatusPill } from "../layouts/Shell";
@@ -101,6 +103,35 @@ export function VacancyQuestionsPage({ token, vacancyId }: { token: string; vaca
     }
   }
 
+  async function revoke(question: VacancyQuestion) {
+    setBusy(true);
+    setNotice("");
+    try {
+      const updated = await unapproveVacancyQuestion(token, vacancyId, question.id);
+      setQuestions((rows) => rows?.map((row) => (row.id === updated.id ? updated : row)) ?? rows);
+      setDrafts((rows) => ({ ...rows, [updated.id]: updated.text }));
+    } catch (reason) {
+      setNotice(reason instanceof Error ? reason.message : "Не удалось снять подтверждение.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function revokeAll() {
+    setBusy(true);
+    setNotice("");
+    try {
+      const rows = await unapproveVacancyQuestions(token, vacancyId);
+      setQuestions(rows);
+      setDrafts(Object.fromEntries(rows.map((row) => [row.id, row.text])));
+      setNotice("Подтверждение снято — интервью снова заблокировано.");
+    } catch (reason) {
+      setNotice(reason instanceof Error ? reason.message : "Не удалось снять подтверждение.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   if (error) {
     return (
       <main>
@@ -129,10 +160,20 @@ export function VacancyQuestionsPage({ token, vacancyId }: { token: string; vaca
             <button type="button" className="btn small ghost" disabled={busy} onClick={() => void generate()}>
               {busy ? "…" : "Сгенерировать"}
             </button>
-            {specialist && (
-              <button type="button" className="btn small primary" disabled={busy || approved} onClick={() => void approve()}>
+            {specialist && !approved && (
+              <button type="button" className="btn small primary" disabled={busy} onClick={() => void approve()}>
                 Подтвердить все
               </button>
+            )}
+            {specialist && approved && (
+              <>
+                <button type="button" className="btn small primary" disabled={busy} onClick={() => void approve()}>
+                  Подтвердить все снова
+                </button>
+                <button type="button" className="btn small ghost" disabled={busy} onClick={() => void revokeAll()}>
+                  Отменить подтверждение
+                </button>
+              </>
             )}
           </div>
         }
@@ -173,19 +214,30 @@ export function VacancyQuestionsPage({ token, vacancyId }: { token: string; vaca
                   <button
                     type="button"
                     className="btn small ghost"
-                    disabled={busy || (question.reviewed_by_expert && drafts[question.id] === question.text)}
+                    disabled={busy}
                     onClick={() => void confirm(question)}
                   >
-                    {drafts[question.id] !== question.text ? "Сохранить и подтвердить" : "Подтвердить"}
+                    {drafts[question.id] !== question.text
+                      ? "Сохранить и подтвердить"
+                      : question.reviewed_by_expert
+                        ? "Подтвердить снова"
+                        : "Подтвердить"}
                   </button>
+                  {question.reviewed_by_expert && drafts[question.id] === question.text && (
+                    <button
+                      type="button"
+                      className="btn small ghost"
+                      disabled={busy}
+                      onClick={() => void revoke(question)}
+                    >
+                      Отменить подтверждение
+                    </button>
+                  )}
                 </div>
               )}
             </section>
           ))}
         </div>
-      )}
-      {!specialist && (
-        <p className="meta">Подтверждать и править вопросы может только техспециалист.</p>
       )}
     </main>
   );

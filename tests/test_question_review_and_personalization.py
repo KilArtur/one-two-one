@@ -177,6 +177,31 @@ async def test_specialist_approves_single_question_without_editing(
 
 
 @pytest.mark.anyio
+async def test_specialist_can_unapprove_questions(client: httpx.AsyncClient) -> None:
+    vacancy_id, questions = await _vacancy_with_questions(client)
+    await client.post(
+        f"/vacancies/{vacancy_id}/questions/approve", headers=_headers(AppRole.TECH_SPECIALIST)
+    )
+
+    one = await client.post(
+        f"/vacancies/{vacancy_id}/questions/{questions[0]['id']}/unapprove",
+        headers=_headers(AppRole.TECH_SPECIALIST),
+    )
+    assert one.status_code == 200
+    assert one.json()["reviewed_by_expert"] is False
+
+    await client.post(
+        f"/vacancies/{vacancy_id}/questions/approve", headers=_headers(AppRole.TECH_SPECIALIST)
+    )
+    all_rows = await client.post(
+        f"/vacancies/{vacancy_id}/questions/unapprove", headers=_headers(AppRole.TECH_SPECIALIST)
+    )
+    assert all_rows.status_code == 200
+    assert all(not question["reviewed_by_expert"] for question in all_rows.json())
+    assert (await _invite(client, vacancy_id)).status_code == 409
+
+
+@pytest.mark.anyio
 async def test_only_technical_specialist_reviews_questions(client: httpx.AsyncClient) -> None:
     vacancy_id, questions = await _vacancy_with_questions(client)
 

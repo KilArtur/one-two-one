@@ -71,6 +71,7 @@ export function EvidencePanel({ token, candidateId, topicId }: { token: string; 
   const [selected, setSelected] = useState(0);
   const [selection, setSelection] = useState(0);
   const [error, setError] = useState("");
+  const quoteRef = useRef<HTMLQuoteElement>(null);
   useEffect(() => {
     const controller = new AbortController();
     getEvidence(token, candidateId, topicId, controller.signal, resultLink).then(setItems).catch((reason) => {
@@ -78,18 +79,30 @@ export function EvidencePanel({ token, candidateId, topicId }: { token: string; 
     });
     return () => controller.abort();
   }, [token, candidateId, topicId, resultLink]);
-  return <section aria-label="Evidence топика">
-    <h2>Основание статуса — ответ кандидата</h2>
+  useEffect(() => {
+    if (selection === 0) return;
+    const node = quoteRef.current;
+    if (node && typeof node.scrollIntoView === "function") {
+      node.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    }
+  }, [selection]);
+  return <section aria-label="Evidence топика" className="evidence-panel">
     {error && <p role="alert">{error}</p>}
     {!items && !error && <p role="status">Загружаем цитаты…</p>}
     {items?.length === 0 && <p>Цитаты с доступным ответом отсутствуют.</p>}
-    {items?.map((item, index) => <div key={`${item.answer_id}-${index}`}>
+    {items?.map((item, index) => <div key={`${item.answer_id}-${index}`} className="evidence-item-block">
       <p>{item.question}</p>
-      <blockquote>{index === selected ? <mark>{item.quote}</mark> : item.quote}</blockquote>
-      <button disabled={!item.video_available} onClick={() => { setSelected(index); setSelection((v) => v + 1); }}>
+      <blockquote ref={index === selected ? quoteRef : undefined}>
+        {index === selected ? <mark>{item.quote}</mark> : item.quote}
+      </blockquote>
+      <button type="button" disabled={!item.video_available} onClick={() => { setSelected(index); setSelection((v) => v + 1); }}>
         {item.video_available ? `К фрагменту ${item.start_sec} с` : "Видео или таймкод недоступны"}
       </button>
     </div>)}
-    {items?.[selected]?.video_available && <EvidencePlayer key={`${selected}-${selection}`} token={token} candidateId={candidateId} item={items[selected]} />}
+    {items?.[selected]?.video_available && (
+      <div className="evidence-video" id="evidence-video">
+        <EvidencePlayer key={`${selected}-${selection}`} token={token} candidateId={candidateId} item={items[selected]} />
+      </div>
+    )}
   </section>;
 }

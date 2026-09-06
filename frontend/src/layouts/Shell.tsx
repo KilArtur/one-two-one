@@ -1,4 +1,4 @@
-import { Link, NavLink, useNavigate } from "react-router-dom";
+import { Link, NavLink } from "react-router-dom";
 import { ReactNode } from "react";
 import { ROLE_LABEL } from "../lib/labels";
 
@@ -21,7 +21,8 @@ export function StaffShell({
   onLogout: () => void;
   children?: ReactNode;
 }) {
-  const navigate = useNavigate();
+  const showReview = role !== "recruiter";
+  const showMetrics = role !== "technical_specialist";
   return (
     <div className="app">
       <header className="topbar">
@@ -35,7 +36,7 @@ export function StaffShell({
           <button type="button" className="role-switch" onClick={onLogout}>
             Сменить роль
           </button>
-          <button type="button" className="btn small ghost" onClick={() => navigate("/")}>
+          <button type="button" className="btn small ghost" onClick={onLogout}>
             Выйти
           </button>
         </div>
@@ -56,14 +57,18 @@ export function StaffShell({
               <span className="side-icon">◎</span>
               <span className="side-label">Кандидаты</span>
             </NavLink>
-            <NavLink to="/staff/review" className={({ isActive }) => `side-link${isActive ? " active" : ""}`}>
-              <span className="side-icon">✦</span>
-              <span className="side-label">Ревью</span>
-            </NavLink>
-            <NavLink to="/staff/metrics" className={({ isActive }) => `side-link${isActive ? " active" : ""}`}>
-              <span className="side-icon">▣</span>
-              <span className="side-label">Метрики</span>
-            </NavLink>
+            {showReview && (
+              <NavLink to="/staff/review" className={({ isActive }) => `side-link${isActive ? " active" : ""}`}>
+                <span className="side-icon">✦</span>
+                <span className="side-label">Ревью</span>
+              </NavLink>
+            )}
+            {showMetrics && (
+              <NavLink to="/staff/metrics" className={({ isActive }) => `side-link${isActive ? " active" : ""}`}>
+                <span className="side-icon">▣</span>
+                <span className="side-label">Метрики</span>
+              </NavLink>
+            )}
           </div>
         </aside>
         <div className="main">{children}</div>

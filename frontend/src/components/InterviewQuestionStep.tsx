@@ -7,8 +7,16 @@ import { attachQuestionAudio } from "../hooks/questionAudio";
 
 type Phase = "preparing" | "speaking" | "recording" | "stopping" | "recorded" | "error";
 
-export function InterviewQuestionStep({ question, token, onSaved }: {
-  question: InterviewQuestion; token: string; onSaved: (answer: SavedAnswer) => void;
+export function InterviewQuestionStep({
+  question,
+  token,
+  onSaved,
+  onSkip,
+}: {
+  question: InterviewQuestion;
+  token: string;
+  onSaved: (answer: SavedAnswer) => void;
+  onSkip?: () => void;
 }) {
   const limit = question.type === "follow_up" ? 60 : 120;
   const [remaining, setRemaining] = useState(limit);
@@ -147,11 +155,21 @@ export function InterviewQuestionStep({ question, token, onSaved }: {
     };
   }, [question.id, token, limit, attempt]);
 
+  const savingAnswer = phase === "stopping" || phase === "recorded";
+
   return (
+    <>
+      <audio ref={player} className="sr-only" aria-label="Озвучка вопроса" />
+      {savingAnswer ? (
+        <div className="interview-wait" role="status" aria-live="polite">
+          <span className="process-spinner interview-wait-spinner" aria-hidden />
+          <p className="interview-wait-text">Сохраняем ответ…</p>
+          <p className="interview-wait-sub">Это займёт несколько секунд</p>
+        </div>
+      ) : (
     <section className="live-copy live-copy-compact">
       <h2 className="live-question-text">{question.text}</h2>
       <p className="live-hint">После озвучки запись начнётся автоматически · до {limit} с</p>
-      <audio ref={player} aria-label="Озвучка вопроса" />
       {needsPlay && (
         <button
           type="button"
@@ -195,17 +213,33 @@ export function InterviewQuestionStep({ question, token, onSaved }: {
                 ? "Звучит вопрос"
                 : phase === "preparing"
                   ? "Подготовка…"
-                  : phase === "recorded"
-                    ? upload.status === "saved"
-                      ? "Ответ сохранён"
-                      : "Сохраняем…"
-                    : phase === "stopping"
-                      ? "Завершаем…"
-                      : "Остановлено"}
+                  : "Остановлено"}
           </p>
           {phase === "recording" && (
-            <button type="button" className="btn dark" onClick={() => stop.current()}>
-              Закончить ответ
+            <div className="live-actions">
+              <button type="button" className="btn dark" onClick={() => stop.current()}>
+                Закончить ответ
+              </button>
+              {onSkip && (
+                <button
+                  type="button"
+                  className="btn dark interview-skip"
+                  onClick={onSkip}
+                  title="Пропуск нельзя отменить: вопрос будет засчитан как «не подтверждено»"
+                >
+                  Пропустить вопрос
+                </button>
+              )}
+            </div>
+          )}
+          {phase !== "recording" && onSkip && (
+            <button
+              type="button"
+              className="btn dark interview-skip"
+              onClick={onSkip}
+              title="Пропуск нельзя отменить: вопрос будет засчитан как «не подтверждено»"
+            >
+              Пропустить вопрос
             </button>
           )}
           {upload.status === "error" && (
@@ -225,5 +259,7 @@ export function InterviewQuestionStep({ question, token, onSaved }: {
         </div>
       </div>
     </section>
+      )}
+    </>
   );
 }

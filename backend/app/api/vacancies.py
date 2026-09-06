@@ -245,6 +245,33 @@ async def approve_core_questions(
     return [QuestionRead.model_validate(question) for question in questions]
 
 
+@router.post("/{vacancy_id}/questions/{question_id}/unapprove", response_model=QuestionRead)
+async def unapprove_core_question(
+    vacancy_id: uuid.UUID,
+    question_id: uuid.UUID,
+    session: SessionDep,
+    current_user: CurrentUserDep,
+) -> QuestionRead:
+    """Снимает подтверждение с одного core-вопроса."""
+    ensure_question_review_allowed(current_user)
+    question = await question_review.unapprove_question(session, vacancy_id, question_id)
+    if question is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Question not found")
+    return QuestionRead.model_validate(question)
+
+
+@router.post("/{vacancy_id}/questions/unapprove", response_model=list[QuestionRead])
+async def unapprove_core_questions(
+    vacancy_id: uuid.UUID, session: SessionDep, current_user: CurrentUserDep
+) -> list[QuestionRead]:
+    """Снимает подтверждение со всего ядра — интервью снова блокируется."""
+    ensure_question_review_allowed(current_user)
+    questions = await question_review.unapprove_core_questions(session, vacancy_id)
+    if questions is None:
+        raise _NOT_FOUND
+    return [QuestionRead.model_validate(question) for question in questions]
+
+
 @router.get("/{vacancy_id}/asr-dictionary", response_model=AsrDictionaryRead)
 async def get_asr_dictionary(vacancy_id: uuid.UUID, session: SessionDep) -> AsrDictionaryRead:
     """Возвращает ASR-словарь вакансии и авто-подсказки терминов из матрицы."""

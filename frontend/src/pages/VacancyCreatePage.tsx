@@ -102,23 +102,41 @@ export function VacancyCreatePage({ token }: { token: string }) {
       />
       <PageHead eyebrow="Матрица требований" title="Новая вакансия" />
 
-      <section className="panel">
-        <label htmlFor="vacancy-pdf">Описание вакансии в PDF</label>
-        <p className="meta">
-          Модель разберёт документ на топики и заполнит форму — дальше всё можно поправить руками.
-        </p>
-        <input
-          id="vacancy-pdf"
-          type="file"
-          accept="application/pdf"
-          disabled={parsing}
-          onChange={(event) => {
-            const file = event.target.files?.[0];
-            event.target.value = "";
-            if (file) void loadFromPdf(file);
-          }}
-        />
-        {parsing && <p role="status">Разбираем документ…</p>}
+      <section className={`upload-box${draftNote && !parsing ? " ready" : ""}`}>
+        <div>
+          <p className="eyebrow">Источник</p>
+          <h2 className="upload-box-title">Описание вакансии в PDF</h2>
+          <p className="meta">
+            Модель разберёт документ на топики и заполнит форму — дальше всё можно поправить руками.
+          </p>
+        </div>
+        <label className={`upload-pick${parsing ? " disabled" : ""}`} htmlFor="vacancy-pdf">
+          <span className="upload-pick-icon" aria-hidden>
+            ↑
+          </span>
+          <span>{parsing ? "Разбираем документ…" : "Выбрать PDF"}</span>
+          <input
+            id="vacancy-pdf"
+            type="file"
+            accept="application/pdf"
+            disabled={parsing}
+            aria-label="Описание вакансии в PDF"
+            onChange={(event) => {
+              const file = event.target.files?.[0];
+              event.target.value = "";
+              if (file) void loadFromPdf(file);
+            }}
+          />
+        </label>
+        {parsing && (
+          <div className="process-wait" role="status" aria-live="polite">
+            <span className="process-spinner" aria-hidden />
+            <div>
+              <p className="process-wait-title">Разбираем PDF…</p>
+              <p className="meta">Модель заполняет форму — подождите, это может занять до минуты.</p>
+            </div>
+          </div>
+        )}
         {!parsing && draftNote && <p role="status">{draftNote}</p>}
       </section>
 

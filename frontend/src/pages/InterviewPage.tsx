@@ -150,57 +150,54 @@ export function InterviewPage({ token }: { token: string }) {
       <div className="interview-progress" aria-hidden>
         <span style={{ width: `${progress}%` }} />
       </div>
-      <div className="interview-main">
-        <div className="interview-question">
-          <p className="eyebrow interview-eyebrow">
-            {isFollowup ? "Уточняющий" : `Вопрос ${baseNumber} из ${baseTotal}`}
+      {deciding ? (
+        <div className="interview-wait" role="status" aria-live="polite">
+          <span className="process-spinner interview-wait-spinner" aria-hidden />
+          <p className="interview-wait-text">Проверяем, нужно ли уточнение…</p>
+          <p className="interview-wait-sub">Это займёт несколько секунд</p>
+        </div>
+      ) : answers[question.id] ? (
+        <div className="interview-wait interview-next-screen">
+          <p className="interview-wait-text" role="status">
+            Ответ сохранён
           </p>
-          {!answers[question.id] && (
+          {isLast ? (
+            <button
+              type="button"
+              className="btn interview-cta"
+              onClick={onSubmit}
+              disabled={submitting}
+            >
+              {submitting ? "Отправляем…" : "Завершить и отправить интервью"}
+            </button>
+          ) : (
+            <button
+              type="button"
+              className="btn interview-cta"
+              onClick={() => setIndex(index + 1)}
+            >
+              Следующий вопрос
+            </button>
+          )}
+          {actionError && <p role="alert">{actionError}</p>}
+        </div>
+      ) : (
+        <div className="interview-main">
+          <div className="interview-question">
+            <p className="eyebrow interview-eyebrow">
+              {isFollowup ? "Уточняющий" : `Вопрос ${baseNumber} из ${baseTotal}`}
+            </p>
             <InterviewQuestionStep
               key={question.id}
               question={question}
               token={token}
               onSaved={onSaved}
+              onSkip={() => void onSkip()}
             />
-          )}
-          {answers[question.id] && (
-            <div className="interview-next">
-              <p role="status">Ответ сохранён.</p>
-              {deciding && <p role="status">Проверяем, нужно ли уточнение…</p>}
-              {!deciding &&
-                (isLast ? (
-                  <button
-                    type="button"
-                    className="btn interview-cta"
-                    onClick={onSubmit}
-                    disabled={submitting}
-                  >
-                    {submitting ? "Отправляем…" : "Завершить и отправить интервью"}
-                  </button>
-                ) : (
-                  <button
-                    type="button"
-                    className="btn interview-cta"
-                    onClick={() => setIndex(index + 1)}
-                  >
-                    Следующий вопрос
-                  </button>
-                ))}
-            </div>
-          )}
-          {actionError && <p role="alert">{actionError}</p>}
-          {!answers[question.id] && (
-            <button
-              type="button"
-              className="btn dark interview-skip"
-              onClick={() => void onSkip()}
-              title="Пропуск нельзя отменить: вопрос будет засчитан как «не подтверждено»"
-            >
-              Пропустить вопрос
-            </button>
-          )}
+            {actionError && <p role="alert">{actionError}</p>}
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }

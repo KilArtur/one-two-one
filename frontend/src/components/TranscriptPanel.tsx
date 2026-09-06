@@ -55,25 +55,26 @@ function timestamp(value: number): string {
 
 export function TranscriptContent({
   answers,
+  topicId,
   token,
   candidateId,
 }: {
   answers: TranscriptAnswer[];
-  token: string;
-  candidateId: string;
+  topicId?: string;
+  token?: string;
+  candidateId?: string;
 }) {
-  const [openId, setOpenId] = useState<string | null>(null);
-
-  if (!answers.length) return <p>Ответов пока нет.</p>;
+  const items = topicId ? answers.filter((row) => row.topic_id === topicId) : answers;
+  if (!items.length) return <p>Ответов пока нет.</p>;
 
   return (
     <div className="transcript-feed">
-      {answers.map((answer, index) => {
+      {items.map((answer) => {
         const text = answer.segments.map((s) => s.text).join("\n");
         const ranges = quoteRanges(text, answer.quotes);
         let offset = 0;
-        const canPlay = !answer.skipped && !answer.technically_lost;
-        const open = openId === answer.answer_id;
+        const canPlay = Boolean(token && candidateId) && !answer.skipped && !answer.technically_lost;
+        const questionNumber = answers.findIndex((row) => row.answer_id === answer.answer_id) + 1;
         return (
           <article
             key={answer.answer_id}
@@ -81,10 +82,10 @@ export function TranscriptContent({
             aria-label={`Ответ: ${answer.question}`}
           >
             <header className="transcript-card-head">
-              <span className="eyebrow">Вопрос {index + 1}</span>
+              <span className="eyebrow">Вопрос {questionNumber}</span>
             </header>
 
-            <div className="transcript-block">
+            <div className="transcript-block" id={`topic-question-${answer.question_id}`}>
               <p className="transcript-label">Вопрос</p>
               <p className="transcript-question">{answer.question}</p>
             </div>
@@ -137,34 +138,25 @@ export function TranscriptContent({
               )}
             </div>
 
-            {canPlay && (
+            {canPlay && token && candidateId && (
               <div className="transcript-block transcript-media">
                 <p className="transcript-label">Видео</p>
-                <button
-                  type="button"
-                  className="btn small ghost"
-                  onClick={() => setOpenId(open ? null : answer.answer_id)}
-                >
-                  {open ? "Скрыть запись" : "Смотреть запись"}
-                </button>
-                {open && (
-                  <div className="transcript-inline-player">
-                    <EvidencePlayer
-                      key={answer.answer_id}
-                      token={token}
-                      candidateId={candidateId}
-                      item={{
-                        answer_id: answer.answer_id,
-                        question_id: answer.question_id,
-                        question: answer.question,
-                        quote: "",
-                        start_sec: 0,
-                        end_sec: null,
-                        video_available: true,
-                      }}
-                    />
-                  </div>
-                )}
+                <div className="transcript-inline-player">
+                  <EvidencePlayer
+                    key={answer.answer_id}
+                    token={token}
+                    candidateId={candidateId}
+                    item={{
+                      answer_id: answer.answer_id,
+                      question_id: answer.question_id,
+                      question: answer.question,
+                      quote: "",
+                      start_sec: 0,
+                      end_sec: null,
+                      video_available: true,
+                    }}
+                  />
+                </div>
               </div>
             )}
           </article>
@@ -192,7 +184,8 @@ export function TranscriptPanel({
     const controller = new AbortController();
     setAnswers(null);
     setError("");
-    getTranscripts(token, candidateId, topicId, controller.signal, resultLink)
+    // Полный список нужен для корректного номера вопроса при фильтре по топику.
+    getTranscripts(token, candidateId, undefined, controller.signal, resultLink)
       .then((data) => {
         if (!controller.signal.aborted) setAnswers(data);
       })
@@ -202,7 +195,7 @@ export function TranscriptPanel({
         }
       });
     return () => controller.abort();
-  }, [token, candidateId, topicId, attempt, resultLink]);
+  }, [token, candidateId, attempt, resultLink]);
 
   return (
     <section aria-label="Транскрипт интервью" className="transcript-panel">
@@ -216,7 +209,12 @@ export function TranscriptPanel({
           </button>
         </>
       ) : answers ? (
-        <TranscriptContent answers={answers} token={token} candidateId={candidateId} />
+        <TranscriptContent
+          answers={answers}
+          topicId={topicId}
+          token={token}
+          candidateId={candidateId}
+        />
       ) : (
         <p role="status">Загружаем транскрипт…</p>
       )}

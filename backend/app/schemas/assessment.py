@@ -16,7 +16,12 @@ class TopicAssessmentLLM(BaseModel):
     example: bool = Field(description="Есть конкретный практический пример")
     personal_contribution: bool = Field(description="Различим личный вклад кандидата")
     confidence: AssessmentConfidence = Field(description="Категориальная уверенность оценки")
-    explicit_no_experience: bool = Field(description="Кандидат явно сказал об отсутствии опыта")
+    explicit_no_experience: bool = Field(
+        description=(
+            "Кандидат явно сказал об отсутствии опыта или уклонился от ответа "
+            "(«нет идей», «не знаю», «затрудняюсь» и т.п.)"
+        )
+    )
     technical_error: bool = Field(description="Существенная техническая ошибка по сути требования")
     evidence_quote: str = Field(description="Точная цитата из транскрипта (или пустая строка)")
     reasoning_summary: str = Field(description="Краткое обоснование вывода")

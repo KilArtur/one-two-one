@@ -2,13 +2,15 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 
 import { Vacancy, deleteVacancy, listVacancies } from "../api/client";
-import { Breadcrumbs, EmptyState, PageHead, StatusPill } from "../layouts/Shell";
+import { Breadcrumbs, EmptyState, PageHead } from "../layouts/Shell";
 
 export function VacanciesPage({ token }: { token: string }) {
   const [vacancies, setVacancies] = useState<Vacancy[] | null>(null);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [busyId, setBusyId] = useState("");
+  const role = sessionStorage.getItem("internal-role") ?? "recruiter";
+  const canManage = role !== "technical_specialist";
 
   useEffect(() => {
     const controller = new AbortController();
@@ -63,7 +65,6 @@ export function VacanciesPage({ token }: { token: string }) {
               <tr>
                 <th>Название</th>
                 <th>Грейд</th>
-                <th>Статус</th>
                 <th>Топики</th>
                 <th>Версия</th>
                 <th />
@@ -82,11 +83,6 @@ export function VacanciesPage({ token }: { token: string }) {
                     </div>
                   </td>
                   <td>{vacancy.grade}</td>
-                  <td>
-                    <StatusPill tone={vacancy.status === "active" ? "success" : "blue"}>
-                      {vacancy.status}
-                    </StatusPill>
-                  </td>
                   <td>{vacancy.topics.length}</td>
                   <td>v{vacancy.version}</td>
                   <td className="table-actions">
@@ -100,17 +96,21 @@ export function VacanciesPage({ token }: { token: string }) {
                       <Link className="table-action" to={`/staff/vacancies/${vacancy.id}/questions`}>
                         Вопросы
                       </Link>
-                      <Link className="table-action" to={`/staff/vacancies/${vacancy.id}/metrics`}>
-                        Метрики
-                      </Link>
-                      <button
-                        type="button"
-                        className="table-action table-action-danger"
-                        disabled={busyId === vacancy.id}
-                        onClick={() => void remove(vacancy.id)}
-                      >
-                        Удалить
-                      </button>
+                      {canManage && (
+                        <Link className="table-action" to={`/staff/vacancies/${vacancy.id}/metrics`}>
+                          Метрики
+                        </Link>
+                      )}
+                      {canManage && (
+                        <button
+                          type="button"
+                          className="table-action table-action-danger"
+                          disabled={busyId === vacancy.id}
+                          onClick={() => void remove(vacancy.id)}
+                        >
+                          Удалить
+                        </button>
+                      )}
                     </div>
                   </td>
                 </tr>

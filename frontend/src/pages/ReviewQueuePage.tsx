@@ -1,4 +1,4 @@
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import {
   changeAssessmentStatus,
@@ -18,10 +18,12 @@ function ReviewDetail({
   token,
   item,
   onSaved,
+  onOpenMatrix,
 }: {
   token: string;
   item: ReviewItem;
   onSaved: () => void;
+  onOpenMatrix: () => void;
 }) {
   const [status, setStatus] = useState(item.current_status);
   const [comment, setComment] = useState("");
@@ -46,13 +48,20 @@ function ReviewDetail({
 
   return (
     <section className="panel" aria-label="Контекст ревью">
-      <p className="eyebrow">{code}</p>
-      <h2>{item.topic_title}</h2>
-      <p className="meta">
-        Кандидат {code} · {item.skill_type}
-        {" · "}
-        <Link to={`/staff/candidates/${item.candidate_id}`}>Открыть карточку</Link>
-      </p>
+      <div className="review-detail-head">
+        <div>
+          <p className="eyebrow">{code}</p>
+          <h2>{item.topic_title}</h2>
+          <p className="meta">
+            Кандидат {code} · {item.skill_type}
+            {" · "}
+            <Link to={`/staff/candidates/${item.candidate_id}`}>Открыть карточку</Link>
+          </p>
+        </div>
+        <button type="button" className="btn primary" onClick={onOpenMatrix}>
+          Матрица требований
+        </button>
+      </div>
       <h3>Причина неопределённости</h3>
       <p>{item.reasoning_summary ?? "Причина не указана. Проверьте ответ и запись."}</p>
       <TranscriptPanel token={token} candidateId={item.candidate_id} topicId={item.topic_id} />
@@ -83,7 +92,7 @@ function ReviewDetail({
           />
         </label>
         <p className="meta">
-          Правка изменяет текущий статус. Исходный статус системы и история сохраняются.
+          Можно сохранить текущий статус без правок — топик уйдёт из очереди.
         </p>
         <button className="btn primary" disabled={busy}>
           {busy ? "Сохраняем…" : "Сохранить статус"}
@@ -102,6 +111,18 @@ export function ReviewQueuePage({ token }: { token: string }) {
   const [savedCandidate, setSavedCandidate] = useState<string | null>(null);
   const [error, setError] = useState("");
   const [revision, setRevision] = useState(0);
+  const detailRef = useRef<HTMLDivElement>(null);
+
+  function selectTopic(item: ReviewItem) {
+    setSelected(item);
+    setSavedCandidate(null);
+    window.setTimeout(() => {
+      const node = detailRef.current;
+      if (node && typeof node.scrollIntoView === "function") {
+        node.scrollIntoView({ behavior: "smooth", block: "start" });
+      }
+    }, 30);
+  }
 
   useEffect(() => {
     const controller = new AbortController();
@@ -150,23 +171,30 @@ export function ReviewQueuePage({ token }: { token: string }) {
           actions={
             <button
               type="button"
-              className="btn ghost"
+              className="btn primary"
               onClick={() => {
                 setConfirmCandidate(null);
+                setSavedCandidate(null);
                 setRevision((value) => value + 1);
               }}
             >
-              К очереди
+              К очереди кандидатов
             </button>
           }
         />
         <p className="meta" style={{ marginBottom: 24 }}>
-          Отметьте статусы в матрице и нажмите «Сохранить всё».
+          Можно сохранить матрицу как есть или поправить статусы — затем «Сохранить всё».
         </p>
+        {savedCandidate === confirmCandidate && (
+          <p className="matrix-save-notice" role="status" style={{ marginBottom: 16 }}>
+            Изменения сохранены. Можно перейти к подтверждению другого кандидата.
+          </p>
+        )}
         <CandidateResultPage
           key={`${confirmCandidate}-${revision}`}
           token={token}
           candidateId={confirmCandidate}
+          onMatrixSaved={() => setSavedCandidate(confirmCandidate)}
         />
       </main>
     );
@@ -216,7 +244,7 @@ export function ReviewQueuePage({ token }: { token: string }) {
                 Обновить очередь
               </button>
               {items.length ? (
-                <div className="requirement-layout" style={{ marginTop: 24 }}>
+                <div className="requirement-layout review-layout" style={{ marginTop: 24 }}>
                   <div className="requirement-list review-queue-list">
                     {groups.map(([candidateId, topics]) => {
                       const code = candidateCode(candidateId);
@@ -243,7 +271,7 @@ export function ReviewQueuePage({ token }: { token: string }) {
                               className="btn small primary"
                               onClick={() => openConfirm(candidateId)}
                             >
-                              Подтвердить
+                              Матрица требований
                             </button>
                           </div>
                           {topics.map((item) => (
@@ -253,10 +281,7 @@ export function ReviewQueuePage({ token }: { token: string }) {
                               className={`requirement${selected?.assessment_id === item.assessment_id ? " active" : ""}`}
                               aria-label={`${code}: ${item.topic_title} · ${item.skill_type}`}
                               aria-pressed={selected?.assessment_id === item.assessment_id}
-                              onClick={() => {
-                                setSelected(item);
-                                setSavedCandidate(null);
-                              }}
+                              onClick={() => selectTopic(item)}
                             >
                               <strong>
                                 {item.topic_title} · {item.skill_type}
@@ -269,12 +294,13 @@ export function ReviewQueuePage({ token }: { token: string }) {
                       );
                     })}
                   </div>
-                  <div>
+                  <div className="review-detail-pane" ref={detailRef}>
                     {selected ? (
                       <ReviewDetail
                         key={selected.assessment_id}
                         token={token}
                         item={selected}
+                        onOpenMatrix={() => openConfirm(selected.candidate_id)}
                         onSaved={() => {
                           setSavedCandidate(selected.candidate_id);
                           setSelected(null);
@@ -283,8 +309,8 @@ export function ReviewQueuePage({ token }: { token: string }) {
                       />
                     ) : (
                       <EmptyState
-                        title="Выберите топик или кандидата"
-                        text="Топик — точечная проверка. «Подтвердить» открывает матрицу кандидата."
+                        title="Выберите топик или матрицу"
+                        text="Топик — точечная проверка. «Матрица требований» открывает все статусы кандидата сразу."
                       />
                     )}
                   </div>

@@ -117,6 +117,22 @@ async def test_closed_topic_leaves_queue(session: AsyncSession) -> None:
 
 
 @pytest.mark.anyio
+async def test_reviewed_needs_check_leaves_queue(session: AsyncSession) -> None:
+    """Эксперт сохранил статус без смены — топик уходит из очереди."""
+    ids = await _seed(session)
+    assessment = await session.get(TopicAssessment, ids["hard-low"])
+    assert assessment is not None
+    assessment.reviewed_by = uuid.uuid4()
+    assessment.current_status = AssessmentStatus.NEEDS_CHECK
+    await session.commit()
+
+    items = await review_queue(session, _user(AppRole.TECH_SPECIALIST))
+    titles = {item["topic_title"] for item in items}
+    assert "hard-low" not in titles
+    assert titles == {"hard-med", "hard-high"}
+
+
+@pytest.mark.anyio
 async def test_hiring_manager_sees_only_soft(session: AsyncSession) -> None:
     await _seed(session)
     items = await review_queue(session, _user(AppRole.HIRING_MANAGER))

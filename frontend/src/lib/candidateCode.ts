@@ -8,3 +8,9 @@ export function candidateCode(id: string): string {
   if (id.startsWith("К-")) return id;
   return `К-${id}`;
 }
+
+/** Имя кандидата, если задано; иначе короткий код. */
+export function candidateLabel(id: string, fullName?: string | null): string {
+  const name = fullName?.trim();
+  return name || candidateCode(id);
+}

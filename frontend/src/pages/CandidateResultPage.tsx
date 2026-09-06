@@ -1,6 +1,6 @@
 import { ResultAccessPanel } from "../components/ResultAccessPanel";
 import { ResultLinkContext } from "../components/ResultLinkContext";
-import { useContext, useEffect, useMemo, useState } from "react";
+import { useContext, useEffect, useMemo, useRef, useState } from "react";
 
 import {
   ResultTopicRow,
@@ -22,12 +22,13 @@ import {
   coveragePct,
   coverageText,
 } from "../lib/labels";
-import { candidateCode } from "../lib/candidateCode";
+import { candidateLabel } from "../lib/candidateCode";
 
 type TopicDraft = { status: string; comment: string };
 
-function canEditTopic(shared: boolean, skillType: string): boolean {
+function canEditTopic(shared: boolean, skillType: string, status: string): boolean {
   if (shared) return false;
+  if (status === "not_confirmed") return false;
   const role = sessionStorage.getItem("internal-role");
   if (role === "technical_specialist") return skillType === "hard";
   if (role === "hiring_manager") return skillType === "soft";
@@ -48,9 +49,9 @@ function TopicStatusEditor({
   onSave: () => void;
 }) {
   return (
-    <div className="topic-edit">
+    <div className="topic-edit topic-edit-inline">
       <label>
-        <span className="meta">Статус</span>
+        <span className="meta">Новый статус</span>
         <select
           className="field"
           aria-label={`Статус топика ${topic.topic_title}`}
@@ -63,7 +64,7 @@ function TopicStatusEditor({
           <option value="not_confirmed">не подтверждено</option>
         </select>
       </label>
-      <label>
+      <label className="topic-edit-comment">
         <span className="meta">Комментарий</span>
         <input
           className="field"
@@ -71,30 +72,27 @@ function TopicStatusEditor({
           maxLength={2000}
           value={draft.comment}
           disabled={busy}
-          placeholder="Комментарий (необязательно)"
+          placeholder="Кратко, почему меняете статус"
           onChange={(event) => onChange({ ...draft, comment: event.target.value })}
         />
       </label>
-      <button type="button" className="btn small" disabled={busy} onClick={onSave}>
+      <button type="button" className="btn small primary" disabled={busy} onClick={onSave}>
         {busy ? "Сохраняем…" : "Сохранить"}
       </button>
     </div>
   );
 }
 
-function isDirty(topic: ResultTopicRow, draft: TopicDraft | undefined): boolean {
-  if (!draft) return false;
-  return draft.status !== topic.current_status || draft.comment.trim().length > 0;
-}
-
 export function CandidateResultPage({
   token,
   candidateId,
   shared = false,
+  onMatrixSaved,
 }: {
   token: string;
   candidateId: string;
   shared?: boolean;
+  onMatrixSaved?: () => void;
 }) {
   const navigate = useNavigate();
   const resultLink = useContext(ResultLinkContext);
@@ -103,6 +101,7 @@ export function CandidateResultPage({
   const [card, setCard] = useState<ResultCard | null>(null);
   const [showTranscript, setShowTranscript] = useState(false);
   const [topic, setTopic] = useState<string | null>(null);
+  const evidenceAnchor = useRef<HTMLDivElement>(null);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [revision, setRevision] = useState(0);
@@ -110,6 +109,7 @@ export function CandidateResultPage({
   const [savingIds, setSavingIds] = useState<string[]>([]);
   const [saveError, setSaveError] = useState("");
   const [saveNotice, setSaveNotice] = useState("");
+  const pendingNotice = useRef<string | null>(null);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -131,37 +131,41 @@ export function CandidateResultPage({
       ),
     );
     setSaveError("");
-    setSaveNotice("");
+    if (pendingNotice.current) {
+      setSaveNotice(pendingNotice.current);
+      pendingNotice.current = null;
+    }
   }, [card]);
 
   const editableTopics = useMemo(
-    () => (card ? card.topics.filter((row) => canEditTopic(shared, row.skill_type)) : []),
-    [card, shared],
-  );
-  const dirtyIds = useMemo(
     () =>
-      editableTopics
-        .filter((row) => isDirty(row, drafts[row.topic_id]))
-        .map((row) => row.topic_id),
-    [editableTopics, drafts],
+      card
+        ? card.topics.filter((row) => canEditTopic(shared, row.skill_type, row.current_status))
+        : [],
+    [card, shared],
   );
   const saving = savingIds.length > 0;
 
   async function saveTopics(topicIds: string[]) {
-    if (!card || topicIds.length === 0 || saving) return;
-    setSavingIds(topicIds);
+    const ids = topicIds.length > 0 ? topicIds : editableTopics.map((row) => row.topic_id);
+    if (!card || ids.length === 0 || saving) return;
+    setSavingIds(ids);
     setSaveError("");
     setSaveNotice("");
     try {
-      for (const topicId of topicIds) {
+      for (const topicId of ids) {
         const row = card.topics.find((item) => item.topic_id === topicId);
         const draft = drafts[topicId];
         if (!row || !draft) continue;
         await changeTopicStatus(token, candidateId, topicId, draft.status, draft.comment);
       }
-      setSaveNotice(
-        topicIds.length === 1 ? "Статус сохранён." : `Сохранено топиков: ${topicIds.length}.`,
-      );
+      const notice =
+        ids.length === 1
+          ? "Статус сохранён. Можно перейти к другому кандидату."
+          : "Изменения сохранены. Можно перейти к подтверждению другого кандидата.";
+      pendingNotice.current = notice;
+      setSaveNotice(notice);
+      onMatrixSaved?.();
       setRevision((value) => value + 1);
     } catch (reason) {
       setSaveError(reason instanceof Error ? reason.message : "Не удалось сохранить статусы.");
@@ -169,6 +173,29 @@ export function CandidateResultPage({
       setSavingIds([]);
     }
   }
+
+  function openTopicEvidence(topicId: string) {
+    setTopic(topicId);
+  }
+
+  useEffect(() => {
+    if (!topic) return;
+    let tries = 0;
+    let timer = 0;
+    const tick = () => {
+      const target =
+        document.querySelector(`#topic-qa-${topic} .transcript-question`) ??
+        document.getElementById(`topic-qa-${topic}`) ??
+        document.getElementById(`topic-evidence-${topic}`);
+      if (target && typeof target.scrollIntoView === "function") {
+        target.scrollIntoView({ behavior: "smooth", block: "start" });
+        return;
+      }
+      if (tries++ < 25) timer = window.setTimeout(tick, 40);
+    };
+    timer = window.setTimeout(tick, 40);
+    return () => window.clearTimeout(timer);
+  }, [topic]);
 
   async function remove() {
     if (!window.confirm("Удалить кандидата и его интервью?")) return;
@@ -204,7 +231,7 @@ export function CandidateResultPage({
 
       <div className="result-hero">
         <p className="eyebrow" style={{ color: "#9d99ff" }}>
-          {candidateCode(card.candidate_id)}
+          {candidateLabel(card.candidate_id, card.full_name)}
         </p>
         <h1>{RECOMMENDATION_LABEL[card.recommendation] ?? card.recommendation}</h1>
         <p>{REASON_LABEL[card.recommendation_reason] ?? card.recommendation_reason}.</p>
@@ -246,14 +273,19 @@ export function CandidateResultPage({
 
       <section className="section" aria-label="Матрица топиков">
         <div className="section-head">
-          <h2>Матрица требований (подтверждено в интервью)</h2>
+          <div>
+            <h2>Матрица требований</h2>
+            <p className="section-note" style={{ marginTop: 8 }}>
+              Можно сохранить матрицу как есть или поправить статусы — затем «Сохранить всё».
+            </p>
+          </div>
           <div className="inline">
             {editableTopics.length > 0 && (
               <button
                 type="button"
                 className="btn primary"
-                disabled={saving || dirtyIds.length === 0}
-                onClick={() => void saveTopics(dirtyIds)}
+                disabled={saving}
+                onClick={() => void saveTopics(editableTopics.map((row) => row.topic_id))}
               >
                 {saving && savingIds.length > 1 ? "Сохраняем всё…" : "Сохранить всё"}
               </button>
@@ -266,69 +298,82 @@ export function CandidateResultPage({
           </div>
         </div>
         {saveError && <p role="alert">{saveError}</p>}
-        {saveNotice && <p role="status">{saveNotice}</p>}
-        <div className="table-wrap">
-          <table>
-            <thead>
-              <tr>
-                <th>Топик</th>
-                <th>Тип</th>
-                <th>Важность</th>
-                <th>Статус</th>
-                <th>Автор</th>
-                <th>Правка</th>
-              </tr>
-            </thead>
-            <tbody>
-              {card.topics.map((row) => (
-                <tr key={row.topic_id} data-testid="topic-row">
-                  <td className="title-cell">{row.topic_title}</td>
-                  <td>{row.skill_type === "hard" ? "hard" : "soft"}</td>
-                  <td>{row.importance === "mandatory" ? "обязательный" : "желательный"}</td>
-                  <td>
-                    <div className="topic-status-cell">
-                      <StatusPill tone={STATUS_TONE[row.current_status]}>
-                        {STATUS_LABEL[row.current_status] ?? row.current_status}
-                      </StatusPill>
-                      {(row.reviewable ?? row.has_evidence) && (
-                        <button
-                          type="button"
-                          className="btn small ghost"
-                          onClick={() => setTopic(row.topic_id)}
-                        >
-                          {row.has_evidence ? "Цитата и видео" : "Видео и транскрипт"}
-                        </button>
-                      )}
-                    </div>
-                  </td>
-                  <td>{AUTHOR_LABEL[row.author] ?? row.author}</td>
-                  <td>
-                    {canEditTopic(shared, row.skill_type) && drafts[row.topic_id] ? (
-                      <TopicStatusEditor
-                        topic={row}
-                        draft={drafts[row.topic_id]}
-                        busy={saving}
-                        onChange={(next) =>
-                          setDrafts((current) => ({ ...current, [row.topic_id]: next }))
-                        }
-                        onSave={() => void saveTopics([row.topic_id])}
-                      />
-                    ) : (
-                      <span className="meta">
-                        {shared || recruiter
-                          ? "Только эксперт"
-                          : row.skill_type === "hard"
-                            ? "Hard — техспециалист"
-                            : "Soft — нанимающий менеджер"}
+        {saveNotice && (
+          <p className="matrix-save-notice" role="status">
+            {saveNotice}
+          </p>
+        )}
+        <div className="matrix-list">
+          {card.topics.map((row) => {
+            const editable =
+              canEditTopic(shared, row.skill_type, row.current_status) && drafts[row.topic_id];
+            return (
+              <article
+                key={row.topic_id}
+                className={`matrix-card${editable ? " matrix-card-editable" : ""}`}
+                data-testid="topic-row"
+              >
+                <div className="matrix-card-top">
+                  <div className="matrix-card-title">
+                    <h3>{row.topic_title}</h3>
+                    <div className="matrix-tags">
+                      <span className="matrix-tag">
+                        {row.skill_type === "hard" ? "Hard · техспециалист" : "Soft · менеджер"}
                       </span>
+                      <span className="matrix-tag">
+                        {row.importance === "mandatory" ? "Обязательный" : "Желательный"}
+                      </span>
+                      <span className="matrix-tag muted">
+                        {AUTHOR_LABEL[row.author] ?? row.author}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="matrix-card-status">
+                    <StatusPill tone={STATUS_TONE[row.current_status]}>
+                      {STATUS_LABEL[row.current_status] ?? row.current_status}
+                    </StatusPill>
+                    {(row.reviewable ?? true) && (
+                      <button
+                        type="button"
+                        className="btn small ghost"
+                        onClick={() => openTopicEvidence(row.topic_id)}
+                      >
+                        Видео и транскрипт
+                      </button>
                     )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+                  </div>
+                </div>
+                {row.reasoning_summary && (
+                  <p className="matrix-card-reason">{row.reasoning_summary}</p>
+                )}
+                <div className="matrix-card-edit">
+                  {editable ? (
+                    <TopicStatusEditor
+                      topic={row}
+                      draft={drafts[row.topic_id]}
+                      busy={saving}
+                      onChange={(next) =>
+                        setDrafts((current) => ({ ...current, [row.topic_id]: next }))
+                      }
+                      onSave={() => void saveTopics([row.topic_id])}
+                    />
+                  ) : (
+                    <p className="meta matrix-card-lock">
+                      {row.current_status === "not_confirmed"
+                        ? "Не подтверждено — без правки"
+                        : shared || recruiter
+                          ? "Статус меняет только эксперт"
+                          : row.skill_type === "hard"
+                            ? "Hard — правит техспециалист"
+                            : "Soft — правит нанимающий менеджер"}
+                    </p>
+                  )}
+                </div>
+              </article>
+            );
+          })}
         </div>
-        <p className="meta" style={{ marginTop: 12 }}>
+        <p className="matrix-foot meta">
           Покрытие:{" "}
           {coverageText(card.confirmed_count, card.needs_check_count, card.not_confirmed_count)}
           {" · "}
@@ -353,11 +398,13 @@ export function CandidateResultPage({
       </section>
 
       {topic && (
-        <div key={topic}>
-          {card.topics.find((row) => row.topic_id === topic)?.has_evidence && (
-            <EvidencePanel token={token} candidateId={candidateId} topicId={topic} />
-          )}
-          <TranscriptPanel token={token} candidateId={candidateId} topicId={topic} />
+        <div key={topic} ref={evidenceAnchor} id={`topic-evidence-${topic}`} className="topic-evidence-anchor">
+          <div id={`topic-qa-${topic}`}>
+            {card.topics.find((row) => row.topic_id === topic)?.has_evidence && (
+              <EvidencePanel token={token} candidateId={candidateId} topicId={topic} />
+            )}
+            <TranscriptPanel token={token} candidateId={candidateId} topicId={topic} />
+          </div>
         </div>
       )}
 
@@ -371,7 +418,7 @@ export function CandidateResultPage({
       </button>
       {showTranscript && <TranscriptPanel token={token} candidateId={candidateId} />}
 
-      {!shared && (
+      {!shared && recruiter && (
         <>
           <button type="button" className="btn ghost" style={{ marginLeft: 8 }} onClick={() => setAccess((v) => !v)}>
             Ссылки и журнал просмотров

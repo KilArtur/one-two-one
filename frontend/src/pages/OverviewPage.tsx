@@ -53,7 +53,7 @@ export function OverviewPage({ token }: { token: string }) {
             {vacancies.slice(0, 6).map((vacancy) => (
               <div key={vacancy.id} className="attention-row">
                 <div>
-                  <p className="vacancy-kicker">{vacancy.status} · v{vacancy.version}</p>
+                  <p className="vacancy-kicker">v{vacancy.version}</p>
                   <h3>{vacancy.title}</h3>
                   <p className="meta">{vacancy.topics.length} топиков · {vacancy.grade}</p>
                 </div>

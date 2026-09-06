@@ -17,6 +17,7 @@ export function VacancyDetailPage({ token, vacancyId }: { token: string; vacancy
   const [vacancy, setVacancy] = useState<Vacancy | null>(null);
   const [questions, setQuestions] = useState<VacancyQuestion[] | null>(null);
   const [error, setError] = useState("");
+  const showMetrics = sessionStorage.getItem("internal-role") !== "technical_specialist";
 
   useEffect(() => {
     const controller = new AbortController();
@@ -75,7 +76,7 @@ export function VacancyDetailPage({ token, vacancyId }: { token: string; vacancy
         ]}
       />
       <PageHead
-        eyebrow={`${vacancy.grade} · ${vacancy.status} · v${vacancy.version}`}
+        eyebrow={`${vacancy.grade} · v${vacancy.version}`}
         title={vacancy.title}
         actions={
           <div className="inline">
@@ -85,9 +86,11 @@ export function VacancyDetailPage({ token, vacancyId }: { token: string; vacancy
             <Link className="btn ghost" to={`/staff/vacancies/${vacancy.id}/questions`}>
               Ревью вопросов
             </Link>
-            <Link className="btn ghost" to={`/staff/vacancies/${vacancy.id}/metrics`}>
-              Метрики
-            </Link>
+            {showMetrics && (
+              <Link className="btn ghost" to={`/staff/vacancies/${vacancy.id}/metrics`}>
+                Метрики
+              </Link>
+            )}
           </div>
         }
       />

@@ -11,13 +11,24 @@ vi.mock("../components/InterviewQuestionStep", () => ({
   InterviewQuestionStep: ({
     question,
     onSaved,
+    onSkip,
   }: {
     question: client.InterviewQuestion;
     onSaved: () => void;
+    onSkip?: () => void;
   }) => (
     <div>
       <p>{question.text}</p>
       <button onClick={() => onSaved()}>Сохранить</button>
+      {onSkip && (
+        <button
+          type="button"
+          title="Пропуск нельзя отменить: вопрос будет засчитан как «не подтверждено»"
+          onClick={onSkip}
+        >
+          Пропустить вопрос
+        </button>
+      )}
     </div>
   ),
 }));

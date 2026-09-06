@@ -16,6 +16,7 @@ function renderPage() {
   );
 }
 beforeEach(() => {
+  vi.clearAllMocks();
   vi.mocked(client.getResultCard).mockResolvedValue({
     candidate_id: "c1",
     full_name: "Иван Петров",
@@ -58,23 +59,56 @@ describe("CandidateResultPage", () => {
     expect(within(rows[0]).getByText("PostgreSQL")).toBeTruthy();
   });
 
-  it("показывает id кандидата и рекомендацию без правила Р5", async () => {
+  it("показывает имя кандидата и рекомендацию без правила Р5", async () => {
     renderPage();
     await waitFor(() => expect(screen.getAllByText("Требуется дополнительная проверка").length).toBeGreaterThan(0));
-    expect(screen.getByText("К-c1")).toBeTruthy();
+    expect(screen.getByText("Иван Петров")).toBeTruthy();
     expect(
       screen.getAllByText(/есть обязательный топик со статусом «требует проверки»/).length,
     ).toBeGreaterThan(0);
     expect(screen.queryByText(/Правило Р5/)).toBeNull();
-    expect(screen.queryByText("Иван Петров")).toBeNull();
   });
 
   it("не показывает резюме и AI-score", async () => {
     renderPage();
-    await waitFor(() => screen.getByText("К-c1"));
+    await waitFor(() => screen.getByText("Иван Петров"));
     expect(screen.queryByText("Резюме")).toBeNull();
     expect(screen.queryByText("10 лет Python")).toBeNull();
     expect(screen.queryByText(/AI-score|балл/i)).toBeNull();
+  });
+
+  it("не даёт менять топик со статусом «не подтверждено»", async () => {
+    sessionStorage.setItem("internal-role", "technical_specialist");
+    vi.mocked(client.getResultCard).mockResolvedValue({
+      candidate_id: "c1",
+      full_name: "Иван Петров",
+      recommendation: "not_fit",
+      recommendation_reason: "mandatory_not_confirmed",
+      confirmed_count: 0,
+      needs_check_count: 0,
+      not_confirmed_count: 1,
+      mandatory_coverage: 0,
+      desired_coverage: null,
+      resume_text: null,
+      mandatory_confirmed_share: 0,
+      desired_confirmed_share: null,
+      mandatory_potential_share: 0,
+      topics: [
+        {
+          topic_id: "t1",
+          topic_title: "PostgreSQL",
+          skill_type: "hard",
+          importance: "mandatory",
+          system_status: "not_confirmed",
+          current_status: "not_confirmed",
+          author: "system",
+          reasoning_summary: null,
+        },
+      ],
+    });
+    renderPage();
+    await waitFor(() => screen.getByText("Не подтверждено — без правки"));
+    expect(screen.queryByLabelText("Статус топика PostgreSQL")).toBeNull();
   });
 
   it("позволяет техспециалисту сменить статус hard-топика", async () => {
@@ -100,14 +134,25 @@ describe("CandidateResultPage", () => {
     );
   });
 
-  it("сохраняет все изменённые топики одной кнопкой", async () => {
+  it("сохраняет все топики матрицы одной кнопкой, даже без правок", async () => {
     sessionStorage.setItem("internal-role", "technical_specialist");
     vi.mocked(client.changeTopicStatus).mockResolvedValue();
     renderPage();
     await waitFor(() => screen.getByRole("button", { name: "Сохранить всё" }));
     expect(screen.getByRole<HTMLButtonElement>("button", { name: "Сохранить всё" }).disabled).toBe(
-      true,
+      false,
     );
+    fireEvent.click(screen.getByRole("button", { name: "Сохранить всё" }));
+    await waitFor(() => expect(client.changeTopicStatus).toHaveBeenCalledTimes(2));
+    expect(client.changeTopicStatus).toHaveBeenCalledWith("t", "c1", "t1", "confirmed", "");
+    expect(client.changeTopicStatus).toHaveBeenCalledWith("t", "c1", "t2", "needs_check", "");
+  });
+
+  it("сохраняет все топики матрицы с учётом правок", async () => {
+    sessionStorage.setItem("internal-role", "technical_specialist");
+    vi.mocked(client.changeTopicStatus).mockResolvedValue();
+    renderPage();
+    await waitFor(() => screen.getByRole("button", { name: "Сохранить всё" }));
     fireEvent.change(screen.getByLabelText("Статус топика PostgreSQL"), {
       target: { value: "needs_check" },
     });
