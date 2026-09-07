@@ -1,317 +1,178 @@
 # ИИ-интервьюер
 
-Веб-платформа асинхронного видеоинтервью для первичной технической оценки
-ИТ-кандидатов. Кандидат по персональной ссылке проходит интервью с камерой и
-микрофоном; система озвучивает вопросы, записывает и транскрибирует ответы и
-формирует карту покрытия требований вакансии. Финальное решение принимает человек.
+Веб-платформа асинхронного видеоинтервью для первичной технической оценки ИТ-кандидатов.
+Кандидат по персональной ссылке в удобное время проходит интервью с камерой и микрофоном:
+система показывает и озвучивает вопросы, записывает и транскрибирует ответы и формирует
+**карту покрытия требований вакансии**.
 
-- **Правила разработки:** [`CLAUDE.md`](CLAUDE.md) (Claude) / [`AGENTS.md`](AGENTS.md) (Codex) — держать в синхроне.
-- **Полный PRD:** [`data/PRD-AI-Interviewer-2026-09-04.md`](data/PRD-AI-Interviewer-2026-09-04.md)
-- **План работ:** [`tasks.json`](tasks.json) · журнал прогресса: [`progress.md`](progress.md)
+Единица оценки — не балл кандидата, а **покрытие требований**. По каждому топику система
+выдаёт статус ✅ подтверждено / ❓ требует проверки / ❌ не подтверждено с обязательным
+**evidence** (цитата из транскрипта + таймкод видео). Итоговое кадровое решение всегда
+принимает человек.
+
+## Ключевые принципы
+
+- **Решение принимает человек.** LLM не выносит вердикт и не выставляет числовой AI-score.
+- **Рекомендация детерминирована** — чистая функция от матрицы статусов топиков, не суждение модели.
+- **`system_status` неизменяем.** Правки эксперта идут в `current_status` + append-only лог.
+- **Изоляция топиков.** Оценивается только требование того топика, к которому задан вопрос.
+- **«Требует проверки» — состояние по умолчанию.** Автоотказ — только при явном стоп-факторе.
+- **RBAC.** Рекрутер настраивает всё, но не меняет статусы; hard-топики закрывает техспециалист,
+  soft — нанимающий менеджер.
+- **Вопросы — только устные.** Никаких заданий на написание кода/SQL/лайв-кодинг.
+- **Персонализация.** Экспертное «ядро» вопросов — каркас; для каждого кандидата вопросы
+  раскрываются под его резюме, не меняя предмета проверки.
+
+Полный контекст — в [`data/PRD-AI-Interviewer-2026-09-04.md`](data/PRD-AI-Interviewer-2026-09-04.md).
+Правила разработки — [`CLAUDE.md`](CLAUDE.md) / [`AGENTS.md`](AGENTS.md).
 
 ## Стек
 
-Python 3.12+ · FastAPI · PostgreSQL · Celery + Redis · React + TypeScript ·
-OpenAI (LLM `gpt-4o`/`gpt-4o-mini`, Whisper ASR, TTS) · LangChain + LangGraph · S3-хранилище.
+| Слой | Технологии |
+|---|---|
+| Backend | Python 3.12, FastAPI, Pydantic v2, SQLAlchemy 2 (async), Alembic |
+| Очередь | Celery + Redis (worker + beat для retention) |
+| Хранилище | S3-совместимое (dev — MinIO; загрузка ответов чанками) |
+| БД | PostgreSQL |
+| LLM | LangChain `ChatOpenAI` по OpenAI-совместимому протоколу (`OPENAI_BASE_URL`), native structured outputs |
+| Оркестрация интервью | LangGraph (сколько уточнений задать, когда закрыть топик) |
+| ASR / TTS | OpenAI-совместимые Whisper (транскрипт с таймкодами) и TTS (стриминг, кеш ядра вопросов) |
+| Frontend | React 18 + TypeScript + Vite, MediaRecorder API |
+| Пакеты | `uv` (backend), `npm` (frontend) |
+| Auth | JWT для внутренних ролей (таблица `staff_user`) + магические ссылки для кандидатов |
 
-## Онбординг
+### Как устроено
 
-```bash
-# 1. Клонировать и войти в проект
-git clone <repo-url> && cd one-two-one
-
-# 2. Python-окружение (uv)
-uv venv                  # создаёт .venv
-uv sync                  # ставит зависимости из pyproject.toml (после TASK-001)
-
-# 3. Секреты
-cp .env.example .env     # затем заполнить значения — см. комментарии в файле
-
-# 4. Аутентификация ассистента (один раз, у себя)
-claude login            # для Claude Code
-codex login             # для Codex   (или задать OPENAI_API_KEY / ANTHROPIC_API_KEY)
+```
+Браузер кандидата ──HTTPS──┐
+Браузер команды  ──HTTPS──┤
+                          ▼
+                  Frontend (Vite/React, :5173)
+                          │  REST + JWT
+                          ▼
+                  FastAPI (:8000) ──► PostgreSQL
+                     │      │    └──► S3 / MinIO (видео, аудио, кеш TTS)
+                     │      └───────► LLM / ASR / TTS (внешние API)
+                     ▼
+                  Redis ◄──► Celery worker (транскрибация → анализ → сборка результата)
+                            Celery beat  (retention)
 ```
 
-> Скелет `backend/` и `frontend/` создаётся первыми задачами `tasks.json`
-> (TASK-001…003). До этого репозиторий содержит только план и правила.
+## Структура репозитория
 
-## Запуск backend
-
-```bash
-docker compose up -d                                        # postgres + redis
-uv run alembic upgrade head                                 # накатить миграции
-uv run uvicorn app.main:app --app-dir backend --reload      # API на localhost:8000
+```
+backend/            FastAPI-приложение
+  app/api/          HTTP-эндпоинты
+  app/services/     детерминированная бизнес-логика (тестируется без сети)
+  app/integrations/ обёртки над LLM / ASR / TTS / S3
+  app/models/       ORM-модели, alembic/ — миграции
+frontend/           React + TypeScript (Vite)
+prompts/            промпты моделей (по одному .md на промпт)
+docker-compose.yml  инфраструктура (postgres, redis, minio, celery)
+scripts/            локальный запуск и утилиты
+data/               PRD (ПДн и датасеты не коммитятся)
 ```
 
-`GET /health` — проверка живости, `GET /health/db` — проверка соединения с БД,
-`/docs` — Swagger UI. Конфигурация читается из окружения и `.env`
-(см. `backend/app/config.py`).
+## Быстрый старт (локально)
 
-CRUD вакансий с версионированием матрицы (M1): `POST/GET/PATCH /vacancies`,
-`PUT /vacancies/{id}/topics` (замена состава активной вакансии создаёт новую версию-снимок;
-валидация 5–9 топиков, Р8). CRUD топиков черновика: `POST /vacancies/{id}/topics`,
-`PATCH`/`DELETE /vacancies/{id}/topics/{topic_id}`. ASR-словарь на вакансию с авто-подсказкой
-из матрицы: `GET`/`PUT /vacancies/{id}/asr-dictionary`. Черновик вакансии из PDF-описания:
-`POST /vacancies/draft` (текст через `pypdf`, разбор на топики нативным structured output;
-ничего не сохраняется — результат заполняет форму). Генерация ядра вопросов (M2)
-через LLM: `POST /vacancies/{id}/core-questions` (1 core-вопрос на топик, кеш, повтор без дублей);
-примеры вопросов техспециалиста (`question_examples`) уходят в промпт как ориентир.
-Ревью ядра техспециалистом: `GET /vacancies/{id}/questions`,
-`PATCH /vacancies/{id}/questions/{question_id}` (правка снимает подтверждение),
-`POST /vacancies/{id}/questions/approve`. Без подтверждения не выпускается приглашение
-и ссылка интервью. При выпуске приглашения подтверждённые вопросы раскрываются под резюме
-кандидата (`services.question_personalization`) — персональный вопрос вытесняет ядро своего
-топика. Промпты — в `prompts/*.md` (загрузчик `app.prompts.load_prompt`).
-
-Оценка (сервисы, вызываются пайплайном): статус топика — детерминированное правило Р13
-(`services.topic_status.resolve_topic_status`); LLM-оценка топика из транскрипта с evidence
-и изоляцией Р16 (`services.topic_assessment.assess_topic`, `system_status` не перезаписывается).
-Единственное основание для авто «не подходит» — неподтверждённый обязательный топик.
-Итоговая рекомендация Р5 —
-детерминированная чистая функция (`services.recommendation.compute_recommendation`);
-Coverage Р4 — тройка чисел + доли `mandatory_coverage`/`desired_coverage`
-(`services.coverage.compute_coverage`), без единого балла/AI-score. Сборка результата —
-`services.interview_result.assemble_interview_result` (агрегация TopicAssessment в
-InterviewResult, фиксация версий, идемпотентно по `candidate_id`).
-
-Batch-оценка транскриптов без видео (Этап 1): `uv run python scripts/batch_eval.py
-<input.json|.csv> [-o report.json]` — статус/рекомендация/coverage по каждому кандидату
-(core в `services.batch_eval`, пример — `scripts/batch_eval_sample.json`).
-
-ASR (Whisper): `integrations.asr.OpenAIWhisperClient` — транскрипт с сегментами и таймкодами,
-словарь вакансии через `prompt` (audio-провайдер из `AUDIO_*`/`ASR_MODEL`). Транскрибация
-ответа (M5) — Celery-задача `app.transcribe_answer` (`services.transcription.transcribe_answer`):
-`recorded→transcribing→ready`; пустая/битая дорожка → `error` и топик получает `needs_check`.
-Оркестрация обработки ответа (M5): Celery-задача `app.process_answer`
-(`services.pipeline.process_answer`) — транскрибация → анализ → сборка `InterviewResult`;
-статусы recorded→transcribing→analyzing→ready, сбой LLM не блокирует (топик → needs_check).
-Смена статуса экспертом (Р21): `PATCH /topic-assessments/{id}/status` — обязательный
-комментарий, RBAC (hard→техспец, soft→НМ), `system_status` неизменен, каждая смена —
-append-only запись в `StatusChangeLog`. Очередь ревью по ролям: `GET /review-queue`
-(hard→техспец, soft→НМ; только `needs_check`, самое неопределённое сверху). Ретенция 6
-месяцев (Р18): Celery-beat `app.purge_expired_data` (`services.retention`) удаляет ПДн
-старше срока и хранит обезличенный `InterviewResult`; досрочно — `POST /candidates/{id}/purge`.
-Адаптивные уточнения (M4/Р12) на LangGraph: `POST /candidate-interview/topics/{id}/followup`
-(`services.followup` — быстрый LLM, до 2 уточнений). Восстановление сессии (Р11):
-`GET /candidate-interview/session` (продолжение с текущего вопроса, TTL ссылки),
-`POST .../session/interrupt` (technically_lost → needs_check). Пропуск вопроса (Р10):
-`POST /candidate-interview/questions/{id}/skip`; отправка с гашением ссылки — `POST
-/candidate-auth/submit`. Список кандидатов вакансии (рекрутер): `GET /candidates?vacancy_id=`
-— статус обработки + тройка чисел (без AI-score), фильтр по статусу. Карточка результата
-(M7): `GET /candidates/{id}/result` — матрица топиков (system/current статус, автор),
-рекомендация Р5 с кодом причины, доли покрытия, слой резюме; AI-score не выводится.
-
-## Запуск frontend
+Требуется: Docker + Docker Compose, [`uv`](https://docs.astral.sh/uv/), Node.js 20+.
 
 ```bash
-cd frontend
-npm install
-npm run dev            # SPA на localhost:5173 (Vite + React + TS)
+# 1. Секреты
+cp .env.example .env            # заполнить ключи LLM/ASR/TTS и секреты (см. ниже)
+
+# 2. Инфраструктура: Postgres + Redis + MinIO (+ создание бакета)
+docker compose --profile storage up -d postgres redis minio minio-init
+
+# 3. Backend
+uv sync
+export PYTHONPATH="$PWD/backend"
+uv run alembic upgrade head                                   # миграции
+uv run uvicorn app.main:app --app-dir backend --host 127.0.0.1 --port 8000
+
+# 4. Обработка ответов (в отдельных терминалах)
+uv run celery -A app.celery_app:celery_app worker --concurrency=1 --loglevel=INFO
+uv run celery -A app.celery_app:celery_app beat --loglevel=INFO
+
+# 5. Frontend
+npm --prefix frontend install
+npm --prefix frontend run dev                                 # http://localhost:5173
 ```
 
-Базовый URL API берётся из `VITE_API_BASE_URL` (см. `frontend/.env.example`,
-по умолчанию `http://localhost:8000`). `npm run build` — production-сборка,
-`npm run typecheck` — проверка типов.
+Проверки: `GET /health` — живость, `GET /health/db` — соединение с БД, `/docs` — Swagger UI.
 
-## Миграции
+**Вход команды:** на экране входа выбрать роль, задать логин/пароль и **зарегистрироваться**
+(таблица `staff_user`), затем входить этой парой.
+**Кандидат:** открывает персональную ссылку `/, /interview?token=…`, даёт согласие, проходит
+проверку камеры/микрофона и отвечает на вопросы.
 
-Alembic настроен на корневой [`alembic.ini`](alembic.ini), ревизии лежат в
-`backend/alembic/versions`, URL берётся из `DATABASE_URL`.
+> Есть скрипт `scripts/local.sh` (start/stop/status), который поднимает инфраструктуру и
+> запускает API, worker, beat и фронт как `systemd --user` юниты — удобно для длительной сессии.
+
+## Конфигурация (`.env`)
+
+| Группа | Ключи |
+|---|---|
+| Приложение | `APP_ENV`, `CORS_ORIGINS`, `SECRET_KEY`, `JWT_SECRET_KEY`, `MAGIC_LINK_SECRET`, `CANDIDATE_JWT_ACCESS_TOKEN_TTL_SECONDS` |
+| БД | `DATABASE_URL`, `DATABASE_ECHO` |
+| LLM | `OPENAI_API_KEY`, `OPENAI_BASE_URL`, `OPENAI_DEFAULT_HEADERS`, `LLM_MODEL`, `LLM_FAST_MODEL`, `FOLLOWUP_DECISION_TIMEOUT_SECONDS` |
+| Очередь | `REDIS_URL`, `CELERY_BROKER_URL`, `CELERY_RESULT_BACKEND` |
+| Хранилище | `S3_ENDPOINT_URL`, `S3_REGION`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY`, `S3_BUCKET` |
+| ASR / TTS | `AUDIO_API_KEY`, `AUDIO_BASE_URL`, `ASR_MODEL`, `TTS_MODEL`, `TTS_VOICE`, `TTS_TIMEOUT_SECONDS` |
+
+Секреты только из окружения / `.env` (файл в `.gitignore`; шаблон — `.env.example`).
+Провайдер LLM/ASR/TTS меняется через `*_BASE_URL` без правок кода (OpenAI-совместимый протокол).
+
+## Тесты
 
 ```bash
-uv run alembic revision --autogenerate -m "add vacancy"   # новая ревизия по моделям
-uv run alembic upgrade head                               # накатить
-uv run alembic downgrade -1                               # откатить одну ревизию
+uv run ruff check . && uv run pytest          # backend: линт + тесты
+npm --prefix frontend run build               # frontend: типы (tsc) + сборка
+npm --prefix frontend run test                # frontend: vitest
 ```
 
-Модели наследуются от `app.db.Base`, сессия в эндпоинтах — через зависимость
-`app.db.get_db`.
+## Деплой для демонстрации
 
-## Разработка по задачам
+Демо-стенд рассчитан на показ, не на продовую нагрузку: один сервер, всё в Docker, после
+демонстрации сервер выключается.
 
-Работаем **по одной задаче за сессию** из `tasks.json`. Порядок и правила —
-в `CLAUDE.md` (раздел «Рабочий процесс»). Автоматический прогон циклом Ralph:
+### Параметры сервера
+
+| Ресурс | Рекомендация для демо |
+|---|---|
+| CPU / RAM | **2 vCPU / 4 GB** (комфортно — 4 vCPU / 8 GB) |
+| Диск | 40 GB SSD |
+| ОС | Ubuntu 24.04 LTS |
+| Сеть | публичный IP + **исходящий интернет** (нужен для LLM/ASR/TTS API) |
+| Порты | 80 и 443 (HTTPS), 22 (SSH) |
+| Биллинг | почасовой — включил на время демо, потом выключил |
+
+Подойдут Hetzner CPX21/CX22, DigitalOcean/Hetzner дроплет 2 vCPU/4 GB и аналоги.
+
+> **Важно:** запись камеры и микрофона (`getUserMedia`) работает только в защищённом
+> контексте — нужен **HTTPS с доменом** (или `localhost`). Для удалённого демо обязательно
+> поднять TLS (проще всего через Caddy с автоматическим Let's Encrypt) — по «голому» IP по
+> HTTP камера в браузере не включится.
+
+### Порядок раскатки
 
 ```bash
-./ralph.sh 5 codex artur   # выполнить 5 задач через Codex, исполнитель artur
-./ralph.sh 3 claude zakhar # выполнить 3 задачи через Claude, исполнитель zakhar
-./ralph.sh             # все оставшиеся задачи, агент — автоопределение
-./ralph.sh --help      # справка
+# на сервере (Ubuntu): установить Docker + Compose plugin, uv, Node 20
+git clone git@github.com:KilArtur/one-two-one.git && cd one-two-one
+cp .env.example .env      # прописать реальные ключи; CORS_ORIGINS = https://<домен>
+
+docker compose --profile storage up -d postgres redis minio minio-init
+uv sync && PYTHONPATH="$PWD/backend" uv run alembic upgrade head
+npm --prefix frontend install && npm --prefix frontend run build   # статика в frontend/dist
+
+# API + worker + beat + отдача frontend/dist за reverse-proxy (Caddy/nginx) с TLS
 ```
 
-Скрипт берёт `pending`-задачи с наивысшим приоритетом, проверяет их зависимости,
-прогоняет линт/тесты, помечает выполненные `done` и пишет заметки в `progress.md`.
-Если есть `task-owners.json`, Ralph выдаёт разработчику только его задачи.
+Reverse-proxy отдаёт `frontend/dist` и проксирует `/…` API на `:8000`; TLS терминируется на
+нём. После демонстрации: `docker compose down` и выключить/удалить сервер.
 
-## Совместная работа
+## Документация
 
-Двое (и больше) могут вести разработку параллельно: каждый берёт свою порцию задач,
-`ralph.sh` бронирует задачи через `status: in_progress` + `assignee`, продвигает их до `done`, а прогресс фиксируется в git и `progress.md`.
-Для схемы `artur + zakhar` используйте [`docs/parallel-workflow.md`](/home/artur/projects/one-two-one/docs/parallel-workflow.md):
-там есть готовые ветки, разделение задач и команды для merge через `integration/arthur-zakhar`.
-
-## Согласие кандидата
-
-Персональное приглашение открывается на `/interview?token=<InterviewLink.token>`.
-После обмена ссылки на сессию кандидат видит `/interview/consent`; токен приглашения
-убирается из адреса, JWT хранится в `sessionStorage` текущей вкладки.
-Кнопка продолжения доступна после явного согласия, переход на `/interview/equipment`
-происходит только после сохранения `Candidate.consent_given_at` сервером.
-На шаге оборудования браузер запрашивает камеру и микрофон. Кнопка «Записать 3 секунды»
-создаёт локальную пробу с воспроизведением; запись не загружается на сервер.
-При отказе в доступе или отключении устройства появляется предупреждение и доступна
-повторная проверка. Для доступа к устройствам нужен HTTPS либо localhost.
-
-`GET/POST /candidate-auth/consent` читают/сохраняют согласие (`{"accepted": true}`),
-`GET /candidate-auth/equipment-check` проверяет допуск к следующему шагу.
-Все эти запросы требуют кандидатский Bearer JWT и действующую ссылку.
-Отправка интервью также требует согласия. Новые кандидатские эндпоинты записи
-должны использовать dependency `require_candidate_consent`.
-
-Проверки экрана: `cd frontend` и `npm test`; проверка типов и сборка: `npm run build`.
-Текст согласия основан на разделе 8 PRD; юридическое согласование заказчиком
-предусмотрено тем же разделом перед использованием в реальном подборе.
-
-## Озвучка вопросов (TASK-029)
-
-`get_question_audio_service()` из `app.services.question_audio` собирает TTS и S3.
-`service.stream_audio(question)` — асинхронный генератор MP3-чанков для будущего
-плеера интервью (TASK-030). При досрочном прекращении чтения закрывайте генератор
-через `contextlib.aclosing`; неполученное до конца аудио не кешируется.
-
-Core-вопрос: сначала чтение S3, при отсутствии объекта — потоковый синтез и
-сохранение полного MP3 с `Content-Type: audio/mpeg`. Повторный запрос не вызывает
-TTS. Персональные и уточняющие вопросы каждый раз синтезируются без кеширования.
-Ключ `tts/core/v1/<sha256>.mp3` зависит от id и текста вопроса, адреса провайдера,
-модели, голоса и формата; смена текста или голоса не отдаёт старую озвучку.
-Ошибки доступа к S3 не считаются промахом кеша; ошибки провайдера возвращаются
-как `TTSClientError`. Параллельные первые запросы могут независимо синтезировать
-один вопрос; распределённая блокировка не добавлена.
-
-Настройки: `AUDIO_API_KEY`, `AUDIO_BASE_URL`, `TTS_MODEL=tts-1`, `TTS_VOICE=alloy`,
-`TTS_TIMEOUT_SECONDS=30` и существующие `S3_*`. Бакет должен быть создан через
-настройку окружения (dev: профиль `storage` Docker Compose).
-Ключ LLM/OpenRouter не подставляется вместо отдельного аудиоключа.
-Используется [Speech API с потоковым ответом](https://developers.openai.com/api/docs/guides/text-to-speech).
-При подключении плеера нужно явно сообщить кандидату, что голос синтезирован.
-
-Проверки без сети: `uv run pytest tests/test_task_029_tts.py tests/test_task_008_storage.py`.
-
-## Экран ответа (TASK-030)
-
-После пробной записи на `/interview/equipment` кнопка подтверждения переводит на
-`/interview/session`. Вопрос показывается текстом и озвучивается синтезированным
-голосом. MP3 передаётся через авторизованный fetch и MediaSource; без поддержки
-MSE браузер использует Blob. При запрете autoplay доступна кнопка запуска озвучки.
-
-Запись ответа начинается после события `ended` аудиоплеера, таймер — после
-события `start` MediaRecorder. Основной/персональный вопрос: 120 секунд,
-уточнение: 60 секунд. Отсчёт использует абсолютный срок окончания, поэтому
-задержка таймеров фоновой вкладки не добавляет время ответа. Запись прекращается
-по лимиту либо по кнопке «Закончить ответ». Перезаписи нет; сбои озвучки до начала
-ответа допускают повторную попытку. Отключение устройств прекращает запись.
-
-`GET /candidate-interview/questions` и `/candidate-interview/questions/{id}/audio`
-требуют действующую кандидатскую сессию и согласие; доступны только core-вопросы
-закреплённой версии вакансии, без внутренних оснований оценки. Генерация и выдача
-адаптивных уточнений остаётся задачей 45; UI-лимит уточнения проверен на тестовом
-вопросе. Текущая страница последовательно показывает готовое ядро вопросов.
-
-До TASK-031/032 ответы остаются локально во вкладке, доступны для скачивания и
-не считаются отправленными на сервер. Загрузка чанков и финальная отправка здесь
-не реализованы. Уход со страницы освобождает устройства, таймеры и object URL.
-
-## Приём записей (TASK-032)
-
-API требует Bearer-сессию кандидата и согласие на запись. Доступны только
-core-вопросы его вакансии, как и в API выдачи вопросов.
-
-- `POST /candidate-interview/questions/{question_id}/uploads` с JSON
-  `{"upload_id":"<UUID клиента>"}` резервирует запись. Тот же UUID допускает
-  безопасный повтор запроса, другой UUID для того же вопроса получает 409.
-- `PUT /candidate-interview/uploads/{id}/{video|audio}/{index}` принимает multipart
-  с полем `file`. Индексы каждой дорожки начинаются с 0 и идут последовательно.
-  Идентичный повтор допустим; пропуск индекса или изменение принятой части — 409.
-- `POST /candidate-interview/uploads/{id}/complete` с JSON
-  `{"video_chunks":3,"audio_chunks":3,"duration_sec":4}` собирает обе дорожки и
-  возвращает `Answer` со статусом `recorded`. Повтор завершения идемпотентен.
-
-Части сохраняются в `answers/{candidate_id}/{upload_id}/parts/{video|audio}/`.
-Итоговые файлы лежат рядом как `video.webm`/`audio.webm` (расширение зависит от
-MIME). Сборка выполняется вне event loop, с группировкой малых частей до минимума
-S3 multipart 5 МиБ. Ограничения: 8 МиБ на чанк, 256 МиБ на ответ, до 300 частей
-каждой дорожки, длительность 1–120 секунд. `Answer` создаётся только после успешной
-сборки обеих дорожек; `video_url`/`audio_url` содержат приватные `s3://` адреса.
-
-Перед запуском примените `uv run alembic upgrade head`. Миграция добавляет
-`answer.candidate_id` и таблицу манифестов `answer_upload`. Старые ответы сохраняют
-NULL в `candidate_id`: надёжно восстановить владельца из прежней схемы нельзя.
-Новые ответы всегда связаны с кандидатом. Очистка частей относится к TASK-048.
-
-## Evidence и просмотр записи (TASK-040)
-
-Карточка доступна на `/staff/candidates/{candidate_id}` после входа внутренней ролью
-через существующий `/auth/token`. Кнопка статуса открывает evidence: выделенную
-цитату, вопрос и плеер на нужной секунде. Дополнительные цитаты переключаются
-кнопками фрагментов. Раздельная аудиодорожка синхронизируется с видео.
-
-API `/candidates/{id}/topics/{topic_id}/evidence` проверяет принадлежность вопроса
-топику и ответа кандидату. `/candidates/{id}/answers/{answer_id}/media` выдаёт
-приватные подписанные ссылки на 5 минут. Если запись удалена или таймкод отсутствует,
-переход к видео недоступен. Загрузка карточки и получение ссылки не считаются просмотром.
-Событие `playing` вызывает `POST /candidates/{id}/answers/{answer_id}/views`:
-сохраняются пользователь, роль, время и позиция. UUID события предотвращает дубли
-при повторной отправке; при ошибке аудита плеер останавливается и предлагает повтор.
-Аудит доступен трём внутренним ролям через `/candidates/{id}/video-views`.
-Перед запуском необходим `uv run alembic upgrade head`.
-
-## Продуктовые метрики (TASK-046)
-
-Экран `/staff/metrics` доступен всем внутренним ролям из навигации «Метрики».
-`/staff/vacancies/{vacancy_id}/metrics` ограничивает выборку вакансией.
-API: `GET /metrics/product`, необязательный `vacancy_id`. Кнопка «Обновить метрики»
-заново читает данные после ревью или изменения состояния интервью.
-
-- Доли трёх профессиональных статусов считаются отдельно по неизменяемому
-  `system_status` и текущему `current_status`. `out_of_scope` исключён.
-- Ревью — наличие записи в журнале правок. Доля изменений — топики с итоговым
-  статусом, отличным от системного, среди прошедших ревью. Дополнительно выводится
-  доля разрешённых исходно спорных топиков среди всех исходных `needs_check`.
-  Направления — системный → текущий; повторные правки не дублируют топик,
-  возврат к исходному статусу не считается итоговым изменением.
-- Completion rate — submitted/processed/reviewed среди начатых интервью.
-  Начатое — статус отличается от invited или есть Answer; одни приглашения
-  не входят в знаменатель. Прерванное интервью входит в знаменатель.
-- Технические сбои — начатые интервью хотя бы с одним `technically_lost` ответом
-  или ответом в `processing_status=error`, без повторного учёта кандидата.
-
-Каждая доля содержит count/total/share; при пустом знаменателе share=null,
-на экране «Нет данных». Это текущий срез, без целевых значений и персональных
-баллов. Длительность ручного ревью и другие не входящие в acceptance TASK-046
-метрики раздела 11.2 не вычисляются из отсутствующих событий.
-
-## Полный транскрипт (TASK-041)
-
-В карточке `/staff/candidates/{id}` кнопка «Открыть полный транскрипт» показывает
-ответы с вопросами и сегментами с таймкодами. Цитаты из evidence подсвечиваются
-в исходном тексте, включая переход через границу сегментов. Сопоставление точное,
-с нормализацией пробельных символов; похожие, но отсутствующие фразы не выделяются.
-Полный текст без сегментов доступен дополнительно. Отдельно показаны пропуски,
-технические потери и недоступный транскрипт.
-
-API: `GET /candidates/{id}/transcript`, необязательный `topic_id`. Доступ — только
-внутренним ролям. Ответы и evidence связаны по кандидату, вопросу и топику;
-текст резюме не включается в этот API и отображается отдельным блоком карточки.
-
-## Очередь ревью (TASK-044)
-
-Экран `/staff/review` доступен из пункта «Ревью». Он определяет роль через `/auth/me`
-и использует серверную очередь `/review-queue`: hard для техспециалиста, soft для
-нанимающего менеджера. Рекрутер видит объяснение ограничений без формы смены статуса.
-
-При выборе топика показаны причина неопределённости, вопросы и транскрипты именно
-этого топика, evidence и доступная запись. Форма отправляет существующий
-`PATCH /topic-assessments/{id}/status`. Комментарий обязателен: пустой или состоящий
-из пробелов отклоняется и интерфейсом, и API. При ошибке форма сохраняет введённые
-значения. После успешной правки очередь и карточка результата загружаются заново;
-неизменяемый системный статус и журнал правок сохраняются.
+- Продукт и требования: [`data/PRD-AI-Interviewer-2026-09-04.md`](data/PRD-AI-Interviewer-2026-09-04.md)
+- Сценарий ручной проверки: [`docs/manual-qa-guide.md`](docs/manual-qa-guide.md)
+- Правила разработки: [`CLAUDE.md`](CLAUDE.md) · [`AGENTS.md`](AGENTS.md)
