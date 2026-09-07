@@ -125,17 +125,6 @@ export function TranscriptContent({
                     : "Транскрипт пока недоступен."}
                 </p>
               )}
-              {answer.segments.length > 0 && answer.transcript && (
-                <details className="transcript-full">
-                  <summary>Полный текст без сегментов</summary>
-                  <p className="transcript-text">
-                    <Highlighted
-                      text={answer.transcript}
-                      ranges={quoteRanges(answer.transcript, answer.quotes)}
-                    />
-                  </p>
-                </details>
-              )}
             </div>
 
             {canPlay && token && candidateId && (

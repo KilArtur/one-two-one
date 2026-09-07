@@ -104,9 +104,14 @@ export function CandidateListPage({ token, vacancyId }: { token: string; vacancy
   }
 
   async function invite() {
+    const name = (fullName || card?.full_name || "").trim();
+    if (!name) {
+      setLinkInfo("Укажите имя и фамилию кандидата — без них пригласить нельзя.");
+      return;
+    }
     setCreating(true);
     try {
-      const candidate = await createCandidate(token, vacancyId, resume, fullName || card?.full_name);
+      const candidate = await createCandidate(token, vacancyId, resume, name);
       await copyLink(candidate.id);
       setResume("");
       setFullName("");
@@ -217,7 +222,7 @@ export function CandidateListPage({ token, vacancyId }: { token: string; vacancy
       {recruiter && (
         <section className="panel candidate-invite" style={{ marginTop: 28 }}>
           <div className="form-group">
-            <div className={`upload-box compact${card || resumeNote ? " ready" : ""}`}>
+            <div className={`upload-box compact${card || resumeNote ? " is-ready" : ""}`}>
               <div>
                 <p className="eyebrow">Необязательно</p>
                 <h2 className="upload-box-title">Резюме в PDF</h2>
@@ -249,8 +254,8 @@ export function CandidateListPage({ token, vacancyId }: { token: string; vacancy
                 <div className="process-wait" role="status" aria-live="polite">
                   <span className="process-spinner" aria-hidden />
                   <div>
-                    <p className="process-wait-title">Обрабатываем резюме…</p>
-                    <p className="meta">Считываем PDF и извлекаем основное — ничего не зависло.</p>
+                    <p className="process-wait-title">Обрабатываем резюме</p>
+                    <p className="meta">Считываем PDF и извлекаем основное.</p>
                   </div>
                 </div>
               )}
@@ -299,13 +304,14 @@ export function CandidateListPage({ token, vacancyId }: { token: string; vacancy
             </details>
           )}
           <div className="form-group">
-            <label htmlFor="candidate-full-name">Имя и фамилия</label>
+            <label htmlFor="candidate-full-name">Имя и фамилия *</label>
             <input
               id="candidate-full-name"
               className="field"
+              required
               value={fullName}
               onChange={(event) => setFullName(event.target.value)}
-              placeholder="Как показывать в списке кандидатов"
+              placeholder="Имя и фамилия кандидата (обязательно)"
             />
           </div>
           <div className="form-group">
@@ -316,7 +322,11 @@ export function CandidateListPage({ token, vacancyId }: { token: string; vacancy
               onChange={(event) => setResume(event.target.value)}
             />
           </div>
-          <button className="btn primary" disabled={creating || parsing} onClick={() => void invite()}>
+          <button
+            className="btn primary"
+            disabled={creating || parsing || !(fullName || card?.full_name || "").trim()}
+            onClick={() => void invite()}
+          >
             {creating ? "Создаём приглашение…" : "Пригласить кандидата"}
           </button>
         </section>
